@@ -1,101 +1,196 @@
+'use client';
+
 import Image from "next/image";
+import React, { useState } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { useRouter } from 'next/navigation';
+
+const introSlides = [
+  {
+    title: "Live Beyond Expectation. Order Smarter, Live Better",
+    description: "Order money at your comfort zone without stress with billbolt",
+    image: "splash1.png",
+  },
+  {
+    title: "Unlock Convenience Order in tap, Enjoy in a Snap",
+    description: "Order money at your comfort zone without stress with billbolt",
+    image: "splash2.png",
+  },
+  {
+    title: "Turn Your Spare Time Into Money By Becoming a Merchant",
+    description: "Order money at your comfort zone without stress with billbolt",
+    image: "splash3.png",
+  }
+];
+
 
 export default function Home() {
-  return (
-    <div className="grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20 font-[family-name:var(--font-geist-sans)]">
-      <main className="flex flex-col gap-8 row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="https://nextjs.org/icons/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol className="list-inside list-decimal text-sm text-center sm:text-left font-[family-name:var(--font-geist-mono)]">
-          <li className="mb-2">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] px-1 py-0.5 rounded font-semibold">
-              src/app/page.js
-            </code>
-            .
-          </li>
-          <li>Save and see your changes instantly.</li>
-        </ol>
 
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="https://nextjs.org/icons/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
-            />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:min-w-44"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Read our docs
-          </a>
+  const [currentIndex, setCurrentIndex] = useState(0);
+  const [direction, setDirection] = useState(0);
+  const router = useRouter();
+
+  const slideVariants = {
+    enter: (direction) => ({
+      x: direction > 0 ? 1000 : -1000,
+      opacity: 0
+    }),
+    center: {
+      zIndex: 0,
+      x: 0,
+      opacity: 1
+    },
+    exit: (direction) => ({
+      zIndex: 0,
+      x: direction < 0 ? 1000 : -1000,
+      opacity: 0
+    })
+  };
+
+  const swipeConfidenceThreshold = 10000;
+  const swipePower = (offset, velocity) => {
+    return Math.abs(offset) * velocity;
+  };
+
+  const paginate = (newDirection) => {
+
+    let newIndex = currentIndex + newDirection;
+  
+    // Handle looping
+    if (newIndex < 0) {
+      newIndex = introSlides.length - 1;
+    } else if (newIndex >= introSlides.length) {
+      newIndex = 0;
+    }
+    
+    setDirection(newDirection);
+    setCurrentIndex(newIndex);
+  };
+
+  return (
+    <div className="fixed inset-0 bg-gradient-to-b  bg-white">
+      <div className="relative h-full w-full overflow-hidden">
+        {/* Image Section */}
+        <div className="h-[10%] w-full">
+          <AnimatePresence initial={false} custom={direction}>
+            <motion.div
+              key={currentIndex}
+              custom={direction}
+              variants={slideVariants}
+              initial="enter"
+              animate="center"
+              exit="exit"
+              transition={{
+                x: { type: "spring", stiffness: 300, damping: 30 },
+                opacity: { duration: 0.2 }
+              }}
+              drag="x"
+              dragConstraints={{ left: 0, right: 0 }}
+              dragElastic={1}
+              onDragEnd={(e, { offset, velocity }) => {
+                const swipe = swipePower(offset.x, velocity.x);
+                if (swipe < -swipeConfidenceThreshold) {
+                  paginate(1);
+                } else if (swipe > swipeConfidenceThreshold) {
+                  paginate(-1);
+                }
+              }}
+              className="absolute h-full w-full flex justify-center"
+            >
+              <div className="relative h-64 w-64">
+                <motion.img
+                  src={introSlides[currentIndex].image}
+                  alt={introSlides[currentIndex].title}
+                  className="h-full w-full object-cover rounded-2xl"
+                  style={{ marginTop: '30%' }}
+                  initial={{ scale: 0.8, opacity: 0 }}
+                  animate={{ scale: 1, opacity: 1 }}
+                  transition={{ delay: 0.2 }}
+                />
+
+              </div>
+            </motion.div>
+          </AnimatePresence>
         </div>
-      </main>
-      <footer className="row-start-3 flex gap-6 flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="https://nextjs.org/icons/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
-          />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="https://nextjs.org/icons/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="https://nextjs.org/icons/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
-      </footer>
+
+        {/* Text Content */}
+        <div className="absolute bottom-0 h-[40%] w-full bg-white rounded-t-[32px] px-6">
+          <AnimatePresence mode="wait">
+            <motion.div
+              key={currentIndex}
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -20 }}
+              transition={{ duration: 0.3 }}
+              className="space-y-1"
+            >
+              <h2 className="text-2xl font-bold text-center text-black">
+                {introSlides[currentIndex].title}
+              </h2>
+              <p className="text-center text-gray-600">
+                {introSlides[currentIndex].description}
+              </p>
+            </motion.div>
+          </AnimatePresence>
+
+          {/* Navigation Dots */}
+          <div className="absolute bottom-24 left-0 w-full flex justify-center space-x-3">
+            {introSlides.map((_, index) => (
+              <motion.div
+                key={index}
+                className={`h-2 rounded-full ${
+                  index === currentIndex ? 'w-6 bg-black' : 'w-2 bg-gray-300'
+                }`}
+                onClick={() => {
+                  setDirection(index > currentIndex ? 1 : -1);
+                  setCurrentIndex(index);
+                }}
+                whileTap={{ scale: 0.9 }}
+              />
+            ))}
+          </div>
+
+          {/* Navigation Buttons */}
+          <div className="absolute bottom-8 left-0 w-full px-6">
+  <div className="flex gap-4 items-center justify-between">
+    {currentIndex > 0 && (
+      <motion.button
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        onClick={() => {
+          console.log('Back button clicked, current index:', currentIndex);
+          paginate(-1);
+        }}
+        className="flex-1 text-center py-4 text-gray-500 "
+        style={{zIndex: 10}}
+      >
+        Back
+      </motion.button>
+    )}
+    
+    {currentIndex < introSlides.length - 1 ? (
+      <motion.button
+        whileTap={{ scale: 0.95 }}
+        onClick={() => paginate(1)}
+        className="flex-1 rounded-full bg- py-4 text-gray-500 font-semibold"
+      >
+        Next
+      </motion.button>
+    ) : (
+      <motion.button
+        whileTap={{ scale: 0.95 }}
+        onClick={() => router.push('/home')}
+        className="flex-1 rounded-full bg-primary-600 py-3 text-white font-semibold"
+      >
+        Get Started
+      </motion.button>
+    )}
+  </div>
+</div>
+        </div>
+
+      </div>
     </div>
   );
-}
+};
+
