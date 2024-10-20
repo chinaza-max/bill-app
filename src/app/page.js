@@ -79,7 +79,7 @@ export default function Home() {
     }, 10000);
   
     return () => clearInterval(timer);
-  }, [currentIndex, autoPlayEnabled]);
+  }, [currentIndex, autoPlayEnabled])
 
   return (
     <div className="fixed inset-0 bg-gradient-to-b  bg-white">
