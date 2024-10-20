@@ -1,7 +1,7 @@
 'use client';
 
 import Image from "next/image";
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useRouter } from 'next/navigation';
 
@@ -28,6 +28,9 @@ export default function Home() {
 
   const [currentIndex, setCurrentIndex] = useState(0);
   const [direction, setDirection] = useState(0);
+  const [autoPlayEnabled, setAutoPlayEnabled] = useState(true);
+
+
   const router = useRouter();
 
   const slideVariants = {
@@ -66,6 +69,17 @@ export default function Home() {
     setDirection(newDirection);
     setCurrentIndex(newIndex);
   };
+
+
+  useEffect(() => {
+    if (!autoPlayEnabled) return;
+    
+    const timer = setInterval(() => {
+      paginate(1); // This will use the looping logic we already have in the paginate function
+    }, 10000);
+  
+    return () => clearInterval(timer);
+  }, [currentIndex, autoPlayEnabled]);
 
   return (
     <div className="fixed inset-0 bg-gradient-to-b  bg-white">
