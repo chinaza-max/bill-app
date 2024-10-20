@@ -5,6 +5,7 @@ import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useRouter } from 'next/navigation';
 
+
 const introSlides = [
   {
     title: "Live Beyond Expectation. Order Smarter, Live Better",
