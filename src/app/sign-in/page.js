@@ -145,12 +145,12 @@ const LoginForm = () => {
                       Signing in...
                     </div>
                   ) : (
-                    'Sign In'
+                    "Sign In"
                   )}
                 </button>
 
                 <div className="text-center text-sm">
-                  Don't have an account?{' '}
+                  Dont have an account?
                   <Link href="/sign-up" className="text-blue-600 hover:text-blue-800">
                     Sign up
                   </Link>

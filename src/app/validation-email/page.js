@@ -6,7 +6,7 @@ import * as Yup from 'yup';
 import Link from 'next/link';
 
 const OTPValidation = () => {
-  const [otp, setOtp] = useState(['', '', '', '', '', '']);
+  const [otp, setOtp] = useState(["","","","","",""]);
   const inputRefs = [
     useRef(null),
     useRef(null),
@@ -18,9 +18,9 @@ const OTPValidation = () => {
 
   const validationSchema = Yup.object().shape({
     otp: Yup.string()
-      .length(6, 'OTP must be exactly 6 digits')
-      .matches(/^[0-9]+$/, 'OTP must contain only numbers')
-      .required('OTP is required'),
+      .length(6, "OTP must be exactly 6 digits")
+      .matches(/^[0-9]+$/, "OTP must contain only numbers")
+      .required("OTP is required"),
   });
 
   const handleSubmit = async (values, { setSubmitting }) => {
@@ -38,11 +38,11 @@ const OTPValidation = () => {
   // Handle paste event
   const handlePaste = (e) => {
     e.preventDefault();
-    const pastedData = e.clipboardData.getData('text').trim();
+    const pastedData = e.clipboardData.getData("text").trim();
     
     // Check if pasted content is a 6-digit number
     if (/^\d{6}$/.test(pastedData)) {
-      const newOtp = pastedData.split('');
+      const newOtp = pastedData.split("");
       setOtp(newOtp);
       
       // Auto submit after successful paste
@@ -85,7 +85,7 @@ const OTPValidation = () => {
   // Focus first input on mount
   useEffect(() => {
     inputRefs[0].current.focus();
-  }, []);
+  }, [inputRefs]);
 
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
@@ -95,7 +95,7 @@ const OTPValidation = () => {
             Verify Your Email
           </h1>
           <p className="text-sm text-gray-600 mb-8">
-            We've sent a verification code to your email address.<br />
+            We have sent a verification code to your email address.<br />
             Please enter the code below.
           </p>
         </div>
@@ -135,18 +135,15 @@ const OTPValidation = () => {
                   <button
                     type="button"
                     className="text-blue-600 hover:text-blue-800 text-sm font-medium focus:outline-none"
-                    onClick={() => {
-                      console.log('Resending OTP...');
-                      // Add resend logic here
-                    }}
+                    onClick={() => {}}
                   >
-                    Didn't receive the code? Resend
+                    Did not receive the code? Resend
                   </button>
                 </div>
 
                 <button
                   type="submit"
-                  disabled={isSubmitting || otp.join('').length !== 6}
+                  disabled={isSubmitting || otp.join("").length !== 6}
                   className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50"
                 >
                   {isSubmitting ? (
@@ -158,7 +155,7 @@ const OTPValidation = () => {
                       Verifying...
                     </div>
                   ) : (
-                    'Verify Email'
+                    "Verify Email"
                   )}
                 </button>
 
