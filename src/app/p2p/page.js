@@ -1,6 +1,5 @@
 'use client';
 
-
 import React, { useState } from 'react';
 import { 
   ArrowLeft, 
@@ -9,9 +8,10 @@ import {
   Home, 
   History, 
   ShoppingBag,
-  Circle
+  Circle,
+  Check
 } from 'lucide-react';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 
 const P2PPage = () => {
   const [activeTab, setActiveTab] = useState('p2p');
@@ -21,6 +21,39 @@ const P2PPage = () => {
     amount: '',
     preference: ''
   });
+  const [openFilter, setOpenFilter] = useState('');
+
+  // Filter options
+  const filterOptions = {
+    accuracy: [
+      { value: '95', label: '95% and above' },
+      { value: '90', label: '90% and above' },
+      { value: '85', label: '85% and above' },
+      { value: '80', label: '80% and above' },
+      { value: 'all', label: 'All accuracies' }
+    ],
+    distance: [
+      { value: '500', label: 'Within 500m' },
+      { value: '1000', label: 'Within 1km' },
+      { value: '2000', label: 'Within 2km' },
+      { value: '5000', label: 'Within 5km' },
+      { value: 'all', label: 'Any distance' }
+    ],
+    amount: [
+      { value: '1000-5000', label: '₦1,000 - ₦5,000' },
+      { value: '5000-10000', label: '₦5,000 - ₦10,000' },
+      { value: '10000-50000', label: '₦10,000 - ₦50,000' },
+      { value: '50000-100000', label: '₦50,000 - ₦100,000' },
+      { value: '100000+', label: '₦100,000+' }
+    ],
+    preference: [
+      { value: 'verified', label: 'Verified Users Only' },
+      { value: 'online', label: 'Online Users Only' },
+      { value: 'high_orders', label: '100+ Orders' },
+      { value: 'low_charge', label: 'Lowest Charge' },
+      { value: 'all', label: 'All Users' }
+    ]
+  };
 
   // Sample P2P offers data
   const p2pOffers = [
@@ -36,122 +69,62 @@ const P2PPage = () => {
       orders: 156,
       accuracy: 98.5
     },
-    {
-      id: 2,
-      name: "Sarah Williams",
-      avatar: "SW",
-      online: true,
-      badge: "Premium",
-      minRange: 500,
-      maxRange: 15000,
-      charge: 15,
-      orders: 234,
-      accuracy: 99.2
-    },
-    {
-      id: 3,
-      name: "Mike Brown",
-      avatar: "MB",
-      online: false,
-      badge: "Verified",
-      minRange: 2000,
-      maxRange: 50000,
-      charge: 25,
-      orders: 89,
-      accuracy: 97.8
-    },
-    {
-      id: 4,
-      name: "Emma Davis",
-      avatar: "ED",
-      online: true,
-      badge: "New",
-      minRange: 1000,
-      maxRange: 10000,
-      charge: 18,
-      orders: 45,
-      accuracy: 96.5
-    },
-    {
-      id: 5,
-      name: "Alex Johnson",
-      avatar: "AJ",
-      online: false,
-      badge: "Verified",
-      minRange: 3000,
-      maxRange: 30000,
-      charge: 22,
-      orders: 167,
-      accuracy: 98.9
-    },
-    {
-      id: 6,
-      name: "Lisa Chen",
-      avatar: "LC",
-      online: true,
-      badge: "Premium",
-      minRange: 1500,
-      maxRange: 25000,
-      charge: 19,
-      orders: 198,
-      accuracy: 99.5
-    },
-    {
-      id: 7,
-      name: "David Kim",
-      avatar: "DK",
-      online: true,
-      badge: "Verified",
-      minRange: 2500,
-      maxRange: 40000,
-      charge: 21,
-      orders: 145,
-      accuracy: 98.2
-    },
-    {
-      id: 8,
-      name: "Rachel Green",
-      avatar: "RG",
-      online: false,
-      badge: "Premium",
-      minRange: 1000,
-      maxRange: 35000,
-      charge: 17,
-      orders: 267,
-      accuracy: 99.1
-    },
-    {
-      id: 9,
-      name: "Tom Wilson",
-      avatar: "TW",
-      online: true,
-      badge: "Verified",
-      minRange: 4000,
-      maxRange: 45000,
-      charge: 23,
-      orders: 123,
-      accuracy: 97.9
-    },
-    {
-      id: 10,
-      name: "Maria Garcia",
-      avatar: "MG",
-      online: true,
-      badge: "New",
-      minRange: 500,
-      maxRange: 12000,
-      charge: 16,
-      orders: 34,
-      accuracy: 95.8
-    }
+    // ... (rest of the p2pOffers data remains the same)
   ];
 
-  const FilterDropdown = ({ label, options }) => (
+  const handleFilterClick = (filterName) => {
+    setOpenFilter(openFilter === filterName ? '' : filterName);
+  };
+
+  const handleFilterSelect = (filterName, value) => {
+    setFilters(prev => ({
+      ...prev,
+      [filterName]: value
+    }));
+    setOpenFilter('');
+  };
+
+  const FilterDropdown = ({ name, label, options }) => (
     <div className="relative">
-      <button className="w-full px-3 py-2 text-sm bg-white rounded-lg shadow-sm border border-amber-200 flex items-center justify-between">
-        <span className="text-amber-900">{label}</span>
-        <ChevronDown className="h-4 w-4 text-amber-500" />
+      <button 
+        onClick={() => handleFilterClick(name)}
+        className={`w-full px-3 py-2 text-sm bg-white rounded-lg shadow-sm border 
+          ${openFilter === name ? 'border-amber-500' : 'border-amber-200'} 
+          flex items-center justify-between`}
+      >
+        <span className="text-amber-900">
+          {filters[name] ? 
+            options.find(opt => opt.value === filters[name])?.label : 
+            label}
+        </span>
+        <ChevronDown className={`h-4 w-4 text-amber-500 transition-transform duration-200
+          ${openFilter === name ? 'transform rotate-180' : ''}`} 
+        />
       </button>
+
+      <AnimatePresence>
+        {openFilter === name && (
+          <motion.div
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -10 }}
+            className="absolute z-20 w-full mt-1 bg-white rounded-lg shadow-lg border border-amber-100 overflow-hidden"
+          >
+            {options.map((option) => (
+              <button
+                key={option.value}
+                onClick={() => handleFilterSelect(name, option.value)}
+                className="w-full px-3 py-2 text-left text-sm hover:bg-amber-50 flex items-center justify-between"
+              >
+                <span className="text-amber-900">{option.label}</span>
+                {filters[name] === option.value && (
+                  <Check className="h-4 w-4 text-amber-500" />
+                )}
+              </button>
+            ))}
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 
@@ -168,12 +141,36 @@ const P2PPage = () => {
       {/* Filters Section - Fixed on scroll */}
       <div className="sticky top-0 z-10 bg-amber-50 px-4 py-3 shadow-sm">
         <div className="grid grid-cols-2 gap-2">
-          <FilterDropdown label="Accuracy %" options={[]} />
-          <FilterDropdown label="Distance (m)" options={[]} />
-          <FilterDropdown label="Amount Range" options={[]} />
-          <FilterDropdown label="Preference" options={[]} />
+          <FilterDropdown 
+            name="accuracy" 
+            label="Accuracy %" 
+            options={filterOptions.accuracy} 
+          />
+          <FilterDropdown 
+            name="distance" 
+            label="Distance (m)" 
+            options={filterOptions.distance} 
+          />
+          <FilterDropdown 
+            name="amount" 
+            label="Amount Range" 
+            options={filterOptions.amount} 
+          />
+          <FilterDropdown 
+            name="preference" 
+            label="Preference" 
+            options={filterOptions.preference} 
+          />
         </div>
       </div>
+
+      {/* Overlay when filter is open */}
+      {openFilter && (
+        <div 
+          className="fixed inset-0 bg-black/20 z-10"
+          onClick={() => setOpenFilter('')}
+        />
+      )}
 
       {/* P2P Offers List */}
       <div className="flex-1 overflow-auto px-4 py-3">

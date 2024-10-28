@@ -322,7 +322,7 @@ const MobileApp = () => {
 
           <motion.button
             whileTap={{ scale: 0.95 }}
-            onClick={() => setActiveTab('p2p')}
+            onClick={() => {setActiveTab('p2p') }}
             className={`flex flex-col items-center p-2 ${
               activeTab === 'p2p' ? 'text-amber-600' : 'text-amber-400'
             }`}
