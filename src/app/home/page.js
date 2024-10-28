@@ -37,8 +37,8 @@ const MobileApp = () => {
   ];
 
 
-  /*
-
+  
+/*
   const recentTransactions = [
     {
       id: 1,
@@ -64,9 +64,9 @@ const MobileApp = () => {
       initials: "ST",
       type: "outgoing"
     }
-  ];
+  ];*/
   
-  */
+  
 
   // Enhanced transactions with avatar data - set to empty array to test empty state
   const recentTransactions = [];
@@ -84,7 +84,7 @@ const MobileApp = () => {
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.5 }}
-      className="flex flex-col items-center justify-center py-8 px-4 bg-white rounded-lg shadow-sm"
+      className="flex flex-col items-center justify-center py-3 px-4 bg-white rounded-lg shadow-sm"
     >
       <div className="w-16 h-16 mb-4 bg-amber-100 rounded-full flex items-center justify-center">
         <Package2 className="h-8 w-8 text-amber-600" />
@@ -258,8 +258,8 @@ const MobileApp = () => {
             <motion.button
               whileHover={{ scale: 1.02 }}
               whileTap={{ scale: 0.98 }}
-              className="w-full bg-gradient-to-r from-amber-500 to-amber-600 text-white rounded-xl py-4 px-6 shadow-lg flex items-center justify-center space-x-2 relative overflow-hidden group"
-              
+              className="w-full bg-gradient-to-r from-amber-500 to-amber-600 text-white rounded-xl py-2 px-6 shadow-lg flex items-center justify-center space-x-2 relative overflow-hidden group"
+                 
             >
               <motion.div
                 className="absolute inset-0 bg-gradient-to-r from-amber-400 to-amber-500 opacity-0 group-hover:opacity-100 transition-opacity duration-300"
