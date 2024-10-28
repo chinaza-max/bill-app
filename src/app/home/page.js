@@ -171,16 +171,17 @@ const MobileApp = () => {
                 exit={{ opacity: 0, x: -100 }}
                 transition={{ duration: 0.3 }}
                 className={`bg-gradient-to-r ${carouselItems[currentSlide].color} rounded-lg p-6 shadow-lg`}
+                style={{padding:"9px"}}
               >
                 <img 
                   src={carouselItems[currentSlide].image} 
                   alt={carouselItems[currentSlide].title}
-                  className="w-full h-32 object-cover rounded-lg mb-4"
+                  className="w-full h-32 object-cover rounded-lg mb-1"
                 />
-                <h3 className="text-lg font-semibold text-white">
+                <h4 className="text-lg font-semibold text-white">
                   {carouselItems[currentSlide].title}
-                </h3>
-                <p className="text-white/90">
+                </h4>
+                <p className="text-white/90" style={{fontSize:"12px"}}>
                   {carouselItems[currentSlide].description}
                 </p>
               </motion.div>
@@ -199,7 +200,7 @@ const MobileApp = () => {
               <ChevronRight className="h-6 w-6 text-white" />
             </button>
 
-            <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex space-x-2">
+            <div style={{bottom:"5px"}} className="absolute bottom-4 left-1/2 -translate-x-1/2 flex space-x-2">
               {carouselItems.map((_, index) => (
                 <button
                   key={index}
@@ -262,7 +263,7 @@ const MobileApp = () => {
               whileHover={{ scale: 1.02 }}
               whileTap={{ scale: 0.98 }}
               className="w-full bg-gradient-to-r from-amber-500 to-amber-600 text-white rounded-xl py-4 px-6 shadow-lg flex items-center justify-center space-x-2 relative overflow-hidden group"
-              style={{height:"70px"}}
+              
             >
               <motion.div
                 className="absolute inset-0 bg-gradient-to-r from-amber-400 to-amber-500 opacity-0 group-hover:opacity-100 transition-opacity duration-300"
