@@ -270,7 +270,7 @@ const MobileApp = () => {
               <ShoppingBag className="h-6 w-6" />
               <span className="text-lg font-semibold relative z-10">Place New Order</span>
             </motion.button>
-          </motion.div>
+          </motion.div> 
         </div>
       </div>
 
