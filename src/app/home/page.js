@@ -1,10 +1,6 @@
 'use client';
 
 
-
-
-'use client';
-
 import React, { useState } from 'react';
 import { Bell, ChevronDown, Home, History, Users, ChevronLeft, ChevronRight, ShoppingBag, Package2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
