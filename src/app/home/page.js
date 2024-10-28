@@ -91,7 +91,7 @@ const MobileApp = () => {
       </div>
       <h3 className="text-lg font-semibold text-amber-900 mb-2">No Transactions Yet</h3>
       <p className="text-amber-600 text-center text-sm mb-6">
-        Start your journey by making your first transaction. It's quick and easy!
+        Start your journey by making your first transaction. It is quick and easy!
       </p>
       <motion.button
         whileHover={{ scale: 1.02 }}
