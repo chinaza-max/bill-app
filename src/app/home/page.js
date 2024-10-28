@@ -166,13 +166,24 @@ const MobileApp = () => {
                 animate={{ opacity: 1, x: 0 }}
                 exit={{ opacity: 0, x: -100 }}
                 transition={{ duration: 0.3 }}
-                className={`bg-gradient-to-r ${carouselItems[currentSlide].color} rounded-lg p-6 shadow-lg`}
-                style={{padding:"9px"}}
+                className={`bg-gradient-to-r 
+                  ${carouselItems[currentSlide].color}
+                   rounded-lg p-6 
+                   shadow-lg
+                   relative `}
+                style={{
+                  padding:"9px" ,
+                  height:"160px"
+                }}
               >
-                <img 
-                  src={carouselItems[currentSlide].image} 
-                  alt={carouselItems[currentSlide].title}
-                  className="w-full h-32 object-cover rounded-lg mb-1"
+                <div 
+                 className="absolute inset-0 bg-center bg-no-repeat bg-contain"
+                 style={{
+                   backgroundImage: `url(${carouselItems[currentSlide].image})`,
+                   opacity: 0.3,
+                   height:"160px"
+                 }}
+                
                 />
                 <h4 className="text-lg font-semibold text-white">
                   {carouselItems[currentSlide].title}
@@ -284,6 +295,19 @@ const MobileApp = () => {
             <Home className="h-6 w-6" />
             <span className="text-xs mt-1">Home</span>
           </motion.button>
+
+
+          <motion.button
+            whileTap={{ scale: 0.95 }}
+            onClick={() => setActiveTab('history')}
+            className={`flex flex-col items-center p-2 ${
+              activeTab === 'history' ? 'text-amber-600' : 'text-amber-400'
+            }`}
+          >
+            <ShoppingBag  className="h-6 w-6" />
+            <span className="text-xs mt-1">Orders</span>
+          </motion.button>
+
           <motion.button
             whileTap={{ scale: 0.95 }}
             onClick={() => setActiveTab('history')}
@@ -294,6 +318,8 @@ const MobileApp = () => {
             <History className="h-6 w-6" />
             <span className="text-xs mt-1">History</span>
           </motion.button>
+
+
           <motion.button
             whileTap={{ scale: 0.95 }}
             onClick={() => setActiveTab('p2p')}
