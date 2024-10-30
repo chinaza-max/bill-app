@@ -3,6 +3,7 @@
 import React, { useState } from 'react';
 import { ArrowLeft, Check, AlertCircle } from 'lucide-react';
 import { motion } from 'framer-motion';
+import { useRouter } from 'next/navigation';
 
 const UserProfilePage = () => {
   const [userProfile, setUserProfile] = useState({
@@ -13,6 +14,9 @@ const UserProfilePage = () => {
     phoneNumber: '+234 800 123 4567',
     isPhoneVerified: true
   });
+
+  const router = useRouter();
+
 
   const [passwordForm, setPasswordForm] = useState({
     oldPassword: '',
@@ -38,6 +42,11 @@ const UserProfilePage = () => {
     }));
   };
 
+  const handleBack = () => {
+    router.push('/userProfile');
+  };
+
+
   const handleProfileUpdate = (e) => {
     e.preventDefault();
     setIsEditing(false);
@@ -50,16 +59,17 @@ const UserProfilePage = () => {
   };
 
   return (
-    <div className="flex flex-col min-h-screen bg-amber-50">
-      {/* Top Navigation */}
-      <div className="bg-gradient-to-r from-amber-600 to-amber-500 text-white px-4 py-3">
+    <div className="min-h-screen bg-amber-50">
+      {/* Fixed Navigation */}
+      <div className="fixed top-0 left-0 right-0 z-10 bg-gradient-to-r from-amber-600 to-amber-500 text-white px-4 py-3">
         <div className="flex items-center space-x-3">
-          <ArrowLeft className="h-6 w-6 cursor-pointer" />
+          <ArrowLeft className="h-6 w-6 cursor-pointer" onClick={handleBack} />
           <h1 className="text-lg font-semibold">Profile Settings</h1>
         </div>
       </div>
 
-      <div className="flex-1 px-4 py-6 space-y-6">
+      {/* Content with padding for fixed header */}
+      <div className="pt-16 px-4 py-6 space-y-6">
         {/* Personal Information Form */}
         <form onSubmit={handleProfileUpdate} className="space-y-6">
           <div className="bg-white rounded-lg p-4 shadow-sm">

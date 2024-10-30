@@ -29,6 +29,7 @@ const ProfilePage = () => {
   };
 
   const handleNavigation = (path) => {
+    console.log(path)
     router.push(path);
   };
 
@@ -104,27 +105,27 @@ const ProfilePage = () => {
             icon={User}
             title="Profile Information"
             subtitle="Change phone number, email address"
-            path="/profile/information"
+            path="/userProfile/ProfileInformation"
             highlight={true}
           />
           <MenuItem
             icon={Store}
             title="Merchant Account"
             subtitle="Create a merchant account"
-            path="/profile/merchant"
+            path="/userProfile/merchant"
             highlight={true}
           />
           <MenuItem
             icon={CreditCard}
             title="Payment Methods"
             subtitle="Saved cards, PayPal"
-            path="/profile/payment-methods"
+            path="/userProfile/payment-methods"
           />
           <MenuItem
             icon={Wallet}
             title="Wallet"
             subtitle="Upgrade to wallet"
-            path="/profile/wallet"
+            path="/userProfile/wallet"
             highlight={true}
           />
         </Section>
@@ -134,13 +135,13 @@ const ProfilePage = () => {
             icon={Bell}
             title="Notifications"
             subtitle="Push notifications"
-            path="/profile/notifications"
+            path="/userProfile/notifications"
           />
           <MenuItem
             icon={Users}
             title="Invite Friends"
             subtitle="Tell a friend"
-            path="/profile/invite"
+            path="/userProfile/invite"
             highlight={true}
           />
         </Section>
