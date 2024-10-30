@@ -112,7 +112,7 @@ const ProfilePage = () => {
             icon={Store}
             title="Merchant Account"
             subtitle="Create a merchant account"
-            path="/userProfile/merchant"
+            path="/userProfile/merchantProfile"
             highlight={true}
           />
           <MenuItem
