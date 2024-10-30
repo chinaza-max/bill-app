@@ -73,7 +73,7 @@ const P2PPage = () => {
     {
       id: 1,
       name: 'John Carter',
-      avatar: 'JC',
+      avatar: 'avatar.jpg',
       online: true,
       badge: 'Verified',
       minRange: 1000,
@@ -85,7 +85,7 @@ const P2PPage = () => {
     {
       id: 2,
       name: 'Sarah Doe',
-      avatar: 'SD',
+      avatar: 'avatar.jpg',
       online: true,
       badge: 'Verified',
       minRange: 5000,
@@ -263,7 +263,12 @@ const P2PPage = () => {
                 <div className="flex items-center space-x-3">
                   <div className="relative">
                     <div className="w-12 h-12 rounded-full bg-amber-100 flex items-center justify-center text-amber-800 font-medium">
-                      {offer.avatar}
+                    
+                      <img
+                        src={offer.avatar} // Ensure `offer.avatarUrl` holds the actual image URL
+                        alt={offer.name}
+                        className="w-full h-full object-cover rounded-full"
+                      />
                     </div>
                     {offer.online && (
                       <div className="absolute -bottom-1 -right-1">
