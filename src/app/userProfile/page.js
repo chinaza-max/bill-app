@@ -1,6 +1,8 @@
 'use client';
 
 import React from 'react';
+import { useRouter } from 'next/navigation';
+
 import {
   ArrowLeft,
   User,
@@ -20,8 +22,14 @@ import {
 import { motion } from 'framer-motion';
 
 const ProfilePage = () => {
+  const router = useRouter();
+
   const handleBack = () => {
-    // Handle navigation back
+    router.push('/home');
+  };
+
+  const handleNavigation = (path) => {
+    router.push(path);
   };
 
   const Section = ({ title, children }) => (
@@ -31,11 +39,11 @@ const ProfilePage = () => {
     </div>
   );
 
-  const MenuItem = ({ icon: Icon, title, subtitle, onClick, highlight }) => (
+  const MenuItem = ({ icon: Icon, title, subtitle, path, highlight }) => (
     <motion.button
       whileTap={{ scale: 0.98 }}
       className="w-full flex items-center justify-between p-4 border-b border-amber-100 last:border-0 hover:bg-emerald-50/30"
-      onClick={onClick}
+      onClick={() => handleNavigation(path)}
     >
       <div className="flex items-center space-x-3">
         <div className={`w-8 h-8 rounded-full ${highlight ? 'bg-emerald-50' : 'bg-amber-50'} flex items-center justify-center`}>
@@ -54,9 +62,14 @@ const ProfilePage = () => {
     </motion.button>
   );
 
+  const handleLogout = () => {
+    // Add logout logic here
+    router.push('/login');
+  };
+
   return (
     <div className="flex flex-col h-screen bg-amber-50">
-      {/* Top Navigation - Updated with new gradient */}
+      {/* Top Navigation */}
       <div className="bg-gradient-to-r from-amber-600 to-amber-500 text-white px-4 py-3">
         <div className="flex items-center space-x-3">
           <ArrowLeft className="h-6 w-6 cursor-pointer" onClick={handleBack} />
@@ -91,23 +104,27 @@ const ProfilePage = () => {
             icon={User}
             title="Profile Information"
             subtitle="Change phone number, email address"
+            path="/profile/information"
             highlight={true}
           />
           <MenuItem
             icon={Store}
             title="Merchant Account"
             subtitle="Create a merchant account"
+            path="/profile/merchant"
             highlight={true}
           />
           <MenuItem
             icon={CreditCard}
             title="Payment Methods"
             subtitle="Saved cards, PayPal"
+            path="/profile/payment-methods"
           />
           <MenuItem
             icon={Wallet}
             title="Wallet"
             subtitle="Upgrade to wallet"
+            path="/profile/wallet"
             highlight={true}
           />
         </Section>
@@ -117,11 +134,13 @@ const ProfilePage = () => {
             icon={Bell}
             title="Notifications"
             subtitle="Push notifications"
+            path="/profile/notifications"
           />
           <MenuItem
             icon={Users}
             title="Invite Friends"
             subtitle="Tell a friend"
+            path="/profile/invite"
             highlight={true}
           />
         </Section>
@@ -131,16 +150,19 @@ const ProfilePage = () => {
             icon={Shield}
             title="Privacy Policy"
             subtitle="Security notifications"
+            path="/profile/privacy"
           />
           <MenuItem
             icon={FileText}
             title="Terms & Conditions"
             subtitle="Cancellation Policy"
+            path="/profile/terms"
           />
           <MenuItem
             icon={HelpCircle}
             title="Support"
             subtitle="Get help"
+            path="/profile/support"
             highlight={true}
           />
         </Section>
@@ -154,6 +176,7 @@ const ProfilePage = () => {
             whileHover={{ scale: 1.02 }}
             whileTap={{ scale: 0.98 }}
             className="w-full bg-red-50 text-red-600 rounded-lg py-3 px-4 font-medium hover:bg-red-100 transition-colors"
+            onClick={handleLogout}
           >
             Logout
           </motion.button>
