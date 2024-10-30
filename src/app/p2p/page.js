@@ -1,6 +1,11 @@
 'use client';
 
 import React, { useState } from 'react';
+import Link from 'next/link';
+import { useRouter } from 'next/navigation'
+
+
+
 import {
   ArrowLeft,
   ChevronDown,
@@ -15,8 +20,17 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
-const P2PPage = () => {
+const P2PPage = () => {    
   const [activeTab, setActiveTab] = useState('p2p');
+  const router = useRouter();
+
+
+
+  const handleTabChange = (tab) => {
+    setActiveTab(tab);
+    router.push(`/${tab}`);
+  };
+
   const [filters, setFilters] = useState({
     accuracy: '',
     distance: '',
@@ -98,6 +112,8 @@ const P2PPage = () => {
     setOpenFilter('');
   };
 
+
+  
   const handleOfferDetailsToggle = (offer) => {
     setShowOfferDetails(showOfferDetails === offer.id ? null : offer.id);
   };
@@ -321,7 +337,7 @@ const P2PPage = () => {
         <div className="flex justify-around py-2">
           <motion.button
             whileTap={{ scale: 0.95 }}
-            onClick={() => setActiveTab('home')}
+            onClick={() => handleTabChange('home')}
             className={`flex flex-col items-center p-2 ${
               activeTab === 'home' ? 'text-amber-600' : 'text-amber-400'
             }`}
@@ -332,7 +348,7 @@ const P2PPage = () => {
 
           <motion.button
             whileTap={{ scale: 0.95 }}
-            onClick={() => setActiveTab('orders')}
+            onClick={() => handleTabChange('orders')}
             className={`flex flex-col items-center p-2 ${
               activeTab === 'orders' ? 'text-amber-600' : 'text-amber-400'
             }`}
@@ -343,7 +359,7 @@ const P2PPage = () => {
 
           <motion.button
             whileTap={{ scale: 0.95 }}
-            onClick={() => setActiveTab('history')}
+            onClick={() => handleTabChange('history')}
             className={`flex flex-col items-center p-2 ${
               activeTab === 'history' ? 'text-amber-600' : 'text-amber-400'
             }`}
@@ -354,7 +370,7 @@ const P2PPage = () => {
 
           <motion.button
             whileTap={{ scale: 0.95 }}
-            onClick={() => setActiveTab('p2p')}
+            onClick={() => handleTabChange('p2p')}
             className={`flex flex-col items-center p-2 ${
               activeTab === 'p2p' ? 'text-amber-600' : 'text-amber-400'
             }`}
