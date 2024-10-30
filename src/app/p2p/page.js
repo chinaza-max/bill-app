@@ -1,4 +1,5 @@
 'use client';
+
 import React, { useState } from 'react';
 import {
   ArrowLeft,
@@ -87,6 +88,9 @@ const P2PPage = () => {
   };
 
   const handleFilterSelect = (filterName, value) => {
+
+
+    console.log(value)
     setFilters((prev) => ({
       ...prev,
       [filterName]: value,
@@ -191,6 +195,8 @@ const P2PPage = () => {
     </div>
   );
 
+
+
   // Filter the p2pOffers based on the selected filters
   const filteredOffers = p2pOffers.filter((offer) => {
     const { accuracy, distance, amount, preference } = filters;
@@ -223,9 +229,9 @@ const P2PPage = () => {
       </div>
 
       {/* Overlay when filter is open */}
-      {openFilter && (
+      {/*openFilter && (
         <div className="fixed inset-0 bg-black/20 z-10" onClick={() => setOpenFilter('')} />
-      )}
+      )*/}
 
       {/* P2P Offers List */}
       <div className="flex-1 overflow-auto px-4 py-3">
