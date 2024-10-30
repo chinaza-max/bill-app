@@ -4,12 +4,14 @@
 import React, { useState } from 'react';
 import { Bell, ChevronDown, Home, History, Users, ChevronLeft, ChevronRight, ShoppingBag, Package2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useRouter } from 'next/navigation'
 
 const MobileApp = () => {
   const [userType, setUserType] = useState('Merchant');
   const [activeTab, setActiveTab] = useState('home');
   const [currentSlide, setCurrentSlide] = useState(0);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const router = useRouter();
 
   // Enhanced carousel data
   const carouselItems = [
@@ -77,6 +79,11 @@ const MobileApp = () => {
 
   const prevSlide = () => {
     setCurrentSlide((prev) => (prev - 1 + carouselItems.length) % carouselItems.length);
+  };
+
+  const handleTabChange = (tab) => {
+    setActiveTab(tab);
+    router.push(`/${tab}`);
   };
 
   const EmptyTransactionState = () => (
@@ -287,7 +294,7 @@ const MobileApp = () => {
         <div className="flex justify-around py-2">
           <motion.button
             whileTap={{ scale: 0.95 }}
-            onClick={() => setActiveTab('home')}
+            onClick={() => handleTabChange('home')}
             className={`flex flex-col items-center p-2 ${
               activeTab === 'home' ? 'text-amber-600' : 'text-amber-400'
             }`}
@@ -299,7 +306,7 @@ const MobileApp = () => {
 
           <motion.button
             whileTap={{ scale: 0.95 }}
-            onClick={() => setActiveTab('history')}
+            onClick={() => handleTabChange('history')}
             className={`flex flex-col items-center p-2 ${
               activeTab === 'history' ? 'text-amber-600' : 'text-amber-400'
             }`}
@@ -310,7 +317,7 @@ const MobileApp = () => {
 
           <motion.button
             whileTap={{ scale: 0.95 }}
-            onClick={() => setActiveTab('history')}
+            onClick={() => handleTabChange('history')}
             className={`flex flex-col items-center p-2 ${
               activeTab === 'history' ? 'text-amber-600' : 'text-amber-400'
             }`}
@@ -322,7 +329,7 @@ const MobileApp = () => {
 
           <motion.button
             whileTap={{ scale: 0.95 }}
-            onClick={() => {setActiveTab('p2p') }}
+            onClick={() => {handleTabChange('p2p') }}
             className={`flex flex-col items-center p-2 ${
               activeTab === 'p2p' ? 'text-amber-600' : 'text-amber-400'
             }`}
