@@ -1,7 +1,7 @@
 'use client';
 
 
-import React, { useState } from 'react';
+import React, { useEffect, useState , useRef} from 'react';
 import { Bell, ChevronDown, Home, History, Users, ChevronLeft, ChevronRight, ShoppingBag, Package2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useRouter } from 'next/navigation'
@@ -12,6 +12,7 @@ const MobileApp = () => {
   const [currentSlide, setCurrentSlide] = useState(0);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const router = useRouter();
+  const intervalRef = useRef(null);
 
   // Enhanced carousel data
   const carouselItems = [
@@ -39,6 +40,22 @@ const MobileApp = () => {
   ];
 
 
+  const startInterval = () => {
+    // If an interval already exists, prevent creating another one
+    if (!intervalRef.current) {
+      intervalRef.current = setInterval(() => {
+        nextSlide();
+      }, 6000); // Adjust the interval time as needed
+    }
+  };
+
+
+  const stopInterval = () => {
+    if (intervalRef.current) {
+      clearInterval(intervalRef.current);
+      intervalRef.current = null;
+    }
+  };
   
 /*
   const recentTransactions = [
@@ -110,6 +127,15 @@ const MobileApp = () => {
     </motion.div>
   );
 
+
+  useEffect(() => {
+    startInterval();
+    // Clean up the interval when the component unmounts
+    return () => stopInterval();
+  }, []);
+
+
+
   return (
     <div className="flex flex-col h-screen bg-amber-50">
       {/* Top Navigation */}
@@ -168,12 +194,14 @@ const MobileApp = () => {
           <div className="relative overflow-hidden rounded-lg">
             <AnimatePresence initial={false} mode="wait">
               <motion.div
+                onMouseEnter={stopInterval}
+                onMouseLeave={startInterval}
                 key={currentSlide}
                 initial={{ opacity: 0, x: 100 }}
                 animate={{ opacity: 1, x: 0 }}
                 exit={{ opacity: 0, x: -100 }}
                 transition={{ duration: 0.3 }}
-                className={`bg-gradient-to-r 
+                className={`bg-gradient-to-r
                   ${carouselItems[currentSlide].color}
                    rounded-lg p-6 
                    shadow-lg
