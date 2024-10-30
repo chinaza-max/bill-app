@@ -1,7 +1,6 @@
 'use client';
 
 import React, { useState } from 'react';
-import Link from 'next/link';
 import { useRouter } from 'next/navigation'
 
 
@@ -103,8 +102,6 @@ const P2PPage = () => {
 
   const handleFilterSelect = (filterName, value) => {
 
-
-    console.log(value)
     setFilters((prev) => ({
       ...prev,
       [filterName]: value,
@@ -229,7 +226,7 @@ const P2PPage = () => {
       {/* Top Navigation */}
       <div className="bg-gradient-to-r from-amber-600 to-amber-500 text-white px-4 py-3">
         <div className="flex items-center space-x-3">
-          <ArrowLeft className="h-6 w-6" />
+          <ArrowLeft  onClick={() => handleTabChange('home')}  className="h-6 w-6" />
           <h1 className="text-lg font-semibold">P2P Trading</h1>
         </div>
       </div>

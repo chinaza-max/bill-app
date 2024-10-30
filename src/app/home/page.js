@@ -120,6 +120,7 @@ const MobileApp = () => {
       <motion.button
         whileHover={{ scale: 1.02 }}
         whileTap={{ scale: 0.98 }}
+        onClick={() => {handleTabChange('p2p') }}
         className="px-6 py-2 bg-amber-100 text-amber-600 rounded-full font-medium text-sm"
       >
         Start New Transaction
@@ -143,7 +144,12 @@ const MobileApp = () => {
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-3">
             <div className="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center text-white">
-              JD
+            <img
+              onClick={() => {handleTabChange('userProfile') }}
+              src={'avatar.jpg'}
+              alt={"avatar"}
+              className="w-full h-full object-cover rounded-full"
+            />
             </div>
             <div>
               <p className="text-sm">Good Morning,</p>
@@ -305,13 +311,13 @@ const MobileApp = () => {
               whileHover={{ scale: 1.02 }}
               whileTap={{ scale: 0.98 }}
               className="w-full bg-gradient-to-r from-amber-500 to-amber-600 text-white rounded-xl py-2 px-6 shadow-lg flex items-center justify-center space-x-2 relative overflow-hidden group"
-                 
+              onClick={() => {handleTabChange('p2p') }}
             >
               <motion.div
                 className="absolute inset-0 bg-gradient-to-r from-amber-400 to-amber-500 opacity-0 group-hover:opacity-100 transition-opacity duration-300"
               />
               <ShoppingBag className="h-6 w-6" />
-              <span className="text-lg font-semibold relative z-10">Place New Order</span>
+              <span  className="text-lg font-semibold relative z-10">Place New Order</span>
             </motion.button>
           </motion.div> 
         </div>
