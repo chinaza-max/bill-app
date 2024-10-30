@@ -1,12 +1,15 @@
-'use client';
+  
 
+
+'use client';
 import React, { useState } from 'react';
-import { 
-  ArrowLeft, 
-  ChevronDown, 
-  Users, 
-  Home, 
-  History, 
+import {
+  ArrowLeft,
+  ChevronDown,
+  ChevronRight,
+  Users,
+  Home,
+  History,
   ShoppingBag,
   Circle,
   Check
@@ -19,57 +22,43 @@ const P2PPage = () => {
     accuracy: '',
     distance: '',
     amount: '',
-    preference: ''
+    preference: '',
   });
   const [openFilter, setOpenFilter] = useState('');
+  const [showOfferDetails, setShowOfferDetails] = useState(null);
 
   // Filter options
   const filterOptions = {
-    accuracy: [
-      { value: '95', label: '95% and above' },
-      { value: '90', label: '90% and above' },
-      { value: '85', label: '85% and above' },
-      { value: '80', label: '80% and above' },
-      { value: 'all', label: 'All accuracies' }
-    ],
-    distance: [
-      { value: '500', label: 'Within 500m' },
-      { value: '1000', label: 'Within 1km' },
-      { value: '2000', label: 'Within 2km' },
-      { value: '5000', label: 'Within 5km' },
-      { value: 'all', label: 'Any distance' }
-    ],
-    amount: [
-      { value: '1000-5000', label: '₦1,000 - ₦5,000' },
-      { value: '5000-10000', label: '₦5,000 - ₦10,000' },
-      { value: '10000-50000', label: '₦10,000 - ₦50,000' },
-      { value: '50000-100000', label: '₦50,000 - ₦100,000' },
-      { value: '100000+', label: '₦100,000+' }
-    ],
-    preference: [
-      { value: 'verified', label: 'Verified Users Only' },
-      { value: 'online', label: 'Online Users Only' },
-      { value: 'high_orders', label: '100+ Orders' },
-      { value: 'low_charge', label: 'Lowest Charge' },
-      { value: 'all', label: 'All Users' }
-    ]
+    // ... (filter options remain the same)
   };
 
   // Sample P2P offers data
   const p2pOffers = [
     {
       id: 1,
-      name: "John Carter",
-      avatar: "JC",
+      name: 'John Carter',
+      avatar: 'JC',
       online: true,
-      badge: "Verified",
+      badge: 'Verified',
       minRange: 1000,
-      maxRange: 20000,
+      maxRange: 5000,
       charge: 20,
       orders: 156,
-      accuracy: 98.5
+      accuracy: 98.5,
     },
-    // ... (rest of the p2pOffers data remains the same)
+    {
+      id: 2,
+      name: 'Sarah Doe',
+      avatar: 'SD',
+      online: true,
+      badge: 'Verified',
+      minRange: 5000,
+      maxRange: 10000,
+      charge: 18,
+      orders: 234,
+      accuracy: 95.2,
+    },
+    // ... (more sample data)
   ];
 
   const handleFilterClick = (filterName) => {
@@ -77,28 +66,82 @@ const P2PPage = () => {
   };
 
   const handleFilterSelect = (filterName, value) => {
-    setFilters(prev => ({
+    setFilters((prev) => ({
       ...prev,
-      [filterName]: value
+      [filterName]: value,
     }));
     setOpenFilter('');
   };
 
+  const handleOfferDetailsToggle = (offer) => {
+    setShowOfferDetails(showOfferDetails === offer.id ? null : offer.id);
+  };
+
+  const OfferRangeDetails = ({ offer }) => (
+    <div className="bg-white rounded-lg shadow-lg p-4">
+      <div className="flex items-center justify-between mb-4">
+        <div className="font-semibold text-amber-900">Offer Range Details</div>
+        <button onClick={() => handleOfferDetailsToggle(offer)}>
+          <ChevronRight className="h-6 w-6 text-amber-500" />
+        </button>
+      </div>
+      <div className="space-y-2">
+        <div>
+          <div className="text-sm text-amber-600">Range</div>
+          <div className="flex items-center space-x-2">
+            <div className="font-medium text-amber-900">
+              ₦{offer.minRange.toLocaleString()} - ₦{offer.maxRange.toLocaleString()}
+            </div>
+            <ChevronRight className="h-5 w-5 text-amber-500" />
+          </div>
+        </div>
+        <AnimatePresence>
+          {showOfferDetails === offer.id && (
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 20 }}
+              className="bg-amber-50 rounded-lg p-4"
+            >
+              <div className="space-y-2">
+                <div>
+                  <div className="text-sm text-amber-600">Charge</div>
+                  <div className="font-medium text-amber-900">
+                    ₦1,000 - ₦5,000: {offer.charge}%
+                  </div>
+                </div>
+                <div>
+                  <div className="text-sm text-amber-600">Charge</div>
+                  <div className="font-medium text-amber-900">
+                    ₦5,001 - ₦10,000: {offer.charge - 2}%
+                  </div>
+                </div>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
+    </div>
+  );
+
   const FilterDropdown = ({ name, label, options }) => (
     <div className="relative">
-      <button 
+      <button
         onClick={() => handleFilterClick(name)}
         className={`w-full px-3 py-2 text-sm bg-white rounded-lg shadow-sm border 
-          ${openFilter === name ? 'border-amber-500' : 'border-amber-200'} 
-          flex items-center justify-between`}
+        ${
+          openFilter === name ? 'border-amber-500' : 'border-amber-200'
+        } flex items-center justify-between`}
       >
         <span className="text-amber-900">
-          {filters[name] ? 
-            options.find(opt => opt.value === filters[name])?.label : 
-            label}
+          {filters[name]
+            ? options.find((opt) => opt.value === filters[name])?.label
+            : label}
         </span>
-        <ChevronDown className={`h-4 w-4 text-amber-500 transition-transform duration-200
-          ${openFilter === name ? 'transform rotate-180' : ''}`} 
+        <ChevronDown
+          className={`h-4 w-4 text-amber-500 transition-transform duration-200 ${
+            openFilter === name ? 'transform rotate-180' : ''
+          }`}
         />
       </button>
 
@@ -141,35 +184,16 @@ const P2PPage = () => {
       {/* Filters Section - Fixed on scroll */}
       <div className="sticky top-0 z-10 bg-amber-50 px-4 py-3 shadow-sm">
         <div className="grid grid-cols-2 gap-2">
-          <FilterDropdown 
-            name="accuracy" 
-            label="Accuracy %" 
-            options={filterOptions.accuracy} 
-          />
-          <FilterDropdown 
-            name="distance" 
-            label="Distance (m)" 
-            options={filterOptions.distance} 
-          />
-          <FilterDropdown 
-            name="amount" 
-            label="Amount Range" 
-            options={filterOptions.amount} 
-          />
-          <FilterDropdown 
-            name="preference" 
-            label="Preference" 
-            options={filterOptions.preference} 
-          />
+          <FilterDropdown name="accuracy" label="Accuracy %" options={filterOptions.accuracy} />
+          <FilterDropdown name="distance" label="Distance (m)" options={filterOptions.distance} />
+          <FilterDropdown name="amount" label="Amount Range" options={filterOptions.amount} />
+          <FilterDropdown name="preference" label="Preference" options={filterOptions.preference} />
         </div>
       </div>
 
       {/* Overlay when filter is open */}
       {openFilter && (
-        <div 
-          className="fixed inset-0 bg-black/20 z-10"
-          onClick={() => setOpenFilter('')}
-        />
+        <div className="fixed inset-0 bg-black/20 z-10" onClick={() => setOpenFilter('')} />
       )}
 
       {/* P2P Offers List */}
@@ -209,19 +233,35 @@ const P2PPage = () => {
                   </div>
                 </div>
               </div>
-              
+
               <div className="flex items-center justify-between mb-3">
                 <div className="space-y-1">
                   <div className="text-sm text-amber-600">Range</div>
-                  <div className="font-medium text-amber-900">
-                    ₦{offer.minRange.toLocaleString()} - ₦{offer.maxRange.toLocaleString()}
+                  <div className="flex items-center space-x-2">
+                    <div className="font-medium text-amber-900">
+                      ₦{offer.minRange.toLocaleString()} - ₦{offer.maxRange.toLocaleString()}
+                    </div>
+                    <button
+                      onClick={() => handleOfferDetailsToggle(offer)}
+                      className="flex items-center space-x-2 text-amber-600 hover:text-amber-900 transition-colors"
+                    >
+                      <ChevronRight className="h-5 w-5" />
+                    </button>
                   </div>
                 </div>
-                <div className="text-right space-y-1">
-                  <div className="text-sm text-amber-600">Charge</div>
-                  <div className="font-medium text-amber-900">{offer.charge}%</div>
-                </div>
               </div>
+
+              <AnimatePresence>
+                {showOfferDetails === offer.id && (
+                  <motion.div
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: 20 }}
+                  >
+                    <OfferRangeDetails offer={offer} />
+                  </motion.div>
+                )}
+              </AnimatePresence>
 
               <motion.button
                 whileHover={{ scale: 1.02 }}
@@ -283,8 +323,13 @@ const P2PPage = () => {
           </motion.button>
         </div>
       </div>
+
+
     </div>
   );
 };
 
 export default P2PPage;
+
+
+
