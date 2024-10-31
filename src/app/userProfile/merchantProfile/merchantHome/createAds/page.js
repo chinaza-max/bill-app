@@ -1,6 +1,8 @@
 'use client';
 
 
+'use client';
+
 import React, { useState, useEffect } from 'react';
 import { ArrowLeft, X, Check } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -12,47 +14,32 @@ const CreateAdsPage = () => {
   const [selectedAmount, setSelectedAmount] = useState('');
   const [selectedCharge, setSelectedCharge] = useState('');
   const [adsList, setAdsList] = useState([]);
+  const [amountOptions, setAmountOptions] = useState([]);
 
-  // Amount options for dropdown
-  const amountOptions = [
-    { value: '1000', label: '₦1,000' },
-    { value: '5000', label: '₦5,000' },
-    { value: '10000', label: '₦10,000' },
-    { value: '20000', label: '₦20,000' }
-  ];
-
-  // Default sample data based on price range
-  const getDefaultSampleData = (min, max) => {
-    const range = max - min;
-    let samples = [];
-    
-    if (range <= 5000) {
-      samples = [
-        { amount: '1000', charge: '100' },
-        { amount: '2000', charge: '150' },
-        { amount: '3000', charge: '180' }
-      ];
-    } else if (range <= 10000) {
-      samples = [
-        { amount: '2000', charge: '150' },
-        { amount: '4000', charge: '200' },
-        { amount: '6000', charge: '250' }
-      ];
-    } else if (range <= 20000) {
-      samples = [
-        { amount: '5000', charge: '200' },
-        { amount: '8000', charge: '300' },
-        { amount: '10000', charge: '350' }
-      ];
-    } else {
-      samples = [
-        { amount: '10000', charge: '300' },
-        { amount: '15000', charge: '400' },
-        { amount: '20000', charge: '500' }
-      ];
-    }
-    return samples;
+  // Generate amount options based on price range
+  const generateAmountOptions = (min, max) => {
+    const baseAmounts = [1000, 5000, 10000, 15000, 20000];
+    return baseAmounts
+      .filter(amount => amount >= Number(min) && amount <= Number(max))
+      .map(amount => ({
+        value: amount.toString(),
+        label: `₦${amount.toLocaleString()}`
+      }));
   };
+
+  // Update amount options when price range changes
+  useEffect(() => {
+    if (minPrice && maxPrice) {
+      const options = generateAmountOptions(minPrice, maxPrice);
+      setAmountOptions(options);
+      
+      // Reset selected amount if it's no longer in range
+      if (selectedAmount && !options.find(opt => opt.value === selectedAmount)) {
+        setSelectedAmount('');
+        setSelectedCharge('');
+      }
+    }
+  }, [minPrice, maxPrice]);
 
   // Charge ranges based on selected amount
   const chargeRanges = {
@@ -71,6 +58,11 @@ const CreateAdsPage = () => {
       { value: '350', label: '₦350' },
       { value: '400', label: '₦400' }
     ],
+    '15000': [
+      { value: '350', label: '₦350' },
+      { value: '400', label: '₦400' },
+      { value: '450', label: '₦450' }
+    ],
     '20000': [
       { value: '400', label: '₦400' },
       { value: '450', label: '₦450' },
@@ -78,10 +70,26 @@ const CreateAdsPage = () => {
     ]
   };
 
+  // Get default sample data based on available amount options
+  const getDefaultSampleData = (options) => {
+    // Take up to 3 evenly distributed options
+    const count = Math.min(3, options.length);
+    const step = Math.floor(options.length / count) || 1;
+    
+    return Array.from({ length: count }, (_, index) => {
+      const option = options[Math.min(index * step, options.length - 1)];
+      const charges = chargeRanges[option.value];
+      return {
+        amount: option.value,
+        charge: charges[0].value // Use first charge as default
+      };
+    });
+  };
+
   useEffect(() => {
     // Load default samples when price range changes and default settings are on
-    if (minPrice && maxPrice && useDefaultSettings) {
-      const samples = getDefaultSampleData(Number(minPrice), Number(maxPrice));
+    if (minPrice && maxPrice && useDefaultSettings && amountOptions.length > 0) {
+      const samples = getDefaultSampleData(amountOptions);
       const defaultAds = samples.map((sample, index) => ({
         id: Date.now() + index,
         minPrice,
@@ -93,7 +101,26 @@ const CreateAdsPage = () => {
       }));
       setAdsList(defaultAds);
     }
-  }, [minPrice, maxPrice, useDefaultSettings]);
+  }, [minPrice, maxPrice, useDefaultSettings, amountOptions]);
+
+  // Validate price input
+  const handleMinPriceChange = (value) => {
+    const numValue = Number(value);
+    if (numValue < 1000) {
+      setMinPrice('1000');
+    } else {
+      setMinPrice(value);
+    }
+  };
+
+  const handleMaxPriceChange = (value) => {
+    const numValue = Number(value);
+    if (numValue > 20000) {
+      setMaxPrice('20000');
+    } else {
+      setMaxPrice(value);
+    }
+  };
 
   const handleAddAd = () => {
     if (minPrice && maxPrice && selectedAmount && selectedCharge) {
@@ -107,13 +134,11 @@ const CreateAdsPage = () => {
         isDefault: false
       };
       
-      // Keep default entries and add/update custom entry
       const updatedList = adsList
         .filter(ad => ad.isDefault || ad.amount !== selectedAmount)
         .concat(newAd);
       
       setAdsList(updatedList);
-      // Reset only the selection fields
       setSelectedAmount('');
       setSelectedCharge('');
     }
@@ -157,9 +182,11 @@ const CreateAdsPage = () => {
               <input
                 type="number"
                 value={minPrice}
-                onChange={(e) => setMinPrice(e.target.value)}
+                onChange={(e) => handleMinPriceChange(e.target.value)}
                 className="w-full p-2 border border-amber-200 rounded-lg focus:outline-none focus:border-amber-500"
-                placeholder="Min amount"
+                placeholder="Min amount (₦1,000)"
+                min="1000"
+                max="20000"
               />
             </div>
             <div>
@@ -167,15 +194,17 @@ const CreateAdsPage = () => {
               <input
                 type="number"
                 value={maxPrice}
-                onChange={(e) => setMaxPrice(e.target.value)}
+                onChange={(e) => handleMaxPriceChange(e.target.value)}
                 className="w-full p-2 border border-amber-200 rounded-lg focus:outline-none focus:border-amber-500"
-                placeholder="Max amount"
+                placeholder="Max amount (₦20,000)"
+                min="1000"
+                max="20000"
               />
             </div>
           </div>
         </div>
 
-        {/* Price Per Thousand Section - Only shown when price range is set */}
+        {/* Price Per Thousand Section */}
         {minPrice && maxPrice && (
           <motion.div
             initial={{ opacity: 0, y: 20 }}
