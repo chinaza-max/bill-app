@@ -1,11 +1,15 @@
 'use client';
 
-
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { ArrowLeft, X, Check } from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { ArrowLeft, Check, PlayCircle, HelpCircle } from 'lucide-react';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
 const CreateAdsPage = () => {
   const [minPrice, setMinPrice] = useState('');
@@ -14,34 +18,17 @@ const CreateAdsPage = () => {
   const [selectedAmount, setSelectedAmount] = useState('');
   const [selectedCharge, setSelectedCharge] = useState('');
   const [adsList, setAdsList] = useState([]);
-  const [amountOptions, setAmountOptions] = useState([]);
+  const [showHelpModal, setShowHelpModal] = useState(false);
+  
+  // All possible amounts and their charges
+  const allAmounts = [
+    { value: '1000', label: '₦1,000' },
+    { value: '5000', label: '₦5,000' },
+    { value: '10000', label: '₦10,000' },
+    { value: '15000', label: '₦15,000' },
+    { value: '20000', label: '₦20,000' }
+  ];
 
-  // Generate amount options based on price range
-  const generateAmountOptions = (min, max) => {
-    const baseAmounts = [1000, 5000, 10000, 15000, 20000];
-    return baseAmounts
-      .filter(amount => amount >= Number(min) && amount <= Number(max))
-      .map(amount => ({
-        value: amount.toString(),
-        label: `₦${amount.toLocaleString()}`
-      }));
-  };
-
-  // Update amount options when price range changes
-  useEffect(() => {
-    if (minPrice && maxPrice) {
-      const options = generateAmountOptions(minPrice, maxPrice);
-      setAmountOptions(options);
-      
-      // Reset selected amount if it's no longer in range
-      if (selectedAmount && !options.find(opt => opt.value === selectedAmount)) {
-        setSelectedAmount('');
-        setSelectedCharge('');
-      }
-    }
-  }, [minPrice, maxPrice]);
-
-  // Charge ranges based on selected amount
   const chargeRanges = {
     '1000': [
       { value: '100', label: '₦100' },
@@ -70,26 +57,49 @@ const CreateAdsPage = () => {
     ]
   };
 
-  // Get default sample data based on available amount options
-  const getDefaultSampleData = (options) => {
-    // Take up to 3 evenly distributed options
-    const count = Math.min(3, options.length);
-    const step = Math.floor(options.length / count) || 1;
+  // Get default sample data
+  const getDefaultSampleData = () => {
+    return [
+      { amount: '1000', charge: '100' },
+      { amount: '5000', charge: '200' },
+      { amount: '10000', charge: '300' },
+      { amount: '15000', charge: '350' }
+    ];
+  };
+
+  // Get available amounts based on min and max price
+  const getAvailableAmounts = () => {
+    if (!minPrice || !maxPrice) return [];
     
-    return Array.from({ length: count }, (_, index) => {
-      const option = options[Math.min(index * step, options.length - 1)];
-      const charges = chargeRanges[option.value];
-      return {
-        amount: option.value,
-        charge: charges[0].value // Use first charge as default
-      };
+    // Get amounts from existing ads
+    const existingAmounts = adsList.map(ad => ({
+      value: ad.amount,
+      label: `₦${Number(ad.amount).toLocaleString()}`
+    }));
+
+    // Get amounts from allAmounts that fall within the range
+    const rangeAmounts = allAmounts.filter(amount => {
+      const value = Number(amount.value);
+      return value >= Number(minPrice) && value <= Number(maxPrice);
     });
+
+    // Combine and deduplicate amounts
+    const combinedAmounts = [...existingAmounts, ...rangeAmounts];
+    const uniqueAmounts = Array.from(new Map(
+      combinedAmounts.map(item => [item.value, item])
+    ).values());
+
+    // Sort amounts numerically
+    return uniqueAmounts.sort((a, b) => Number(a.value) - Number(b.value));
   };
 
   useEffect(() => {
-    // Load default samples when price range changes and default settings are on
-    if (minPrice && maxPrice && useDefaultSettings && amountOptions.length > 0) {
-      const samples = getDefaultSampleData(amountOptions);
+    if (minPrice && maxPrice && useDefaultSettings) {
+      const samples = getDefaultSampleData().filter(sample => 
+        Number(sample.amount) >= Number(minPrice) && 
+        Number(sample.amount) <= Number(maxPrice)
+      );
+      
       const defaultAds = samples.map((sample, index) => ({
         id: Date.now() + index,
         minPrice,
@@ -101,9 +111,8 @@ const CreateAdsPage = () => {
       }));
       setAdsList(defaultAds);
     }
-  }, [minPrice, maxPrice, useDefaultSettings, amountOptions]);
+  }, [minPrice, maxPrice, useDefaultSettings]);
 
-  // Validate price input
   const handleMinPriceChange = (value) => {
     const numValue = Number(value);
     if (numValue < 1000) {
@@ -111,6 +120,8 @@ const CreateAdsPage = () => {
     } else {
       setMinPrice(value);
     }
+    setSelectedAmount('');
+    setSelectedCharge('');
   };
 
   const handleMaxPriceChange = (value) => {
@@ -120,6 +131,8 @@ const CreateAdsPage = () => {
     } else {
       setMaxPrice(value);
     }
+    setSelectedAmount('');
+    setSelectedCharge('');
   };
 
   const handleAddAd = () => {
@@ -144,36 +157,66 @@ const CreateAdsPage = () => {
     }
   };
 
-  const handleRemoveAd = (id) => {
-    setAdsList(adsList.filter(ad => ad.id !== id));
-  };
-
-  // Toggle switch component
   const Switch = ({ enabled, onToggle }) => (
-    <motion.button
+    <button
       className={`relative inline-flex h-6 w-11 items-center rounded-full ${
         enabled ? 'bg-green-500' : 'bg-amber-200'
       }`}
       onClick={onToggle}
     >
-      <motion.span
-        className="inline-block h-4 w-4 transform rounded-full bg-white transition"
-        animate={{ x: enabled ? 20 : 2 }}
+      <span
+        className={`inline-block h-4 w-4 transform rounded-full bg-white transition duration-200 ease-in-out ${
+          enabled ? 'translate-x-6' : 'translate-x-1'
+        }`}
       />
-    </motion.button>
+    </button>
+  );
+
+  const HelpModal = () => (
+    <Dialog open={showHelpModal} onOpenChange={setShowHelpModal}>
+      <DialogContent className="max-w-2xl">
+        <DialogHeader>
+          <DialogTitle>How to Create Ads</DialogTitle>
+        </DialogHeader>
+        <div className="space-y-4">
+          <div className="aspect-video bg-amber-50 rounded-lg flex items-center justify-center">
+            <div className="text-center space-y-2">
+              <PlayCircle className="w-16 h-16 text-amber-500 mx-auto" />
+              <p className="text-amber-700">Tutorial Video</p>
+            </div>
+          </div>
+          <div className="space-y-4 p-4 bg-amber-50 rounded-lg">
+            <h3 className="font-semibold text-amber-900">Quick Guide</h3>
+            <ol className="list-decimal list-inside space-y-2 text-amber-700">
+              <li>Set your desired price range (₦1,000 - ₦20,000)</li>
+              <li>Choose to use default settings or customize your own</li>
+              <li>Select amount and charge for custom settings</li>
+              <li>Review your price information in the list below</li>
+              <li>Add new entries as needed</li>
+            </ol>
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
   );
 
   return (
     <div className="flex flex-col h-screen bg-amber-50">
-      {/* Fixed Top Navigation */}
-      <div className="sticky top-0 z-10 px-4 py-3 bg-gradient-to-r from-amber-600 to-amber-500 text-white flex items-center">
-        <ArrowLeft className="h-6 w-6 mr-3" onClick={() => window.history.back()} />
-        <h1 className="text-lg font-semibold">Create Ads</h1>
+      <div className="sticky top-0 z-10 px-4 py-3 bg-gradient-to-r from-amber-600 to-amber-500 text-white flex items-center justify-between">
+        <div className="flex items-center">
+          <ArrowLeft className="h-6 w-6 mr-3" onClick={() => window.history.back()} />
+          <h1 className="text-lg font-semibold">Create Ads</h1>
+        </div>
+        <button 
+          onClick={() => setShowHelpModal(true)}
+          className="flex items-center space-x-1 bg-white/20 px-3 py-1 rounded-full"
+        >
+          <HelpCircle className="w-4 h-4" />
+          <span className="text-sm">Help</span>
+        </button>
       </div>
 
-      {/* Main Content */}
       <div className="flex-1 overflow-auto p-4 space-y-6">
-        {/* Price Range Section */}
         <div className="bg-white rounded-lg p-4 shadow-sm">
           <h2 className="text-amber-900 font-semibold mb-3">Set Price Range</h2>
           <div className="grid grid-cols-2 gap-4">
@@ -204,13 +247,8 @@ const CreateAdsPage = () => {
           </div>
         </div>
 
-        {/* Price Per Thousand Section */}
         {minPrice && maxPrice && (
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="bg-white rounded-lg p-4 shadow-sm"
-          >
+          <div className="bg-white rounded-lg p-4 shadow-sm">
             <h2 className="text-amber-900 font-semibold mb-3">Set Price Per Thousand</h2>
             <div className="space-y-4">
               <div className="flex items-center justify-between">
@@ -218,65 +256,56 @@ const CreateAdsPage = () => {
                 <Switch enabled={useDefaultSettings} onToggle={() => setUseDefaultSettings(!useDefaultSettings)} />
               </div>
 
-              <AnimatePresence>
-                {!useDefaultSettings && (
-                  <motion.div
-                    initial={{ opacity: 0, height: 0 }}
-                    animate={{ opacity: 1, height: 'auto' }}
-                    exit={{ opacity: 0, height: 0 }}
-                    className="space-y-4"
-                  >
-                    <div>
-                      <label className="block text-sm text-amber-700 mb-1">Amount</label>
-                      <select
-                        value={selectedAmount}
-                        onChange={(e) => {
-                          setSelectedAmount(e.target.value);
-                          setSelectedCharge('');
-                        }}
-                        className="w-full p-2 border border-amber-200 rounded-lg focus:outline-none focus:border-amber-500"
-                      >
-                        <option value="">Select amount</option>
-                        {amountOptions.map(option => (
-                          <option key={option.value} value={option.value}>
-                            {option.label}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                    <div>
-                      <label className="block text-sm text-amber-700 mb-1">Charge</label>
-                      <select
-                        value={selectedCharge}
-                        onChange={(e) => setSelectedCharge(e.target.value)}
-                        className="w-full p-2 border border-amber-200 rounded-lg focus:outline-none focus:border-amber-500"
-                        disabled={!selectedAmount}
-                      >
-                        <option value="">Select charge</option>
-                        {selectedAmount && chargeRanges[selectedAmount].map(option => (
-                          <option key={option.value} value={option.value}>
-                            {option.label}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                    
-                    <motion.button
-                      whileHover={{ scale: 1.02 }}
-                      whileTap={{ scale: 0.98 }}
-                      onClick={handleAddAd}
-                      className="w-full bg-gradient-to-r from-amber-500 to-amber-600 text-white py-2 rounded-lg font-medium"
+              {!useDefaultSettings && (
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-sm text-amber-700 mb-1">Amount</label>
+                    <select
+                      value={selectedAmount}
+                      onChange={(e) => {
+                        setSelectedAmount(e.target.value);
+                        setSelectedCharge('');
+                      }}
+                      className="w-full p-2 border border-amber-200 rounded-lg focus:outline-none focus:border-amber-500"
                     >
-                      Add
-                    </motion.button>
-                  </motion.div>
-                )}
-              </AnimatePresence>
+                      <option value="">Select amount</option>
+                      {getAvailableAmounts().map(option => (
+                        <option key={option.value} value={option.value}>
+                          {option.label}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm text-amber-700 mb-1">Charge</label>
+                    <select
+                      value={selectedCharge}
+                      onChange={(e) => setSelectedCharge(e.target.value)}
+                      className="w-full p-2 border border-amber-200 rounded-lg focus:outline-none focus:border-amber-500"
+                      disabled={!selectedAmount}
+                    >
+                      <option value="">Select charge</option>
+                      {selectedAmount && chargeRanges[selectedAmount].map(option => (
+                        <option key={option.value} value={option.value}>
+                          {option.label}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  
+                  <button
+                    onClick={handleAddAd}
+                    className="w-full bg-gradient-to-r from-amber-500 to-amber-600 text-white py-2 rounded-lg font-medium hover:from-amber-600 hover:to-amber-700 transition-colors"
+                    disabled={!selectedAmount || !selectedCharge}
+                  >
+                    Add
+                  </button>
+                </div>
+              )}
             </div>
-          </motion.div>
+          </div>
         )}
 
-        {/* Created Ads List */}
         {adsList.length > 0 && (
           <div className="space-y-4">
             <div className="flex items-center justify-between">
@@ -286,10 +315,8 @@ const CreateAdsPage = () => {
               </span>
             </div>
             {adsList.map(ad => (
-              <motion.div
+              <div
                 key={ad.id}
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
                 className="bg-gradient-to-r from-amber-50 to-green-50 rounded-lg p-4 shadow-sm border border-amber-100"
               >
                 <div className="flex justify-between items-start">
@@ -310,20 +337,14 @@ const CreateAdsPage = () => {
                       </p>
                     </div>
                   </div>
-                  {!ad.isDefault && (
-                    <button
-                      onClick={() => handleRemoveAd(ad.id)}
-                      className="text-amber-600 hover:text-amber-700 bg-white rounded-full p-1 shadow-sm"
-                    >
-                      <X className="h-5 w-5" />
-                    </button>
-                  )}
                 </div>
-              </motion.div>
+              </div>
             ))}
           </div>
         )}
       </div>
+      
+      <HelpModal />
     </div>
   );
 };
