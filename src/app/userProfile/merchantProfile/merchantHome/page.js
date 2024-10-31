@@ -113,6 +113,10 @@ const MerchantApp = () => {
     router.push(`/${tab}`);
   };
 
+  const handleNavigation = (tab) => {
+    router.push(`/${tab}`);
+  };
+
   useEffect(() => {
     startInterval();
     return () => stopInterval();
@@ -139,7 +143,7 @@ const MerchantApp = () => {
             <div className="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center text-white">
               <img
                 onClick={() => handleTabChange('userProfile')}
-                src="/merchantProfile/merchantHome/avatar.jpg"
+                src="../../avatar.jpg"
                 alt="avatar"
                 className="w-full h-full object-cover rounded-full"
               />
@@ -173,6 +177,7 @@ const MerchantApp = () => {
                   <button 
                     onClick={() => {
                       setUserType('Client');
+                      handleNavigation('home')
                       setIsDropdownOpen(false);
                     }}
                     className="block px-4 py-2 text-sm text-gray-700 hover:bg-amber-50 w-full text-left"
@@ -284,7 +289,7 @@ const MerchantApp = () => {
               whileHover={{ scale: 1.02 }}
               whileTap={{ scale: 0.98 }}
               className="w-full bg-gradient-to-r from-amber-500 to-amber-600 text-white rounded-xl py-3 px-6 shadow-lg flex items-center justify-center space-x-2 relative overflow-hidden group"
-              onClick={() => handleTabChange('create-ad')}
+              onClick={() => handleTabChange('userProfile/merchantProfile/merchantHome/createAds')}
             >
               <motion.div
                 className="absolute inset-0 bg-gradient-to-r from-amber-400 to-amber-500 opacity-0 group-hover:opacity-100 transition-opacity duration-300"

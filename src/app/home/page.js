@@ -1,18 +1,20 @@
 'use client';
 
-
-import React, { useEffect, useState , useRef} from 'react';
-import { Bell, ChevronDown, Home, History, Users, ChevronLeft, ChevronRight, ShoppingBag, Package2 } from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
+import React, { useEffect, useState, useRef } from 'react';
+import { Bell, ChevronDown, Home, History, Users, ShoppingBag, Package2 } from 'lucide-react';
+import { motion, AnimatePresence, useMotionValue, useTransform, useAnimation } from 'framer-motion';
 import { useRouter } from 'next/navigation'
 
 const MobileApp = () => {
-  const [userType, setUserType] = useState('Merchant');
+  const [userType, setUserType] = useState('Client');
   const [activeTab, setActiveTab] = useState('home');
   const [currentSlide, setCurrentSlide] = useState(0);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const router = useRouter();
   const intervalRef = useRef(null);
+  const dragConstraintsRef = useRef(null);
+  const controls = useAnimation();
+  const x = useMotionValue(0);
 
   // Enhanced carousel data
   const carouselItems = [
@@ -39,16 +41,13 @@ const MobileApp = () => {
     }
   ];
 
-
   const startInterval = () => {
-    // If an interval already exists, prevent creating another one
     if (!intervalRef.current) {
       intervalRef.current = setInterval(() => {
         nextSlide();
-      }, 6000); // Adjust the interval time as needed
+      }, 6000);
     }
   };
-
 
   const stopInterval = () => {
     if (intervalRef.current) {
@@ -56,46 +55,31 @@ const MobileApp = () => {
       intervalRef.current = null;
     }
   };
-  
-/*
-  const recentTransactions = [
-    {
-      id: 1,
-      title: "Payment to John",
-      amount: "$50.00",
-      date: "Today",
-      initials: "JD",
-      type: "outgoing"
-    },
-    {
-      id: 2,
-      title: "Received from Sarah",
-      amount: "$120.00",
-      date: "Yesterday",
-      initials: "SW",
-      type: "incoming"
-    },
-    {
-      id: 3,
-      title: "Payment to Store",
-      amount: "$35.00",
-      date: "2 days ago",
-      initials: "ST",
-      type: "outgoing"
-    }
-  ];*/
-  
-  
 
-  // Enhanced transactions with avatar data - set to empty array to test empty state
   const recentTransactions = [];
 
   const nextSlide = () => {
-    setCurrentSlide((prev) => (prev + 1) % carouselItems.length);
+    const newSlide = (currentSlide + 1) % carouselItems.length;
+    setCurrentSlide(newSlide);
   };
 
   const prevSlide = () => {
-    setCurrentSlide((prev) => (prev - 1 + carouselItems.length) % carouselItems.length);
+    const newSlide = (currentSlide - 1 + carouselItems.length) % carouselItems.length;
+    setCurrentSlide(newSlide);
+  };
+
+  const handleDragEnd = (event, info) => {
+    const { offset, velocity } = info;
+
+    // Determine swipe direction based on drag offset and velocity
+    if (offset.x < -100 || (velocity.x < -500 && offset.x < 0)) {
+      nextSlide();
+    } else if (offset.x > 100 || (velocity.x > 500 && offset.x > 0)) {
+      prevSlide();
+    }
+
+    // Reset position
+    controls.start({ x: 0, transition: { duration: 0.3 } });
   };
 
   const handleTabChange = (tab) => {
@@ -128,14 +112,10 @@ const MobileApp = () => {
     </motion.div>
   );
 
-
   useEffect(() => {
     startInterval();
-    // Clean up the interval when the component unmounts
     return () => stopInterval();
   }, []);
-
-
 
   return (
     <div className="flex flex-col h-screen bg-amber-50">
@@ -172,6 +152,7 @@ const MobileApp = () => {
                     onClick={() => {
                       setUserType('Merchant');
                       setIsDropdownOpen(false);
+                      handleTabChange("userProfile/merchantProfile/merchantHome")
                     }}
                     className="block px-4 py-2 text-sm text-gray-700 hover:bg-amber-50 w-full text-left"
                   >
@@ -195,58 +176,53 @@ const MobileApp = () => {
 
       {/* Main Content */}
       <div className="flex-1 overflow-auto">
-        {/* Enhanced Carousel */}
-        <div className="relative p-4">
+        {/* Enhanced Carousel with Swipe */}
+        <div className="relative p-4" ref={dragConstraintsRef}>
           <div className="relative overflow-hidden rounded-lg">
-            <AnimatePresence initial={false} mode="wait">
-              <motion.div
-                onMouseEnter={stopInterval}
-                onMouseLeave={startInterval}
-                key={currentSlide}
-                initial={{ opacity: 0, x: 100 }}
-                animate={{ opacity: 1, x: 0 }}
-                exit={{ opacity: 0, x: -100 }}
-                transition={{ duration: 0.3 }}
-                className={`bg-gradient-to-r
-                  ${carouselItems[currentSlide].color}
-                   rounded-lg p-6 
-                   shadow-lg
-                   relative `}
-                style={{
-                  padding:"9px" ,
-                  height:"160px"
-                }}
-              >
-                <div 
-                 className="absolute inset-0 bg-center bg-no-repeat bg-contain"
-                 style={{
-                   backgroundImage: `url(${carouselItems[currentSlide].image})`,
-                   opacity: 0.3,
-                   height:"160px"
-                 }}
-                
-                />
-                <h4 className="text-lg font-semibold text-white">
-                  {carouselItems[currentSlide].title}
-                </h4>
-                <p className="text-white/90" style={{fontSize:"12px"}}>
-                  {carouselItems[currentSlide].description}
-                </p>
-              </motion.div>
-            </AnimatePresence>
-            
-            <button 
-              onClick={prevSlide}
-              className="absolute left-2 top-1/2 -translate-y-1/2 bg-white/30 p-2 rounded-full backdrop-blur-sm"
+            <motion.div 
+              drag="x"
+              dragConstraints={{ left: 0, right: 0 }}
+              dragElastic={0.5}
+              onDragEnd={handleDragEnd}
+              animate={controls}
+              style={{ x }}
+              className="touch-none"
             >
-              <ChevronLeft className="h-6 w-6 text-white" />
-            </button>
-            <button 
-              onClick={nextSlide}
-              className="absolute right-2 top-1/2 -translate-y-1/2 bg-white/30 p-2 rounded-full backdrop-blur-sm"
-            >
-              <ChevronRight className="h-6 w-6 text-white" />
-            </button>
+              <AnimatePresence initial={false} mode="wait">
+                <motion.div
+                  key={currentSlide}
+                  initial={{ opacity: 0, x: 100 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: -100 }}
+                  transition={{ duration: 0.3 }}
+                  className={`bg-gradient-to-r
+                    ${carouselItems[currentSlide].color}
+                     rounded-lg p-6 
+                     shadow-lg
+                     relative `}
+                  style={{
+                    padding:"9px" ,
+                    height:"160px"
+                  }}
+                >
+                  <div 
+                   className="absolute inset-0 bg-center bg-no-repeat bg-contain"
+                   style={{
+                     backgroundImage: `url(${carouselItems[currentSlide].image})`,
+                     opacity: 0.3,
+                     height:"160px"
+                   }}
+                  
+                  />
+                  <h4 className="text-lg font-semibold text-white">
+                    {carouselItems[currentSlide].title}
+                  </h4>
+                  <p className="text-white/90" style={{fontSize:"12px"}}>
+                    {carouselItems[currentSlide].description}
+                  </p>
+                </motion.div>
+              </AnimatePresence>
+            </motion.div>
 
             <div style={{bottom:"5px"}} className="absolute bottom-4 left-1/2 -translate-x-1/2 flex space-x-2">
               {carouselItems.map((_, index) => (
@@ -262,6 +238,7 @@ const MobileApp = () => {
           </div>
         </div>
 
+        {/* Rest of the code remains the same as in the original file */}
         {/* Transactions */}
         <div className="p-4">
           <h2 className="text-lg font-semibold mb-3 text-amber-900">Recent Transactions</h2>
@@ -337,7 +314,6 @@ const MobileApp = () => {
             <span className="text-xs mt-1">Home</span>
           </motion.button>
 
-
           <motion.button
             whileTap={{ scale: 0.95 }}
             onClick={() => handleTabChange('history')}
@@ -359,7 +335,6 @@ const MobileApp = () => {
             <History className="h-6 w-6" />
             <span className="text-xs mt-1">History</span>
           </motion.button>
-
 
           <motion.button
             whileTap={{ scale: 0.95 }}
