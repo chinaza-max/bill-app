@@ -61,11 +61,11 @@ const CreateAdsPage = () => {
   const getDefaultSampleData = () => {
     return [
       { amount: '1000', charge: '100' },
-      { amount: '5000', charge: '200' },
+      { amount: '5000', charge: '200' },  
       { amount: '10000', charge: '300' },
       { amount: '15000', charge: '350' }
     ];
-  };
+  };      
 
   // Get available amounts based on min and max price
   const getAvailableAmounts = () => {
