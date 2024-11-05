@@ -132,7 +132,7 @@ const SettingsPage = () => {
                 Set the maximum distance you are willing to travel for cash delivery. 
                 This helps customers find merchants nearby.
               </p>
-            </motion.div>
+            </motion.div>  
           )}
         </AnimatePresence>
       </div>
