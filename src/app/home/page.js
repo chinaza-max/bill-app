@@ -22,21 +22,21 @@ const MobileApp = () => {
       id: 1,
       title: "Special Offer",
       description: "50% off on first transaction",
-      image: "credit-card.png",
+      image: "test3.png",
       color: "from-amber-400 to-amber-600"
     },
     {
       id: 2,
       title: "New Feature",
       description: "Instant P2P transfers",
-      image: "credit-card.png",
+      image: "test.png",
       color: "from-amber-500 to-amber-700"
     },
     {
       id: 3,
       title: "Weekend Promotion",
       description: "Earn 2x points this weekend",
-      image: "credit-card.png",
+      image: "test2.png",
       color: "from-amber-300 to-amber-500"
     }
   ];
