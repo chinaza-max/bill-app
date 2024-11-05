@@ -3,7 +3,7 @@
 
 
 import React, { useState, useRef, useEffect } from 'react';
-import { Bell, ChevronDown, Home, History, ShoppingBag, Eye, EyeOff, Package2, AlertCircle, CheckCircle, XCircle, Clock, Users } from 'lucide-react';
+import { Bell, ChevronDown, Home, Settings, ShoppingBag, Eye, EyeOff, Package2, AlertCircle, CheckCircle, XCircle, Clock, Users } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useRouter } from 'next/navigation';
 
@@ -328,13 +328,13 @@ const MerchantApp = () => {
 
           <motion.button
             whileTap={{ scale: 0.95 }}
-            onClick={() => handleTabChange('history')}
+            onClick={() => handleTabChange('userProfile/merchantProfile/merchantHome/settings')}
             className={`flex flex-col items-center p-2 ${
               activeTab === 'history' ? 'text-amber-600' : 'text-amber-400'
             }`}
           >
-            <History className="h-6 w-6" />
-            <span className="text-xs mt-1">History</span>
+            <Settings className="h-6 w-6" />
+            <span className="text-xs mt-1">Settings</span>
           </motion.button>
 
           <motion.button

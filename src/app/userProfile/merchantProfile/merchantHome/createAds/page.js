@@ -1,6 +1,5 @@
 'use client';
 
-'use client';
 
 import React, { useState, useEffect } from 'react';
 import { ArrowLeft, Check, PlayCircle, HelpCircle } from 'lucide-react';
