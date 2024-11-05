@@ -129,7 +129,7 @@ const SettingsPage = () => {
                 <span className="text-amber-600">km</span>
               </div>
               <p className="text-sm text-amber-600">
-                Set the maximum distance you're willing to travel for cash delivery. 
+                Set the maximum distance you are willing to travel for cash delivery. 
                 This helps customers find merchants nearby.
               </p>
             </motion.div>
