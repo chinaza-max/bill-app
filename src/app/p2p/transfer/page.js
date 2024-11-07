@@ -1,28 +1,29 @@
 'use client';
 
 import React, { useState, useRef, useEffect } from 'react';
-import { ArrowLeft, Check, ChevronRight, Building2, Wallet } from 'lucide-react';
+import { ArrowLeft, Check, ChevronRight, Building2, Wallet, Eye } from 'lucide-react';
 import { motion, AnimatePresence, useAnimation } from 'framer-motion';
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { useRouter } from 'next/navigation'
-
+import { useRouter } from 'next/navigation';
 
 const TransferPage = () => {
   const [amount, setAmount] = useState('');
   const [transferType, setTransferType] = useState('');
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
-  const [sliderPosition, setSliderPosition] = useState('start'); // 'start' or 'end'
+  const [sliderPosition, setSliderPosition] = useState('start');
   const contentRef = useRef(null);
   const sliderControls = useAnimation();
-  const SLIDER_THRESHOLD = 0.5; // 50% threshold for snap
-  const SLIDER_WIDTH = 300; // Total sliding width
+  const SLIDER_THRESHOLD = 0.5;
+  const SLIDER_WIDTH = 300;
   const router = useRouter();
 
   const range = {
     min: 1000,
     max: 5000
   };
+
+  const merchant = 'Acme Inc.';
 
   const calculateCharge = (value) => {
     const numValue = parseFloat(value) || 0;
@@ -34,7 +35,6 @@ const TransferPage = () => {
     return numValue >= range.min && numValue <= range.max;
   };
 
-
   const handleTabChange = (tab) => {
     router.push(`/${tab}`);
   };
@@ -42,6 +42,11 @@ const TransferPage = () => {
   const handleAmountChange = (e) => {
     const value = e.target.value.replace(/[^0-9]/g, '');
     setAmount(value);
+  };
+
+  const handleViewOrder = () => {
+    // Add your view order logic here
+    router.push('/order-details');
   };
 
   useEffect(() => {
@@ -52,7 +57,6 @@ const TransferPage = () => {
 
   const handleSliderDrag = (_, info) => {
     setIsDragging(true);
-    // Update position in real-time during drag
     sliderControls.set({ x: info.offset.x });
   };
 
@@ -61,7 +65,6 @@ const TransferPage = () => {
     const progress = info.offset.x / SLIDER_WIDTH;
     
     if (progress >= SLIDER_THRESHOLD) {
-      // Snap to end
       sliderControls.start({
         x: SLIDER_WIDTH,
         transition: { duration: 0.2, ease: "easeOut" }
@@ -69,7 +72,6 @@ const TransferPage = () => {
       setSliderPosition('end');
       setShowSuccessModal(true);
     } else {
-      // Snap to start
       sliderControls.start({
         x: 0,
         transition: { duration: 0.2, ease: "easeOut" }
@@ -78,7 +80,6 @@ const TransferPage = () => {
     }
   };
 
-  // Reset slider position when changing transfer type
   useEffect(() => {
     sliderControls.start({ x: 0 });
     setSliderPosition('start');
@@ -89,12 +90,12 @@ const TransferPage = () => {
       {/* Fixed Header */}
       <div className="fixed top-0 left-0 right-0 bg-gradient-to-r from-amber-600 to-amber-500 text-white px-4 py-3 z-10">
         <div className="flex items-center space-x-3">
-          <ArrowLeft onClick={() => handleTabChange('p2p')}  className="h-6 w-6 cursor-pointer" />
+          <ArrowLeft onClick={() => handleTabChange('p2p')} className="h-6 w-6 cursor-pointer" />
           <h1 className="text-lg font-semibold">Transfer</h1>
         </div>
       </div>
 
-      {/* Main Content - Added padding top to account for fixed header */}
+      {/* Main Content */}
       <div className="flex-1 px-4 py-6 pb-24 space-y-6 overflow-y-auto mt-14">
         {/* Range Display */}
         <div className="bg-white rounded-lg p-4 shadow-sm">
@@ -102,6 +103,7 @@ const TransferPage = () => {
           <div className="text-xl font-bold text-amber-900">
             ₦{range.min.toLocaleString()} - ₦{range.max.toLocaleString()}
           </div>
+          <div className="text-sm text-amber-600 mt-2">Merchant: {merchant}</div>
         </div>
 
         {/* Amount Input */}
@@ -212,29 +214,45 @@ const TransferPage = () => {
         </div>
       </div>
 
-      {/* Enhanced Slider */}
+      {/* Enhanced Slider with Transaction Status */}
       {transferType && (
         <div className="fixed bottom-0 left-0 right-0 bg-white p-4 shadow-lg">
-          <div className="h-14 bg-amber-100 rounded-full relative">
-            <motion.div
-              className="absolute left-0 top-0 h-full aspect-square rounded-full bg-amber-500 flex items-center justify-center touch-none cursor-grab active:cursor-grabbing"
-              drag="x"
-              dragConstraints={{ left: 0, right: SLIDER_WIDTH }}
-              dragElastic={0.1}
-              dragMomentum={false}
-              animate={sliderControls}
-              onDrag={handleSliderDrag}
-              onDragEnd={handleDragEnd}
-              whileTap={{ scale: 1.1 }}
-            >
-              <ChevronRight className="h-6 w-6 text-white" />
-            </motion.div>
-            <div className="absolute inset-0 flex items-center justify-center text-amber-600 font-medium pointer-events-none">
-              {sliderPosition === 'start' ? 
-                `Slide to ${transferType === 'direct' ? 'confirm paid' : 'transfer'}` : 
-                'Transaction complete'}
+          {sliderPosition === 'end' ? (
+            <div className="space-y-3">
+              <div className="flex items-center justify-between bg-green-50 p-4 rounded-lg">
+                <div className="flex items-center space-x-2">
+                  <Check className="h-5 w-5 text-green-500" />
+                  <span className="text-green-700 font-medium">Transaction complete</span>
+                </div>
+                <button
+                  onClick={handleViewOrder}
+                  className="flex items-center space-x-2 bg-amber-500 text-white px-4 py-2 rounded-lg hover:bg-amber-600 transition-colors"
+                >
+                  <Eye className="h-4 w-4" />
+                  <span>View Order</span>
+                </button>
+              </div>
             </div>
-          </div>
+          ) : (
+            <div className="h-14 bg-amber-100 rounded-full relative">
+              <motion.div
+                className="absolute left-0 top-0 h-full aspect-square rounded-full bg-amber-500 flex items-center justify-center touch-none cursor-grab active:cursor-grabbing"
+                drag="x"
+                dragConstraints={{ left: 0, right: SLIDER_WIDTH }}
+                dragElastic={0.1}
+                dragMomentum={false}
+                animate={sliderControls}
+                onDrag={handleSliderDrag}
+                onDragEnd={handleDragEnd}
+                whileTap={{ scale: 1.1 }}
+              >
+                <ChevronRight className="h-6 w-6 text-white" />
+              </motion.div>
+              <div className="absolute inset-0 flex items-center justify-center text-amber-600 font-medium pointer-events-none">
+                Slide to {transferType === 'direct' ? 'confirm paid' : 'transfer'}
+              </div>
+            </div>
+          )}
         </div>
       )}
 

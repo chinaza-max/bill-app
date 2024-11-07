@@ -2,19 +2,125 @@
 
 import React, { useEffect, useState, useRef } from 'react';
 import { Bell, ChevronDown, Home, History, Users, ShoppingBag, Package2 } from 'lucide-react';
-import { motion, AnimatePresence, useMotionValue, useTransform, useAnimation } from 'framer-motion';
-import { useRouter } from 'next/navigation'
+import { motion, AnimatePresence, useMotionValue, useAnimation } from 'framer-motion';
+import { useRouter } from 'next/navigation';
+
+const EnhancedCarousel = ({ items }) => {
+  const [currentSlide, setCurrentSlide] = useState(0);
+  const intervalRef = useRef(null);
+  const controls = useAnimation();
+
+  const startInterval = () => {
+
+    if (!intervalRef.current) {
+      intervalRef.current = setInterval(() => {
+        nextSlide();
+      }, 3000);
+    }
+  };
+
+  const stopInterval = () => {
+    if (intervalRef.current) {
+      clearInterval(intervalRef.current);
+      intervalRef.current = null;
+    }
+  };
+
+  const nextSlide = () => {
+
+    //setCurrentSlide((currentSlide + 1) % items.length);
+    setCurrentSlide((prevSlide) => {
+      const newSlide = (prevSlide + 1) % items.length;
+      //console.log(`Previous Slide: ${prevSlide}, New Slide: ${newSlide}`);
+      return newSlide;
+    });
+  };
+
+  const handleDragEnd = (event, info) => {
+    const { offset, velocity } = info;
+
+    // Determine swipe direction based on drag offset and velocity
+    if (offset.x < -100 || (velocity.x < -500 && offset.x < 0)) {
+      nextSlide();
+    } else if (offset.x > 100 || (velocity.x > 500 && offset.x > 0)) {
+      setCurrentSlide((currentSlide - 1 + items.length) % items.length);
+    }
+
+    // Reset position
+    controls.start({ x: 0, transition: { duration: 0.3 } });
+  };
+
+  useEffect(() => {
+    startInterval();
+   return () => stopInterval();
+  }, []);
+
+  return (
+    <div className="relative overflow-hidden rounded-lg">
+      <motion.div
+        drag="x"
+        dragConstraints={{ left: 0, right: 0 }}
+        dragElastic={0.5}
+        onDragEnd={handleDragEnd}
+        animate={controls}
+        style={{ x: useMotionValue(0) }}
+        className="touch-none"
+      >
+        <AnimatePresence initial={false} mode="wait">
+          <motion.div
+            key={currentSlide}
+            initial={{ opacity: 0, x: 100 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: -100 }}
+            transition={{ duration: 0.3 }}
+            className="bg-gradient-to-r from-amber-400 to-amber-600 rounded-lg p-6 shadow-lg relative"
+            style={{
+              padding: "9px",
+              height: "160px",
+            }}
+          >
+            <div
+              className="absolute inset-0 bg-center bg-no-repeat bg-contain"
+              style={{
+                backgroundImage: `url(${items[currentSlide].image})`,
+                opacity: 0.3,
+                height: "160px",
+              }}
+            />
+            <h4 className="text-lg font-semibold text-white">
+              {items[currentSlide].title}
+            </h4>
+            <p className="text-white/90" style={{ fontSize: "12px" }}>
+              {items[currentSlide].description}
+            </p>
+          </motion.div>
+        </AnimatePresence>
+
+        <div
+          style={{ bottom: "5px" }}
+          className="absolute bottom-4 left-1/2 -translate-x-1/2 flex space-x-2"
+        >
+          {items.map((_, index) => (
+            <button
+              key={index}
+              onClick={() => setCurrentSlide(index)}
+              className={`w-2 h-2 rounded-full transition-all ${
+                index === currentSlide ? "bg-white w-4" : "bg-white/50"
+              }`}
+            />
+          ))}
+        </div>
+      </motion.div>
+    </div>
+  );
+};
 
 const MobileApp = () => {
   const [userType, setUserType] = useState('Client');
   const [activeTab, setActiveTab] = useState('home');
-  const [currentSlide, setCurrentSlide] = useState(0);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const router = useRouter();
-  const intervalRef = useRef(null);
-  const dragConstraintsRef = useRef(null);
-  const controls = useAnimation();
-  const x = useMotionValue(0);
+  const recentTransactions = [];
 
   // Enhanced carousel data
   const carouselItems = [
@@ -38,54 +144,15 @@ const MobileApp = () => {
       description: "Earn 2x points this weekend",
       image: "test2.png",
       color: "from-amber-300 to-amber-500"
+    },
+    {
+      id: 4,
+      title: "Weekend Promotion",
+      description: "Earn 2x points this weekend",
+      image: "test2.png",
+      color: "from-amber-300 to-amber-500"
     }
   ];
-
-  const startInterval = () => {
-    if (!intervalRef.current) {
-      intervalRef.current = setInterval(() => {
-        nextSlide();
-      }, 6000);
-    }
-  };
-
-  const stopInterval = () => {
-    if (intervalRef.current) {
-      clearInterval(intervalRef.current);
-      intervalRef.current = null;
-    }
-  };
-
-  const recentTransactions = [];
-
-  const nextSlide = () => {
-    const newSlide = (currentSlide + 1) % carouselItems.length;
-    setCurrentSlide(newSlide);
-  };
-
-  const prevSlide = () => {
-    const newSlide = (currentSlide - 1 + carouselItems.length) % carouselItems.length;
-    setCurrentSlide(newSlide);
-  };
-
-  const handleDragEnd = (event, info) => {
-    const { offset, velocity } = info;
-
-    // Determine swipe direction based on drag offset and velocity
-    if (offset.x < -100 || (velocity.x < -500 && offset.x < 0)) {
-      nextSlide();
-    } else if (offset.x > 100 || (velocity.x > 500 && offset.x > 0)) {
-      prevSlide();
-    }
-
-    // Reset position
-    controls.start({ x: 0, transition: { duration: 0.3 } });
-  };
-
-  const handleTabChange = (tab) => {
-    setActiveTab(tab);
-    router.push(`/${tab}`);
-  };
 
   const EmptyTransactionState = () => (
     <motion.div
@@ -112,10 +179,10 @@ const MobileApp = () => {
     </motion.div>
   );
 
-  useEffect(() => {
-    startInterval();
-    return () => stopInterval();
-  }, []);
+  const handleTabChange = (tab) => {
+    setActiveTab(tab);
+    router.push(`/${tab}`);
+  };
 
   return (
     <div className="flex flex-col h-screen bg-amber-50">
@@ -124,12 +191,12 @@ const MobileApp = () => {
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-3">
             <div className="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center text-white">
-            <img
-              onClick={() => {handleTabChange('userProfile') }}
-              src={'avatar.jpg'}
-              alt={"avatar"}
-              className="w-full h-full object-cover rounded-full"
-            />
+              <img
+                onClick={() => {handleTabChange('userProfile')}}
+                src={'avatar.jpg'}
+                alt={"avatar"}
+                className="w-full h-full object-cover rounded-full"
+              />
             </div>
             <div>
               <p className="text-sm">Good Morning,</p>
@@ -139,7 +206,7 @@ const MobileApp = () => {
           <div className="flex items-center space-x-4">
             <Bell className="h-6 w-6" />
             <div className="relative">
-              <button 
+              <button
                 onClick={() => setIsDropdownOpen(!isDropdownOpen)}
                 className="flex items-center space-x-1 text-white hover:bg-amber-600 px-2 py-1 rounded"
               >
@@ -148,7 +215,7 @@ const MobileApp = () => {
               </button>
               {isDropdownOpen && (
                 <div className="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg py-1 z-10">
-                  <button 
+                  <button
                     onClick={() => {
                       setUserType('Merchant');
                       setIsDropdownOpen(false);
@@ -158,7 +225,7 @@ const MobileApp = () => {
                   >
                     Merchant
                   </button>
-                  <button 
+                  <button
                     onClick={() => {
                       setUserType('Client');
                       setIsDropdownOpen(false);
@@ -176,69 +243,11 @@ const MobileApp = () => {
 
       {/* Main Content */}
       <div className="flex-1 overflow-auto">
-        {/* Enhanced Carousel with Swipe */}
-        <div className="relative p-4" ref={dragConstraintsRef}>
-          <div className="relative overflow-hidden rounded-lg">
-            <motion.div 
-              drag="x"
-              dragConstraints={{ left: 0, right: 0 }}
-              dragElastic={0.5}
-              onDragEnd={handleDragEnd}
-              animate={controls}
-              style={{ x }}
-              className="touch-none"
-            >
-              <AnimatePresence initial={false} mode="wait">
-                <motion.div
-                  key={currentSlide}
-                  initial={{ opacity: 0, x: 100 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  exit={{ opacity: 0, x: -100 }}
-                  transition={{ duration: 0.3 }}
-                  className={`bg-gradient-to-r
-                    ${carouselItems[currentSlide].color}
-                     rounded-lg p-6 
-                     shadow-lg
-                     relative `}
-                  style={{
-                    padding:"9px" ,
-                    height:"160px"
-                  }}
-                >
-                  <div 
-                   className="absolute inset-0 bg-center bg-no-repeat bg-contain"
-                   style={{
-                     backgroundImage: `url(${carouselItems[currentSlide].image})`,
-                     opacity: 0.3,
-                     height:"160px"
-                   }}
-                  
-                  />
-                  <h4 className="text-lg font-semibold text-white">
-                    {carouselItems[currentSlide].title}
-                  </h4>
-                  <p className="text-white/90" style={{fontSize:"12px"}}>
-                    {carouselItems[currentSlide].description}
-                  </p>
-                </motion.div>
-              </AnimatePresence>
-            </motion.div>
-
-            <div style={{bottom:"5px"}} className="absolute bottom-4 left-1/2 -translate-x-1/2 flex space-x-2">
-              {carouselItems.map((_, index) => (
-                <button
-                  key={index}
-                  onClick={() => setCurrentSlide(index)}
-                  className={`w-2 h-2 rounded-full transition-all ${
-                    index === currentSlide ? 'bg-white w-4' : 'bg-white/50'
-                  }`}
-                />
-              ))}
-            </div>
-          </div>
+        {/* Enhanced Carousel */}
+        <div className="relative p-4">
+          <EnhancedCarousel items={carouselItems} />
         </div>
 
-        {/* Rest of the code remains the same as in the original file */}
         {/* Transactions */}
         <div className="p-4">
           <h2 className="text-lg font-semibold mb-3 text-amber-900">Recent Transactions</h2>
@@ -278,7 +287,7 @@ const MobileApp = () => {
           )}
 
           {/* Order Button */}
-          <motion.div 
+          <motion.div
             className="mt-6"
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
@@ -288,15 +297,15 @@ const MobileApp = () => {
               whileHover={{ scale: 1.02 }}
               whileTap={{ scale: 0.98 }}
               className="w-full bg-gradient-to-r from-amber-500 to-amber-600 text-white rounded-xl py-2 px-6 shadow-lg flex items-center justify-center space-x-2 relative overflow-hidden group"
-              onClick={() => {handleTabChange('p2p') }}
+              onClick={() => {handleTabChange('p2p')}}
             >
               <motion.div
                 className="absolute inset-0 bg-gradient-to-r from-amber-400 to-amber-500 opacity-0 group-hover:opacity-100 transition-opacity duration-300"
               />
               <ShoppingBag className="h-6 w-6" />
-              <span  className="text-lg font-semibold relative z-10">Place New Order</span>
+              <span className="text-lg font-semibold relative z-10">Place New Order</span>
             </motion.button>
-          </motion.div> 
+          </motion.div>
         </div>
       </div>
 
@@ -316,12 +325,12 @@ const MobileApp = () => {
 
           <motion.button
             whileTap={{ scale: 0.95 }}
-            onClick={() => handleTabChange('history')}
+            onClick={() => handleTabChange('order')}
             className={`flex flex-col items-center p-2 ${
-              activeTab === 'history' ? 'text-amber-600' : 'text-amber-400'
+              activeTab === 'order' ? 'text-amber-600' : 'text-amber-400'
             }`}
           >
-            <ShoppingBag  className="h-6 w-6" />
+            <ShoppingBag className="h-6 w-6" />
             <span className="text-xs mt-1">Orders</span>
           </motion.button>
 
@@ -338,7 +347,7 @@ const MobileApp = () => {
 
           <motion.button
             whileTap={{ scale: 0.95 }}
-            onClick={() => {handleTabChange('p2p') }}
+            onClick={() => {handleTabChange('p2p')}}
             className={`flex flex-col items-center p-2 ${
               activeTab === 'p2p' ? 'text-amber-600' : 'text-amber-400'
             }`}
