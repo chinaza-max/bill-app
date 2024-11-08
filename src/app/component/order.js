@@ -10,6 +10,7 @@ import {
   Map,
   Circle,
   AlertTriangle,
+  Receipt,
   X,
   User
 } from 'lucide-react';
@@ -27,7 +28,6 @@ const LeafletMap = ({ order }) => {
 
 
     if (typeof window !== 'undefined') {  // Check if window is defined
-      console.log(" ddddd ddddd ddddd")
     
       const mapContainer = document.getElementById('map');
       if (mapContainer) {
@@ -143,8 +143,9 @@ const OrderTrackingPage = () => {
       }
     },
     amount: {
-      range: "₦5,000 - ₦10,000",
-      minimum: "₦5,000"
+      orderTotal: "8,500",
+      deliveryFee: "1,200",
+      total: "9,700"
     }
   };
 
@@ -202,14 +203,31 @@ const OrderTrackingPage = () => {
           {/* Order Details */}
           <div className="space-y-4 mb-4">
             <div className="flex justify-between items-center p-3 bg-amber-50 rounded-lg">
-              <div>
-                <div className="text-sm text-amber-600">Amount Range</div>
-                <div className="font-medium text-amber-900">{order.amount.range}</div>
+
+            <div className="bg-amber-50 rounded-lg p-4 mb-4 w-full">
+              <div className="flex items-center space-x-2 mb-3">
+                <Receipt className="h-5 w-5 text-amber-600" />
+                <h3 className="font-semibold text-amber-900">Order Summary</h3>
               </div>
-              <div>
-                <div className="text-sm text-amber-600">Minimum</div>
-                <div className="font-medium text-amber-900">{order.amount.minimum}</div>
+              <div className="space-y-2">
+                <div className="flex justify-between text-sm">
+                  <span className="text-amber-700">Order Amount</span>
+                  <span className="font-medium text-amber-900">₦{order.amount.orderTotal}</span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-amber-700">Delivery Fee</span>
+                  <span className="font-medium text-amber-900">₦{order.amount.deliveryFee}</span>
+                </div>
+               
+                <div className="border-t border-amber-200 pt-2 mt-2">
+                  <div className="flex justify-between">
+                    <span className="font-semibold text-amber-900">Total</span>
+                    <span className="font-semibold text-amber-900">₦{order.amount.total}</span>
+                  </div>
+                </div>
               </div>
+            </div>
+
             </div>
 
             <div className="flex justify-between items-center p-3 bg-amber-50 rounded-lg">
