@@ -1,9 +1,7 @@
 'use client';
 
-
-
-import React, { useState } from 'react';
-import { 
+import React, { useState, useEffect } from 'react';
+import {
   ArrowLeft,
   Phone,
   MessageCircle,
@@ -11,15 +9,118 @@ import {
   Map,
   Circle,
   AlertTriangle,
-  X
+  X,
+  User
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import L from 'leaflet';
+import 'leaflet/dist/leaflet.css';
+
+const LeafletMap = ({ order }) => {
+  const [map, setMap] = useState(null);
+  const [merchantMarker, setMerchantMarker] = useState(null);
+  const [customerMarker, setCustomerMarker] = useState(null);
+  const [route, setRoute] = useState(null);
+
+  useEffect(() => {
+
+
+    if (typeof window !== 'undefined') {  // Check if window is defined
+      console.log(" ddddd ddddd ddddd")
+    
+      const mapContainer = document.getElementById('map');
+      if (mapContainer) {
+        const newMap = L.map(mapContainer).setView([order.merchant.location.latitude, order.merchant.location.longitude], 13);
+
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+          attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+        }).addTo(newMap);
+
+        setMerchantMarker(L.marker([order.merchant.location.latitude, order.merchant.location.longitude], {
+          icon: L.divIcon({
+            className: 'relative',
+            html: `
+              <div class="bg-amber-500 text-white px-2 py-1 rounded-full font-medium text-sm">
+                Delivery Point
+              </div>
+              <div class="bg-white rounded-full w-8 h-8 flex items-center justify-center">
+                <User className="h-5 w-5 text-amber-500" />
+              </div>
+            `
+          })
+        }).addTo(newMap));
+
+        setCustomerMarker(L.marker([order.customer.location.latitude, order.customer.location.longitude], {
+          icon: L.divIcon({
+            className: 'relative',
+            html: `
+              <div class="bg-amber-500 text-white px-2 py-1 rounded-full font-medium text-sm">
+                Order Amount: ${order.amount.range}
+              </div>
+              <div class="bg-white rounded-full w-8 h-8 flex items-center justify-center">
+                <User className="h-5 w-5 text-amber-500" />
+              </div>
+            `
+          })
+        }).addTo(newMap));
+
+        const routeLine = L.polyline([
+          [order.customer.location.latitude, order.customer.location.longitude],
+          [order.merchant.location.latitude, order.merchant.location.longitude]
+        ], {
+          color: 'amber',
+          weight: 4
+        });
+        routeLine.addTo(newMap);
+        setRoute(routeLine);
+
+        newMap.fitBounds(routeLine.getBounds());
+
+        setMap(newMap);
+
+        const interval = setInterval(() => {
+          updateMerchantLocation(newMap, merchantMarker, routeLine);
+        }, 5000);
+
+        return () => {
+          clearInterval(interval);
+          newMap.remove();
+          setMap(null);
+          setMerchantMarker(null);
+          setCustomerMarker(null);
+          setRoute(null);
+        };
+      }
+    }
+  }, [order.merchant.location.latitude, order.merchant.location.longitude, order.customer.location.latitude, order.customer.location.longitude]);
+
+  const updateMerchantLocation = (map, merchantMarker, route) => {
+    const newLatitude = order.merchant.location.latitude + Math.random() * 0.01 - 0.005;
+    const newLongitude = order.merchant.location.longitude + Math.random() * 0.01 - 0.005;
+
+    if (merchantMarker) {
+      merchantMarker.setLatLng([newLatitude, newLongitude]);
+    }
+
+    if (route) {
+      route.setLatLngs([
+        [order.customer.location.latitude, order.customer.location.longitude],
+        [newLatitude, newLongitude]
+      ]);
+      map.fitBounds(route.getBounds());
+    }
+  };
+
+  return (
+    <div id="map" className="h-64 rounded-lg"></div>
+  );
+};
 
 const OrderTrackingPage = () => {
   const [showExternalMapModal, setShowExternalMapModal] = useState(false);
   const [showInAppMap, setShowInAppMap] = useState(false);
-  
-  // Sample order data
+  const [showCancelOrderModal, setShowCancelOrderModal] = useState(false);
+
   const order = {
     id: 1,
     merchant: {
@@ -28,8 +129,16 @@ const OrderTrackingPage = () => {
       badge: "Premium",
       online: true,
       location: {
+        latitude: 6.5244,
+        longitude: 3.3792,
         distance: "2.5 km",
         estimatedTime: "15 mins"
+      }
+    },
+    customer: {
+      location: {
+        latitude: 6.5278,
+        longitude: 3.3731
       }
     },
     amount: {
@@ -37,28 +146,6 @@ const OrderTrackingPage = () => {
       minimum: "₦5,000"
     }
   };
-
-  const Modal = ({ isOpen, onClose, children }) => (
-    <AnimatePresence>
-      {isOpen && (
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
-          className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50"
-        >
-          <motion.div
-            initial={{ scale: 0.95 }}
-            animate={{ scale: 1 }}
-            exit={{ scale: 0.95 }}
-            className="bg-white rounded-lg w-full max-w-md p-4"
-          >
-            {children}
-          </motion.div>
-        </motion.div>
-      )}
-    </AnimatePresence>
-  );
 
   return (
     <div className="flex flex-col h-screen bg-amber-50">
@@ -156,15 +243,18 @@ const OrderTrackingPage = () => {
           </div>
 
           {/* Cancel Order Button */}
-          <button className="w-full mt-4 p-3 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors">
+          <button
+            onClick={() => setShowCancelOrderModal(true)}
+            className="w-full mt-4 p-3 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors"
+          >
             Cancel Order
           </button>
         </div>
       </div>
 
       {/* External Map Modal */}
-      <Modal 
-        isOpen={showExternalMapModal} 
+      <Modal
+        isOpen={showExternalMapModal}
         onClose={() => setShowExternalMapModal(false)}
       >
         <div className="flex items-start justify-between mb-4">
@@ -172,7 +262,7 @@ const OrderTrackingPage = () => {
             <AlertTriangle className="h-6 w-6 text-amber-500" />
             <h3 className="text-lg font-semibold text-amber-900">Leave App?</h3>
           </div>
-          <button 
+          <button
             onClick={() => setShowExternalMapModal(false)}
             className="text-amber-500 hover:text-amber-600"
           >
@@ -190,7 +280,7 @@ const OrderTrackingPage = () => {
             Cancel
           </button>
           <button
-            onClick={() => window.open('https://maps.google.com', '_blank')}
+            onClick={() => { /* window.open('https://maps.google.com', '_blank') */ }}
             className="flex-1 p-2 bg-amber-500 text-white rounded-lg hover:bg-amber-600"
           >
             Continue
@@ -199,35 +289,81 @@ const OrderTrackingPage = () => {
       </Modal>
 
       {/* In-App Map Modal */}
-      <Modal 
-        isOpen={showInAppMap} 
+      <Modal
+        isOpen={showInAppMap}
         onClose={() => setShowInAppMap(false)}
       >
         <div className="flex items-start justify-between mb-4">
           <h3 className="text-lg font-semibold text-amber-900">Live Tracking</h3>
-          <button 
+          <button
             onClick={() => setShowInAppMap(false)}
             className="text-amber-500 hover:text-amber-600"
           >
             <X className="h-6 w-6" />
           </button>
         </div>
-        <div className="bg-amber-100 h-64 rounded-lg flex items-center justify-center">
-          <span className="text-amber-600">Map View</span>
+        <LeafletMap order={order} />
+      </Modal>
+
+      {/* Cancel Order Confirmation Modal */}
+      <Modal
+        isOpen={showCancelOrderModal}
+        onClose={() => setShowCancelOrderModal(false)}
+      >
+        <div className="flex items-start justify-between mb-4">
+          <div className="flex items-center space-x-2">
+            <AlertTriangle className="h-6 w-6 text-amber-500" />
+            <h3 className="text-lg font-semibold text-amber-900">Cancel Order</h3>
+          </div>
+          <button
+            onClick={() => setShowCancelOrderModal(false)}
+            className="text-amber-500 hover:text-amber-600"
+          >
+            <X className="h-6 w-6" />
+          </button>
         </div>
-        <div className="mt-4 p-3 bg-amber-50 rounded-lg">
-          <div className="flex items-center justify-between text-amber-700">
-            <span>Current Location:</span>
-            <span>{order.merchant.location.distance} away</span>
-          </div>
-          <div className="flex items-center justify-between text-amber-700">
-            <span>Estimated Arrival:</span>
-            <span>{order.merchant.location.estimatedTime}</span>
-          </div>
+        <p className="text-amber-700 mb-4">
+          Are you sure you want to cancel this order?
+        </p>
+        <div className="flex space-x-3">
+          <button
+            onClick={() => setShowCancelOrderModal(false)}
+            className="flex-1 p-2 border border-amber-200 text-amber-600 rounded-lg hover:bg-amber-50"
+          >
+            No, Keep Order
+          </button>
+          <button
+            onClick={() => alert('Order Cancelled')}
+            className="flex-1 p-2 bg-red-500 text-white rounded-lg hover:bg-red-600"
+          >
+            Yes, Cancel Order
+          </button>
         </div>
       </Modal>
     </div>
   );
 };
+
+const Modal = ({ isOpen, onClose, children }) => (
+  <AnimatePresence>
+    {isOpen && (
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50"
+      >
+        <motion.div
+          initial={{ scale: 0.95 }}
+          animate={{ scale: 1 }}
+          exit={{ scale: 0.95 }}
+          className="bg-white rounded-lg w-full max-w-md p-4"
+        >
+          {children}
+        </motion.div>
+      </motion.div>
+    )}
+  </AnimatePresence>
+);
 
 export default OrderTrackingPage;
