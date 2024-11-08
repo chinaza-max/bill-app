@@ -13,6 +13,8 @@ import {
   Receipt,
   X,
   User
+  ,
+  Package
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import L from 'leaflet';
@@ -124,6 +126,7 @@ const OrderTrackingPage = () => {
 
   const order = {
     id: 1,
+    totalOrders: 5,
     merchant: {
       name: "John Carter",
       avatar: "avatar.jpg",
@@ -153,10 +156,20 @@ const OrderTrackingPage = () => {
     <div className="flex flex-col h-screen bg-amber-50">
       {/* Fixed Header */}
       <div className="fixed top-0 left-0 right-0 z-10 bg-gradient-to-r from-amber-600 to-amber-500 text-white px-4 py-3">
-        <div className="flex items-center space-x-3">
-          <ArrowLeft className="h-6 w-6 cursor-pointer" />
-          <h1 className="text-lg font-semibold">Order Details</h1>
-        </div>
+
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-3">
+              <ArrowLeft className="h-6 w-6 cursor-pointer" />
+              <h1 className="text-lg font-semibold">Order Details</h1>
+            </div>
+            <div className="flex items-center space-x-2">
+              <Package className="h-5 w-5" />
+              <div className="bg-amber-400/30 px-3 py-1 rounded-full">
+                <span className="text-sm font-medium">{order.totalOrders} Orders</span>
+              </div>
+            </div>
+          </div>
+     
       </div>
 
       {/* Main Content */}
@@ -201,10 +214,10 @@ const OrderTrackingPage = () => {
           </div>
 
           {/* Order Details */}
-          <div className="space-y-4 mb-4">
+          <div className="space-y-2 mb-2">
             <div className="flex justify-between items-center p-3 bg-amber-50 rounded-lg">
 
-            <div className="bg-amber-50 rounded-lg p-4 mb-4 w-full">
+            <div className="bg-amber-50 rounded-lg  mb-2 w-full pl-2 pr-2 pb-1 pt-2">
               <div className="flex items-center space-x-2 mb-3">
                 <Receipt className="h-5 w-5 text-amber-600" />
                 <h3 className="font-semibold text-amber-900">Order Summary</h3>
