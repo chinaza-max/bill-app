@@ -180,7 +180,7 @@ const OrderTrackingPage = () => {
           </button>
         </div>
         <p className="text-amber-700 mb-4">
-          You're about to leave the app and open Google Maps. Continue?
+          You are about to leave the app and open Google Maps. Continue?
         </p>
         <div className="flex space-x-3">
           <button
