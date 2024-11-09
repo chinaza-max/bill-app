@@ -338,6 +338,11 @@ const OrderTrackingPage = () => {
   };
 
 
+  const handleTabChange = (tab) => {
+    router.push(`/${tab}`);
+  };
+
+
   const openGoogleMaps = () => {
     if (currentLocation) {
       const destination = `${order.merchant.location.latitude},${order.merchant.location.longitude}`;
@@ -450,7 +455,9 @@ const OrderTrackingPage = () => {
                 <Phone className="h-5 w-5" />
               </button>
               <button className="p-2 bg-amber-100 rounded-full text-amber-600 hover:bg-amber-200">
-                <MessageCircle className="h-5 w-5" />
+                <MessageCircle 
+                  onClick={() => handleTabChange("orders/order/chat")}
+                className="h-5 w-5" />
               </button>
             </div>
           </div>
