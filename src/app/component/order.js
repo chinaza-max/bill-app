@@ -1,6 +1,5 @@
 'use client';
 
-
 import React, { useState, useEffect } from 'react';
 import {
   ArrowLeft,
@@ -13,14 +12,17 @@ import {
   Receipt,
   X,
   User,
-  Package,
   QrCode,
+  CheckCircle,
+  Camera,
   ScanLine
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
-import { useRouter } from 'next/navigation'
+import { useRouter } from 'next/navigation';
+import { Html5QrcodeScanner } from 'html5-qrcode';
+
 
 const LeafletMap = ({ order }) => {
   const [map, setMap] = useState(null);
@@ -126,36 +128,56 @@ const LeafletMap = ({ order }) => {
 };
 
 
-const QRScanner = ({ onScan, onClose }) => {
-  return (
-    <div className="bg-black p-4 rounded-lg relative">
-      <div className="w-64 h-64 bg-gray-800 flex items-center justify-center">
-        <ScanLine className="w-16 h-16 text-amber-500 animate-pulse" />
-      </div>
-      <button
-        onClick={onClose}
-        className="mt-4 w-full p-2 bg-amber-500 text-white rounded-lg"
-      >
-        Close Scanner
-      </button>
-    </div>
-  );
-};
 
+const QRScanner = ({ onClose, onScan, isMerchant }) => {
+  const [scanned, setScanned] = useState(false);
 
-// QR Code Display Component
-const QRDisplay = ({ value, onClose }) => {
+  const handleScan = () => {
+    // Simulate successful scan
+    setScanned(true);
+    setTimeout(() => {
+      onScan();
+    }, 1500);
+  };
+
   return (
-    <div className="bg-white p-4 rounded-lg">
-      <div className="w-64 h-64 bg-gray-100 flex items-center justify-center">
-        <QrCode className="w-32 h-32 text-amber-500" />
+    <div className="relative">
+      <div className="bg-black/90 rounded-lg p-4 text-center">
+        {scanned ? (
+          <div className="flex flex-col items-center space-y-3 text-white">
+            <CheckCircle className="h-16 w-16 text-green-500" />
+            <p className="text-lg font-medium">Scan Successful!</p>
+          </div>
+        ) : (
+          <>
+            <div className="relative mb-4">
+              <Camera className="h-16 w-16 text-white mx-auto" />
+              <div className="absolute inset-0 border-2 border-amber-500 animate-pulse rounded-lg"></div>
+            </div>
+            <p className="text-white text-lg mb-2">
+              {isMerchant ? "Scan Customer's QR Code" : "Show this QR to Merchant"}
+            </p>
+            {/* Simulated QR code */}
+            <div className="w-48 h-48 bg-white mx-auto mb-4 rounded-lg flex items-center justify-center">
+              <QrCode className="h-32 w-32 text-amber-500" />
+            </div>
+            {!isMerchant && (
+              <button
+                onClick={handleScan}
+                className="bg-amber-500 text-white px-4 py-2 rounded-lg hover:bg-amber-600"
+              >
+                Simulate Scan
+              </button>
+            )}
+          </>
+        )}
+        <button
+          onClick={onClose}
+          className="absolute top-2 right-2 text-white hover:text-amber-500"
+        >
+          <X className="h-6 w-6" />
+        </button>
       </div>
-      <button
-        onClick={onClose}
-        className="mt-4 w-full p-2 bg-amber-500 text-white rounded-lg"
-      >
-        Close QR Code
-      </button>
     </div>
   );
 };
@@ -165,11 +187,28 @@ const OrderTrackingPage = () => {
   const [showInAppMap, setShowInAppMap] = useState(false);
   const [showCancelOrderModal, setShowCancelOrderModal] = useState(false);
   const [showQRScanner, setShowQRScanner] = useState(false);
-  const [showQRCode, setShowQRCode] = useState(false);
-  const [isMerchant, setIsMerchant] = useState(false);
+  const [isMerchant, setIsMerchant] = useState(true); // Toggle for testing different views
+  const [scanComplete, setScanComplete] = useState(false);
 
   const router = useRouter();
 
+  useEffect(() => {
+    // Auto-show QR scanner after 5 seconds
+    const timer = setTimeout(() => {
+      if (!scanComplete) {
+        setShowQRScanner(true);
+      }
+    }, 5000);
+
+    return () => clearTimeout(timer);
+  }, [scanComplete]);
+
+  const handleScanComplete = () => {
+    setScanComplete(true);
+    setShowQRScanner(false);
+  };
+
+ 
   const order = {
     id: 1,
     totalOrders: 5,
@@ -202,16 +241,23 @@ const OrderTrackingPage = () => {
     <div className="flex flex-col h-screen bg-amber-50">
       {/* Fixed Header */}
       <div className="fixed top-0 left-0 right-0 z-10 bg-gradient-to-r from-amber-600 to-amber-500 text-white px-4 py-3">
-
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-3">
-              <ArrowLeft
-                onClick={() =>  router.back()}
-              className="h-6 w-6 cursor-pointer" />
-              <h1 className="text-lg font-semibold">Order Details</h1>
-            </div>
+        <div className="flex items-center justify-between">
+          <div className="flex items-center space-x-3">
+            <ArrowLeft
+              onClick={() => router.back()}
+              className="h-6 w-6 cursor-pointer"
+            />
+            <h1 className="text-lg font-semibold">Order Details</h1>
           </div>
-     
+          {scanComplete && (
+            <button
+              onClick={() => setShowQRScanner(true)}
+              className="p-2 bg-amber-100 rounded-full text-amber-600 hover:bg-amber-200"
+            >
+              <QrCode className="h-5 w-5" />
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Main Content */}
@@ -325,9 +371,22 @@ const OrderTrackingPage = () => {
           </button>
         </div>
       </div>
+      {/* ... existing content remains unchanged ... */}
 
-      {/* External Map Modal */}
+      {/* QR Scanner Modal */}
       <Modal
+        isOpen={showQRScanner}
+        onClose={() => setShowQRScanner(false)}
+      >
+        <QRScanner
+          onClose={() => setShowQRScanner(false)}
+          onScan={handleScanComplete}
+          isMerchant={isMerchant}
+        />
+      </Modal>
+
+       {/* External Map Modal */}
+       <Modal
         isOpen={showExternalMapModal}
         onClose={() => setShowExternalMapModal(false)}
       >
