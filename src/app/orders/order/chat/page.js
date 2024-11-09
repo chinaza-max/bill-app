@@ -3,9 +3,12 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { ArrowLeft, Send, Circle, MoreVertical } from 'lucide-react';
 import { motion } from 'framer-motion';
+import { useRouter } from 'next/navigation';
 
 const ChatPage = () => {
   const [message, setMessage] = useState('');
+  const router = useRouter();
+
   const [messages, setMessages] = useState([
     {
       id: 1,
@@ -64,7 +67,8 @@ const ChatPage = () => {
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-3">
             <ArrowLeft
-                onClick={() => router.back() }
+
+            onClick={() => router.back() }
             className="h-6 w-6 cursor-pointer" />
             <div className="flex items-center space-x-3">
               <div className="relative">
