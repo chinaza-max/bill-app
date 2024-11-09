@@ -5,14 +5,14 @@ import { useRouter } from 'next/navigation';
 import { 
   ArrowLeft, 
   Calendar,
-  ChevronDown,
   ChevronRight,
   Copy,
   Check,
   Search,
   PackageX,
   Receipt,
-  RefreshCcw
+  RefreshCcw,
+  Flag
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { format } from 'date-fns';
@@ -26,6 +26,12 @@ const HistoryPage = () => {
   const [copiedId, setCopiedId] = useState(null);
   const itemsPerPage = 10;
 
+
+
+
+  const handleReport = (path) => {
+    router.push(path);
+  };
   // Initialize empty arrays for orders and transactions
   const orders = [
     {
@@ -145,7 +151,7 @@ const transactions = [
 ];
 
   const handleBack = () => {
-    router.push('/');
+    router.back();
   };
 
   const handleCopyId = (id) => {
@@ -197,7 +203,7 @@ const transactions = [
     (activeTab === 'orders' ? orders.length : transactions.length) / itemsPerPage
   );
 
-  const OrderCard = ({ order }) => (
+  const OrderCard  = ({ order }) => (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
@@ -228,10 +234,13 @@ const transactions = [
             </div>
           </div>
         </div>
-        <div className="text-right text-sm text-amber-600">
-          <div>{order.distance}</div>
-          <div>{order.deliveryTime}</div>
-        </div>
+        <button
+          onClick={() => handleReport("orders/order/complain")}
+          className="p-2 text-red-600 hover:bg-red-50 rounded-full transition-colors"
+          title="Report Issue"
+        >
+          <Flag className="h-5 w-5" />
+        </button>
       </div>
 
       <AnimatePresence>
@@ -445,119 +454,4 @@ const transactions = [
 export default HistoryPage;
 
 
-    /* const orders = [
-        {
-        id: 1,
-        avatar: '/avatar1.jpg',
-        name: 'John Doe',
-        amount: 5000,
-        status: 'successful',
-        distance: '2.5km',
-        deliveryTime: '30 mins',
-        accuracy: 98.5,
-        timestamp: '2024-03-15T14:30:00',
-        details: 'Food delivery from Lagos Kitchen - 2 parcels delivered successfully'
-        },
-        {
-        id: 2,
-        avatar: '/avatar2.jpg',
-        name: 'Sarah Wilson',
-        amount: 3500,
-        status: 'cancelled',
-        distance: '1.8km',
-        deliveryTime: '25 mins',
-        accuracy: 0,
-        timestamp: '2024-03-15T13:15:00',
-        details: 'Order cancelled by customer - Restaurant was too busy'
-        },
-        {
-        id: 3,
-        avatar: '/avatar3.jpg',
-        name: 'Michael Brown',
-        amount: 7500,
-        status: 'successful',
-        distance: '3.2km',
-        deliveryTime: '40 mins',
-        accuracy: 96.8,
-        timestamp: '2024-03-15T12:45:00',
-        details: 'Grocery delivery from SuperMart - All items delivered in perfect condition'
-        },
-        {
-        id: 4,
-        avatar: '/avatar4.jpg',
-        name: 'Emily Chen',
-        amount: 4200,
-        status: 'cancelled',
-        distance: '4.0km',
-        deliveryTime: '35 mins',
-        accuracy: 0,
-        timestamp: '2024-03-15T11:20:00',
-        details: 'Delivery cancelled - Address not accessible'
-        },
-        {
-        id: 5,
-        avatar: '/avatar5.jpg',
-        name: 'David Kumar',
-        amount: 6800,
-        status: 'successful',
-        distance: '2.1km',
-        deliveryTime: '28 mins',
-        accuracy: 99.1,
-        timestamp: '2024-03-15T10:05:00',
-        details: 'Medicine delivery from HealthPlus - Priority delivery completed'
-        }
-    ];
-
-    // Sample data for transactions with varied types and statuses
-    const transactions = [
-        {
-        id: 'TXN' + Math.random().toString(36).substr(2, 9).toUpperCase(),
-        type: 'wallet_transfer',
-        status: 'successful',
-        amount: 10000,
-        timestamp: '2024-03-15T15:45:00',
-        sender: 'Alice Smith',
-        recipient: 'Bob Johnson',
-        description: 'Wallet funding for multiple deliveries'
-        },
-        {
-        id: 'TXN' + Math.random().toString(36).substr(2, 9).toUpperCase(),
-        type: 'direct_transfer',
-        status: 'failed',
-        amount: 5000,
-        timestamp: '2024-03-15T14:30:00',
-        sender: 'Charlie Brown',
-        recipient: 'Delivery App',
-        description: 'Failed attempt to fund wallet - Insufficient funds'
-        },
-        {
-        id: 'TXN' + Math.random().toString(36).substr(2, 9).toUpperCase(),
-        type: 'withdrawal',
-        status: 'successful',
-        amount: 25000,
-        timestamp: '2024-03-15T13:15:00',
-        sender: 'Delivery App',
-        recipient: 'Driver Account',
-        description: 'Weekly earnings withdrawal to bank account'
-        },
-        {
-        id: 'TXN' + Math.random().toString(36).substr(2, 9).toUpperCase(),
-        type: 'funding',
-        status: 'successful',
-        amount: 15000,
-        timestamp: '2024-03-15T12:00:00',
-        sender: 'David Wilson',
-        recipient: 'Delivery App',
-        description: 'Wallet top-up for upcoming deliveries'
-        },
-        {
-        id: 'TXN' + Math.random().toString(36).substr(2, 9).toUpperCase(),
-        type: 'order',
-        status: 'successful',
-        amount: 4500,
-        timestamp: '2024-03-15T11:30:00',
-        sender: 'Emma Davis',
-        recipient: 'Restaurant Partner',
-        description: 'Payment for food delivery order #45678'
-        }
-    ]; */
+    
