@@ -63,7 +63,9 @@ const ChatPage = () => {
       <div className="bg-gradient-to-r from-amber-600 to-amber-500 text-white px-4 py-3">
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-3">
-            <ArrowLeft className="h-6 w-6 cursor-pointer" />
+            <ArrowLeft
+                onClick={() => router.back() }
+            className="h-6 w-6 cursor-pointer" />
             <div className="flex items-center space-x-3">
               <div className="relative">
                 <div className="w-10 h-10 rounded-full bg-amber-100 flex items-center justify-center">
