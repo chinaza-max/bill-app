@@ -296,7 +296,7 @@ const OrderTrackingPage = () => {
   const [showInAppMap, setShowInAppMap] = useState(false);
   const [showCancelOrderModal, setShowCancelOrderModal] = useState(false);
   const [showQRScanner, setShowQRScanner] = useState(false);
-  const [isMerchant, setIsMerchant] = useState(false); // Toggle for testing different views
+  const [isMerchant, setIsMerchant] = useState(true); // Toggle for testing different views
   const [scanComplete, setScanComplete] = useState(false);
 
   const router = useRouter();
