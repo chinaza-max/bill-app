@@ -325,7 +325,7 @@ const MobileApp = () => {
 
           <motion.button
             whileTap={{ scale: 0.95 }}
-            onClick={() => handleTabChange('order')}
+            onClick={() => handleTabChange('orders')}
             className={`flex flex-col items-center p-2 ${
               activeTab === 'order' ? 'text-amber-600' : 'text-amber-400'
             }`}

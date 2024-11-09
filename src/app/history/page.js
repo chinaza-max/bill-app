@@ -1,357 +1,331 @@
 'use client';
 
 
-
-import React, { useState, useCallback } from 'react';
+import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import {
-  ArrowLeft,
+import { 
+  ArrowLeft, 
+  Calendar,
+  ChevronDown,
+  ChevronRight,
   Copy,
   Check,
-  ChevronDown,
-  ChevronUp,
-  Circle,
-  AlertCircle,
-  CheckCircle2,
-  XCircle
+  Search
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { format } from 'date-fns';
 
 const HistoryPage = () => {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState('orders');
   const [currentPage, setCurrentPage] = useState(1);
-  const [expandedOrder, setExpandedOrder] = useState(null);
+  const [dateRange, setDateRange] = useState({ start: '', end: '' });
+  const [showDatePicker, setShowDatePicker] = useState(false);
   const [copiedId, setCopiedId] = useState(null);
   const itemsPerPage = 10;
 
-  // Sample order history data
-  const orderHistory = [
+  // Sample data for orders
+  const orders = [
     {
       id: 1,
-      status: 'successful',
-      avatar: 'avatar.jpg',
-      name: 'John Carter',
+      avatar: '/avatar1.jpg',
+      name: 'John Doe',
       amount: 5000,
-      orderNumber: 'ORD-001',
+      status: 'successful',
       distance: '2.5km',
       deliveryTime: '30 mins',
       accuracy: 98.5,
-      date: '2024-03-15T14:30:00',
-      details: {
-        paymentMethod: 'Bank Transfer',
-        charge: 200,
-        totalAmount: 5200,
-        notes: 'Delivered to specified location'
-      }
+      timestamp: '2024-03-15T14:30:00',
+      details: 'Additional order details here...'
     },
-    {
-      id: 2,
-      status: 'cancelled',
-      avatar: 'avatar.jpg',
-      name: 'Sarah Smith',
-      amount: 3000,
-      orderNumber: 'ORD-002',
-      distance: '1.8km',
-      deliveryTime: '25 mins',
-      accuracy: 95.2,
-      date: '2024-03-14T16:45:00',
-      details: {
-        paymentMethod: 'Cash',
-        charge: 150,
-        totalAmount: 3150,
-        notes: 'Cancelled by customer'
-      }
-    },
-    // Add more order history items as needed
+    // Add more sample orders...
   ];
 
-  // Sample transaction history data
-  const transactionHistory = [
+  // Sample data for transactions
+  const transactions = [
     {
-      id: 'TRX123456789',
+      id: 'TXN123456',
       type: 'wallet_transfer',
       amount: 10000,
-      date: '2024-03-15T14:30:00',
       status: 'successful',
-      sender: 'John Doe',
-      recipient: 'Jane Smith',
+      timestamp: '2024-03-15T15:45:00',
+      sender: 'Alice Smith',
+      recipient: 'Bob Johnson',
       description: 'Monthly rent payment'
     },
-    {
-      id: 'TRX987654321',
-      type: 'direct_transfer',
-      amount: 5000,
-      date: '2024-03-14T16:45:00',
-      status: 'successful',
-      sender: 'Sarah Johnson',
-      recipient: 'Mike Wilson',
-      description: 'Utility bill payment'
-    },
-    // Add more transaction history items as needed
+    // Add more sample transactions...
   ];
 
-  const handleCopyId = useCallback((id) => {
+  const handleBack = () => {
+    router.push('/');
+  };
+
+  const handleCopyId = (id) => {
     navigator.clipboard.writeText(id);
     setCopiedId(id);
     setTimeout(() => setCopiedId(null), 2000);
-  }, []);
-
-  const getStatusColor = (status) => {
-    switch (status.toLowerCase()) {
-      case 'successful':
-        return 'text-green-500';
-      case 'cancelled':
-        return 'text-red-500';
-      default:
-        return 'text-amber-500';
-    }
   };
 
-  const getStatusIcon = (status) => {
-    switch (status.toLowerCase()) {
-      case 'successful':
-        return <CheckCircle2 className="h-5 w-5 text-green-500" />;
-      case 'cancelled':
-        return <XCircle className="h-5 w-5 text-red-500" />;
-      default:
-        return <AlertCircle className="h-5 w-5 text-amber-500" />;
-    }
-  };
+  const [expandedOrder, setExpandedOrder] = useState(null);
 
-  const formatDate = (dateString) => {
-    return new Date(dateString).toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
-    });
-  };
-
-  // Pagination calculations
+  // Get current items based on pagination
   const getCurrentItems = () => {
-    const items = activeTab === 'orders' ? orderHistory : transactionHistory;
-    const startIndex = (currentPage - 1) * itemsPerPage;
-    const endIndex = startIndex + itemsPerPage;
-    return items.slice(startIndex, endIndex);
+    const items = activeTab === 'orders' ? orders : transactions;
+    const indexOfLastItem = currentPage * itemsPerPage;
+    const indexOfFirstItem = indexOfLastItem - itemsPerPage;
+    return items.slice(indexOfFirstItem, indexOfFirstItem + itemsPerPage);
   };
 
   const totalPages = Math.ceil(
-    (activeTab === 'orders' ? orderHistory.length : transactionHistory.length) / itemsPerPage
+    (activeTab === 'orders' ? orders.length : transactions.length) / itemsPerPage
+  );
+
+  const OrderCard = ({ order }) => (
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      className="bg-white rounded-lg p-4 shadow-sm mb-3"
+    >
+      <div className="flex items-center justify-between">
+        <div className="flex items-center space-x-3">
+          <div className="w-12 h-12 rounded-full bg-amber-100 flex items-center justify-center">
+            <img
+              src={order.avatar}
+              alt={order.name}
+              className="w-full h-full rounded-full object-cover"
+            />
+          </div>
+          <div>
+            <h3 className="font-medium text-amber-900">{order.name}</h3>
+            <div className="flex items-center space-x-2 text-sm">
+              <span className={`px-2 py-1 rounded-full text-xs ${
+                order.status === 'successful' ? 'bg-green-100 text-green-600' : 'bg-red-100 text-red-600'
+              }`}>
+                {order.status}
+              </span>
+              <span className="text-amber-600">₦{order.amount.toLocaleString()}</span>
+            </div>
+          </div>
+        </div>
+        <div className="text-right text-sm text-amber-600">
+          <div>{order.distance}</div>
+          <div>{order.deliveryTime}</div>
+        </div>
+      </div>
+
+      <AnimatePresence>
+        {expandedOrder === order.id && (
+          <motion.div
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: 'auto' }}
+            exit={{ opacity: 0, height: 0 }}
+            className="mt-3 pt-3 border-t border-amber-100"
+          >
+            <div className="space-y-2 text-sm text-amber-700">
+              <div className="flex justify-between">
+                <span>Accuracy:</span>
+                <span>{order.accuracy}%</span>
+              </div>
+              <div className="flex justify-between">
+                <span>Order Time:</span>
+                <span>{format(new Date(order.timestamp), 'MMM dd, yyyy HH:mm')}</span>
+              </div>
+              <div className="mt-2">{order.details}</div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      <button
+        onClick={() => setExpandedOrder(expandedOrder === order.id ? null : order.id)}
+        className="w-full mt-3 text-amber-600 text-sm flex items-center justify-center"
+      >
+        {expandedOrder === order.id ? 'View Less' : 'View More'}
+        <ChevronRight className={`h-4 w-4 ml-1 transform transition-transform ${
+          expandedOrder === order.id ? 'rotate-90' : ''
+        }`} />
+      </button>
+    </motion.div>
+  );
+
+  const TransactionCard = ({ transaction }) => (
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      className="bg-white rounded-lg p-4 shadow-sm mb-3"
+    >
+      <div className="flex items-center justify-between mb-2">
+        <div className="flex items-center space-x-2">
+          <button
+            onClick={() => handleCopyId(transaction.id)}
+            className="flex items-center space-x-1 text-amber-600 hover:text-amber-700"
+          >
+            {copiedId === transaction.id ? (
+              <Check className="h-4 w-4 text-green-500" />
+            ) : (
+              <Copy className="h-4 w-4" />
+            )}
+            <span className="text-sm">{transaction.id}</span>
+          </button>
+        </div>
+        <span className={`px-2 py-1 rounded-full text-xs ${
+          transaction.status === 'successful' ? 'bg-green-100 text-green-600' : 'bg-red-100 text-red-600'
+        }`}>
+          {transaction.status}
+        </span>
+      </div>
+
+      <div className="space-y-2 text-sm">
+        <div className="flex justify-between">
+          <span className="text-amber-600">Amount</span>
+          <span className="font-medium text-amber-900">₦{transaction.amount.toLocaleString()}</span>
+        </div>
+        <div className="flex justify-between">
+          <span className="text-amber-600">Type</span>
+          <span className="text-amber-900">{transaction.type.replace('_', ' ')}</span>
+        </div>
+        <div className="flex justify-between">
+          <span className="text-amber-600">Time</span>
+          <span className="text-amber-900">{format(new Date(transaction.timestamp), 'MMM dd, yyyy HH:mm')}</span>
+        </div>
+        <div className="pt-2 border-t border-amber-100">
+          <div className="text-amber-600 mb-1">Description</div>
+          <div className="text-amber-900">{transaction.description}</div>
+        </div>
+      </div>
+    </motion.div>
   );
 
   return (
     <div className="flex flex-col h-screen bg-amber-50">
-      {/* Header */}
-      <div className="bg-gradient-to-r from-amber-600 to-amber-500 text-white px-4 py-3">
-        <div className="flex items-center space-x-3">
-          <ArrowLeft 
-            className="h-6 w-6 cursor-pointer" 
-            onClick={() => router.push('/home')}
-          />
+      {/* Fixed Header */}
+      <div className="fixed top-0 left-0 right-0 z-10 bg-gradient-to-r from-amber-600 to-amber-500 text-white">
+        <div className="px-4 py-3 flex items-center space-x-3">
+          <button onClick={handleBack}>
+            <ArrowLeft className="h-6 w-6" />
+          </button>
           <h1 className="text-lg font-semibold">History</h1>
+        </div>
+
+        {/* Tabs */}
+        <div className="flex px-4 space-x-4 border-b border-amber-400">
+          <button
+            onClick={() => setActiveTab('orders')}
+            className={`py-2 px-4 ${
+              activeTab === 'orders'
+                ? 'border-b-2 border-white text-white'
+                : 'text-amber-200'
+            }`}
+          >
+            Order History
+          </button>
+          <button
+            onClick={() => setActiveTab('transactions')}
+            className={`py-2 px-4 ${
+              activeTab === 'transactions'
+                ? 'border-b-2 border-white text-white'
+                : 'text-amber-200'
+            }`}
+          >
+            Transaction History
+          </button>
         </div>
       </div>
 
-      {/* Tabs */}
-      <div className="flex border-b border-amber-200">
-        <button
-          className={`flex-1 py-3 px-4 text-center ${
-            activeTab === 'orders'
-              ? 'text-amber-600 border-b-2 border-amber-600'
-              : 'text-amber-400'
-          }`}
-          onClick={() => setActiveTab('orders')}
-        >
-          Order History
-        </button>
-        <button
-          className={`flex-1 py-3 px-4 text-center ${
-            activeTab === 'transactions'
-              ? 'text-amber-600 border-b-2 border-amber-600'
-              : 'text-amber-400'
-          }`}
-          onClick={() => setActiveTab('transactions')}
-        >
-          Transaction History
-        </button>
-      </div>
+      {/* Filters - Fixed below header */}
+      <div className="fixed top-[104px] left-0 right-0 z-10 bg-amber-50 px-4 py-3 shadow-sm">
+        <div className="flex items-center space-x-2">
+          <div className="relative flex-1">
+            <input
+              type="text"
+              placeholder="Search..."
+              className="w-full pl-10 pr-4 py-2 rounded-lg border border-amber-200 focus:border-amber-500 focus:outline-none"
+            />
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-amber-400" />
+          </div>
+          <button
+            onClick={() => setShowDatePicker(!showDatePicker)}
+            className="flex items-center space-x-2 px-3 py-2 bg-white rounded-lg border border-amber-200"
+          >
+            <Calendar className="h-5 w-5 text-amber-500" />
+            <span className="text-amber-700">Date</span>
+          </button>
+        </div>
 
-      {/* Content */}
-      <div className="flex-1 overflow-auto px-4 py-3">
-        <AnimatePresence mode="wait">
-          {activeTab === 'orders' ? (
+        <AnimatePresence>
+          {showDatePicker && (
             <motion.div
-              key="orders"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              className="space-y-3"
+              initial={{ opacity: 0, y: -10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+              className="absolute mt-2 p-4 bg-white rounded-lg shadow-lg border border-amber-100"
             >
-              {getCurrentItems().map((order) => (
-                <div key={order.id} className="bg-white rounded-lg p-4 shadow-sm">
-                  <div className="flex items-center justify-between mb-3">
-                    <div className="flex items-center space-x-3">
-                      <div className="relative">
-                        <div className="w-12 h-12 rounded-full bg-amber-100 flex items-center justify-center">
-                          <img
-                            src={order.avatar}
-                            alt={order.name}
-                            className="w-full h-full object-cover rounded-full"
-                          />
-                        </div>
-                      </div>
-                      <div>
-                        <div className="flex items-center space-x-2">
-                          <h3 className="font-semibold text-amber-900">{order.name}</h3>
-                          <span className={`flex items-center ${getStatusColor(order.status)}`}>
-                            {getStatusIcon(order.status)}
-                            <span className="ml-1 text-sm capitalize">{order.status}</span>
-                          </span>
-                        </div>
-                        <div className="text-sm text-amber-600">
-                          {formatDate(order.date)}
-                        </div>
-                      </div>
-                    </div>
-                    <div className="text-right">
-                      <div className="font-medium text-amber-900">
-                        ₦{order.amount.toLocaleString()}
-                      </div>
-                      <div className="text-sm text-amber-600">{order.distance}</div>
-                    </div>
-                  </div>
-
-                  <div className="flex items-center justify-between text-sm text-amber-600">
-                    <div>Accuracy: {order.accuracy}%</div>
-                    <div>Delivery: {order.deliveryTime}</div>
-                  </div>
-
-                  <button
-                    onClick={() => setExpandedOrder(expandedOrder === order.id ? null : order.id)}
-                    className="mt-2 w-full flex items-center justify-center space-x-1 text-amber-600 hover:text-amber-800"
-                  >
-                    <span>{expandedOrder === order.id ? 'View Less' : 'View More'}</span>
-                    {expandedOrder === order.id ? (
-                      <ChevronUp className="h-4 w-4" />
-                    ) : (
-                      <ChevronDown className="h-4 w-4" />
-                    )}
-                  </button>
-
-                  <AnimatePresence>
-                    {expandedOrder === order.id && (
-                      <motion.div
-                        initial={{ height: 0, opacity: 0 }}
-                        animate={{ height: 'auto', opacity: 1 }}
-                        exit={{ height: 0, opacity: 0 }}
-                        className="mt-3 pt-3 border-t border-amber-100"
-                      >
-                        <div className="space-y-2 text-sm">
-                          <div className="flex justify-between">
-                            <span className="text-amber-600">Order Number:</span>
-                            <span className="text-amber-900">{order.orderNumber}</span>
-                          </div>
-                          <div className="flex justify-between">
-                            <span className="text-amber-600">Payment Method:</span>
-                            <span className="text-amber-900">{order.details.paymentMethod}</span>
-                          </div>
-                          <div className="flex justify-between">
-                            <span className="text-amber-600">Charge:</span>
-                            <span className="text-amber-900">₦{order.details.charge}</span>
-                          </div>
-                          <div className="flex justify-between">
-                            <span className="text-amber-600">Total Amount:</span>
-                            <span className="text-amber-900">₦{order.details.totalAmount}</span>
-                          </div>
-                          <div className="text-amber-600">Notes:</div>
-                          <div className="text-amber-900 bg-amber-50 p-2 rounded">
-                            {order.details.notes}
-                          </div>
-                        </div>
-                      </motion.div>
-                    )}
-                  </AnimatePresence>
+              <div className="space-y-3">
+                <div>
+                  <label className="block text-sm text-amber-600 mb-1">Start Date</label>
+                  <input
+                    type="date"
+                    value={dateRange.start}
+                    onChange={(e) => setDateRange({ ...dateRange, start: e.target.value })}
+                    className="w-full p-2 rounded border border-amber-200"
+                  />
                 </div>
-              ))}
-            </motion.div>
-          ) : (
-            <motion.div
-              key="transactions"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              className="space-y-3"
-            >
-              {getCurrentItems().map((transaction) => (
-                <div key={transaction.id} className="bg-white rounded-lg p-4 shadow-sm">
-                  <div className="flex items-center justify-between mb-2">
-                    <div className="flex items-center space-x-2">
-                      {getStatusIcon(transaction.status)}
-                      <span className={`text-sm ${getStatusColor(transaction.status)} capitalize`}>
-                        {transaction.type.replace('_', ' ')}
-                      </span>
-                    </div>
-                    <button
-                      onClick={() => handleCopyId(transaction.id)}
-                      className="flex items-center space-x-1 text-amber-600 hover:text-amber-800"
-                    >
-                      {copiedId === transaction.id ? (
-                        <Check className="h-4 w-4" />
-                      ) : (
-                        <Copy className="h-4 w-4" />
-                      )}
-                      <span className="text-xs">{transaction.id}</span>
-                    </button>
-                  </div>
-
-                  <div className="space-y-2">
-                    <div className="flex justify-between items-center">
-                      <span className="font-medium text-amber-900">
-                        ₦{transaction.amount.toLocaleString()}
-                      </span>
-                      <span className="text-sm text-amber-600">
-                        {formatDate(transaction.date)}
-                      </span>
-                    </div>
-                    <div className="text-sm">
-                      <div className="text-amber-600">From: {transaction.sender}</div>
-                      <div className="text-amber-600">To: {transaction.recipient}</div>
-                    </div>
-                    <div className="text-sm text-amber-600">{transaction.description}</div>
-                  </div>
+                <div>
+                  <label className="block text-sm text-amber-600 mb-1">End Date</label>
+                  <input
+                    type="date"
+                    value={dateRange.end}
+                    onChange={(e) => setDateRange({ ...dateRange, end: e.target.value })}
+                    className="w-full p-2 rounded border border-amber-200"
+                  />
                 </div>
-              ))}
+                <button
+                  onClick={() => setShowDatePicker(false)}
+                  className="w-full bg-amber-500 text-white rounded-lg py-2 font-medium"
+                >
+                  Apply Filter
+                </button>
+              </div>
             </motion.div>
           )}
         </AnimatePresence>
       </div>
 
-      {/* Pagination */}
-      {totalPages > 1 && (
-        <div className="flex justify-center items-center space-x-2 p-4 bg-white border-t border-amber-200">
+      {/* Main Content - Scrollable */}
+      <div className="flex-1 overflow-auto pt-[168px] px-4 pb-4">
+        {activeTab === 'orders' ? (
+          getCurrentItems().map((order) => (
+            <OrderCard key={order.id} order={order} />
+          ))
+        ) : (
+          getCurrentItems().map((transaction) => (
+            <TransactionCard key={transaction.id} transaction={transaction} />
+          ))
+        )}
+
+        {/* Pagination */}
+        <div className="mt-4 flex justify-center items-center space-x-2">
           <button
             onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
             disabled={currentPage === 1}
-            className="px-3 py-1 rounded bg-amber-100 text-amber-600 disabled:opacity-50"
+            className="p-2 rounded-lg border border-amber-200 disabled:opacity-50"
           >
             Previous
           </button>
-          <span className="text-amber-600">
+          <span className="text-amber-700">
             Page {currentPage} of {totalPages}
           </span>
           <button
             onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
             disabled={currentPage === totalPages}
-            className="px-3 py-1 rounded bg-amber-100 text-amber-600 disabled:opacity-50"
+            className="p-2 rounded-lg border border-amber-200 disabled:opacity-50"
           >
             Next
           </button>
         </div>
-      )}
+      </div>
     </div>
   );
 };
-
+ 
 export default HistoryPage;
