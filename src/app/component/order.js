@@ -15,7 +15,8 @@ import {
   QrCode,
   CheckCircle,
   Camera,
-  ScanLine
+  ScanLine,
+  Flag
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import L from 'leaflet';
@@ -298,10 +299,29 @@ const OrderTrackingPage = () => {
   const [showQRScanner, setShowQRScanner] = useState(false);
   const [isMerchant, setIsMerchant] = useState(true); // Toggle for testing different views
   const [scanComplete, setScanComplete] = useState(false);
+  const [currentLocation, setCurrentLocation] = useState(null);
+  const [showReportModal, setShowReportModal] = useState(false);
 
   const router = useRouter();
 
   useEffect(() => {
+
+
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          setCurrentLocation({
+            latitude: position.coords.latitude,
+            longitude: position.coords.longitude
+          });
+        },
+        (error) => {
+          console.error('Error getting location:', error);
+        }
+      );
+    }
+
+
     // Auto-show QR scanner after 5 seconds
     const timer = setTimeout(() => {
       if (!scanComplete) {
@@ -317,6 +337,17 @@ const OrderTrackingPage = () => {
     setShowQRScanner(false);
   };
 
+
+  const openGoogleMaps = () => {
+    if (currentLocation) {
+      const destination = `${order.merchant.location.latitude},${order.merchant.location.longitude}`;
+      const origin = `${currentLocation.latitude},${currentLocation.longitude}`;
+      const url = `https://www.google.com/maps/dir/?api=1&origin=${origin}&destination=${destination}&travelmode=driving`;
+      window.open(url, '_blank');
+    } else {
+      alert('Unable to get your current location. Please enable location services.');
+    }
+  };
  
   const order = {
     id: 1,
@@ -477,7 +508,9 @@ const OrderTrackingPage = () => {
             </button>
 
             <button
-              onClick={() => setShowExternalMapModal(true)}
+
+              onClick={openGoogleMaps}
+
               className="w-full p-3 bg-amber-100 text-amber-600 rounded-lg flex items-center justify-center space-x-2 hover:bg-amber-200"
             >
               <Map className="h-5 w-5" />
@@ -512,6 +545,56 @@ const OrderTrackingPage = () => {
           />
         )}
       </Modal>
+
+
+
+        
+      {/* Report Modal */}
+      <Modal
+        isOpen={showReportModal}
+        onClose={() => setShowReportModal(false)}
+      >
+        <div className="flex items-start justify-between mb-4">
+          <div className="flex items-center space-x-2">
+            <Flag className="h-6 w-6 text-amber-500" />
+            <h3 className="text-lg font-semibold text-amber-900">Report Issue</h3>
+          </div>
+          <button
+            onClick={() => setShowReportModal(false)}
+            className="text-amber-500 hover:text-amber-600"
+          >
+            <X className="h-6 w-6" />
+          </button>
+        </div>
+        <div className="space-y-4">
+          <button
+            onClick={() => alert('Reported: Delivery Delay')}
+            className="w-full p-3 text-left border border-amber-200 rounded-lg hover:bg-amber-50"
+          >
+            Delivery Delay
+          </button>
+          <button
+            onClick={() => alert('Reported: Wrong Order Details')}
+            className="w-full p-3 text-left border border-amber-200 rounded-lg hover:bg-amber-50"
+          >
+            Wrong Order Details
+          </button>
+          <button
+            onClick={() => alert('Reported: Payment Issue')}
+            className="w-full p-3 text-left border border-amber-200 rounded-lg hover:bg-amber-50"
+          >
+            Payment Issue
+          </button>
+          <button
+            onClick={() => alert('Reported: Other Issue')}
+            className="w-full p-3 text-left border border-amber-200 rounded-lg hover:bg-amber-50"
+          >
+            Other Issue
+          </button>
+        </div>
+      </Modal>
+
+
 
        {/* External Map Modal */}
        <Modal
@@ -565,6 +648,15 @@ const OrderTrackingPage = () => {
         </div>
         <LeafletMap order={order} />
       </Modal>
+
+        {/* Added Report Button */}
+        <button
+            onClick={() => setShowReportModal(true)}
+            className="w-full mt-4 p-3 bg-amber-100 text-amber-600 rounded-lg flex items-center justify-center space-x-2 hover:bg-amber-200"
+          >
+            <Flag className="h-5 w-5" />
+            <span>Report Issue</span>
+          </button>
 
       {/* Cancel Order Confirmation Modal */}
       <Modal
