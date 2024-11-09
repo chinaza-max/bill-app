@@ -12,13 +12,15 @@ import {
   AlertTriangle,
   Receipt,
   X,
-  User
-  ,
-  Package
+  User,
+  Package,
+  QrCode,
+  ScanLine
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
+import { useRouter } from 'next/navigation'
 
 const LeafletMap = ({ order }) => {
   const [map, setMap] = useState(null);
@@ -26,6 +28,10 @@ const LeafletMap = ({ order }) => {
   const [customerMarker, setCustomerMarker] = useState(null);
   const [route, setRoute] = useState(null);
 
+
+
+
+  
   useEffect(() => {
 
 
@@ -119,17 +125,57 @@ const LeafletMap = ({ order }) => {
   );
 };
 
+
+const QRScanner = ({ onScan, onClose }) => {
+  return (
+    <div className="bg-black p-4 rounded-lg relative">
+      <div className="w-64 h-64 bg-gray-800 flex items-center justify-center">
+        <ScanLine className="w-16 h-16 text-amber-500 animate-pulse" />
+      </div>
+      <button
+        onClick={onClose}
+        className="mt-4 w-full p-2 bg-amber-500 text-white rounded-lg"
+      >
+        Close Scanner
+      </button>
+    </div>
+  );
+};
+
+
+// QR Code Display Component
+const QRDisplay = ({ value, onClose }) => {
+  return (
+    <div className="bg-white p-4 rounded-lg">
+      <div className="w-64 h-64 bg-gray-100 flex items-center justify-center">
+        <QrCode className="w-32 h-32 text-amber-500" />
+      </div>
+      <button
+        onClick={onClose}
+        className="mt-4 w-full p-2 bg-amber-500 text-white rounded-lg"
+      >
+        Close QR Code
+      </button>
+    </div>
+  );
+};
+
 const OrderTrackingPage = () => {
   const [showExternalMapModal, setShowExternalMapModal] = useState(false);
   const [showInAppMap, setShowInAppMap] = useState(false);
   const [showCancelOrderModal, setShowCancelOrderModal] = useState(false);
+  const [showQRScanner, setShowQRScanner] = useState(false);
+  const [showQRCode, setShowQRCode] = useState(false);
+  const [isMerchant, setIsMerchant] = useState(false);
+
+  const router = useRouter();
 
   const order = {
     id: 1,
     totalOrders: 5,
     merchant: {
       name: "John Carter",
-      avatar: "avatar.jpg",
+      avatar: "../avatar.jpg",
       badge: "Premium",
       online: true,
       location: {
@@ -159,14 +205,10 @@ const OrderTrackingPage = () => {
 
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-3">
-              <ArrowLeft className="h-6 w-6 cursor-pointer" />
+              <ArrowLeft
+                onClick={() =>  router.back()}
+              className="h-6 w-6 cursor-pointer" />
               <h1 className="text-lg font-semibold">Order Details</h1>
-            </div>
-            <div className="flex items-center space-x-2">
-              <Package className="h-5 w-5" />
-              <div className="bg-amber-400/30 px-3 py-1 rounded-full">
-                <span className="text-sm font-medium">{order.totalOrders} Orders</span>
-              </div>
             </div>
           </div>
      
