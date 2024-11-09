@@ -451,9 +451,11 @@ const OrderTrackingPage = () => {
 
             {/* Communication Icons */}
             <div className="flex space-x-3">
-              <button className="p-2 bg-amber-100 rounded-full text-amber-600 hover:bg-amber-200">
+
+              <a href={`tel:08184724615`} className="p-2 bg-amber-100 rounded-full text-amber-600 hover:bg-amber-200">
                 <Phone className="h-5 w-5" />
-              </button>
+              </a>
+
               <button className="p-2 bg-amber-100 rounded-full text-amber-600 hover:bg-amber-200">
                 <MessageCircle 
                   onClick={() => handleTabChange("orders/order/chat")}
@@ -575,25 +577,25 @@ const OrderTrackingPage = () => {
         </div>
         <div className="space-y-4">
           <button
-            onClick={() => alert('Reported: Delivery Delay')}
+            onClick={() =>  router.push(`/orders/order/complain`) }
             className="w-full p-3 text-left border border-amber-200 rounded-lg hover:bg-amber-50"
           >
             Delivery Delay
           </button>
           <button
-            onClick={() => alert('Reported: Wrong Order Details')}
+            onClick={() =>  router.push(`/orders/order/complain`)}
             className="w-full p-3 text-left border border-amber-200 rounded-lg hover:bg-amber-50"
           >
             Wrong Order Details
           </button>
           <button
-            onClick={() => alert('Reported: Payment Issue')}
+            onClick={() =>  router.push(`/orders/order/complain`)}
             className="w-full p-3 text-left border border-amber-200 rounded-lg hover:bg-amber-50"
           >
             Payment Issue
           </button>
           <button
-            onClick={() => alert('Reported: Other Issue')}
+            onClick={() =>  router.push(`/orders/order/complain`)}
             className="w-full p-3 text-left border border-amber-200 rounded-lg hover:bg-amber-50"
           >
             Other Issue
