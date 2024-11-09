@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   ArrowLeft,
   Phone,
@@ -21,9 +21,9 @@ import { motion, AnimatePresence } from 'framer-motion';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { useRouter } from 'next/navigation';
-import { Html5QrcodeScanner } from 'html5-qrcode';
+import { Html5Qrcode } from 'html5-qrcode';
 
-
+// ... LeafletMap component remains unchanged ...
 const LeafletMap = ({ order }) => {
   const [map, setMap] = useState(null);
   const [merchantMarker, setMerchantMarker] = useState(null);
@@ -128,56 +128,165 @@ const LeafletMap = ({ order }) => {
 };
 
 
+const MerchantScanner = ({ onClose, onScan }) => {
+  const [hasCamera, setHasCamera] = useState(false);
+  const [isScanning, setIsScanning] = useState(false);
+  const [scanSuccess, setScanSuccess] = useState(false);
+  const [error, setError] = useState(null);
+  const scannerRef = useRef(null);
 
-const QRScanner = ({ onClose, onScan, isMerchant }) => {
-  const [scanned, setScanned] = useState(false);
+  useEffect(() => {
+    // Check for camera availability
+    Html5Qrcode.getCameras()
+      .then(devices => {
+        setHasCamera(devices && devices.length > 0);
+      })
+      .catch(err => {
+        setError('Camera access denied or no cameras found');
+        console.error('Camera error:', err);
+      });
 
-  const handleScan = () => {
-    // Simulate successful scan
-    setScanned(true);
-    setTimeout(() => {
-      onScan();
-    }, 1500);
+    return () => {
+      stopScanner();
+    };
+  }, []);
+
+  const startScanner = async () => {
+    try {
+      if (!scannerRef.current) {
+        scannerRef.current = new Html5Qrcode('reader');
+      }
+
+      await scannerRef.current.start(
+        { facingMode: 'environment' },
+        {
+          fps: 10,
+          qrbox: { width: 250, height: 250 },
+        },
+        async (decodedText) => {
+          // Handle successful scan
+          await stopScanner();
+          setScanSuccess(true);
+          setTimeout(() => {
+            onScan(decodedText);
+          }, 1500);
+        },
+        (errorMessage) => {
+          // Suppress error logging during normal scanning
+          if (errorMessage.includes('No QR code found')) {
+            return;
+          }
+          console.error(errorMessage);
+        }
+      );
+      setIsScanning(true);
+      setError(null);
+    } catch (err) {
+      setError('Failed to start camera. Please check permissions.');
+      console.error('Scanner error:', err);
+    }
+  };
+
+  const stopScanner = async () => {
+    if (scannerRef.current && scannerRef.current.isScanning) {
+      await scannerRef.current.stop();
+      setIsScanning(false);
+    }
+  };
+
+  const handleRestartScan = async () => {
+    setScanSuccess(false);
+    setError(null);
+    await startScanner();
   };
 
   return (
-    <div className="relative">
-      <div className="bg-black/90 rounded-lg p-4 text-center">
-        {scanned ? (
-          <div className="flex flex-col items-center space-y-3 text-white">
-            <CheckCircle className="h-16 w-16 text-green-500" />
-            <p className="text-lg font-medium">Scan Successful!</p>
-          </div>
-        ) : (
-          <>
-            <div className="relative mb-4">
-              <Camera className="h-16 w-16 text-white mx-auto" />
-              <div className="absolute inset-0 border-2 border-amber-500 animate-pulse rounded-lg"></div>
-            </div>
-            <p className="text-white text-lg mb-2">
-              {isMerchant ? "Scan Customer's QR Code" : "Show this QR to Merchant"}
-            </p>
-            {/* Simulated QR code */}
-            <div className="w-48 h-48 bg-white mx-auto mb-4 rounded-lg flex items-center justify-center">
-              <QrCode className="h-32 w-32 text-amber-500" />
-            </div>
-            {!isMerchant && (
-              <button
-                onClick={handleScan}
-                className="bg-amber-500 text-white px-4 py-2 rounded-lg hover:bg-amber-600"
-              >
-                Simulate Scan
-              </button>
-            )}
-          </>
-        )}
-        <button
-          onClick={onClose}
-          className="absolute top-2 right-2 text-white hover:text-amber-500"
-        >
+    <div className="bg-white rounded-lg overflow-hidden">
+      <div className="p-4 bg-amber-500 text-white flex justify-between items-center">
+        <h3 className="text-lg font-semibold">Scan Customer QR Code</h3>
+        <button onClick={onClose} className="text-white hover:text-amber-100">
           <X className="h-6 w-6" />
         </button>
       </div>
+
+      <div className="p-4">
+        {error ? (
+          <div className="text-center p-4">
+            <AlertTriangle className="h-12 w-12 text-red-500 mx-auto mb-2" />
+            <p className="text-red-500 mb-4">{error}</p>
+            <button
+              onClick={handleRestartScan}
+              className="bg-amber-500 text-white px-4 py-2 rounded-lg hover:bg-amber-600"
+            >
+              Retry Camera Access
+            </button>
+          </div>
+        ) : scanSuccess ? (
+          <div className="text-center p-4">
+            <CheckCircle className="h-16 w-16 text-green-500 mx-auto mb-2" />
+            <p className="text-lg font-medium text-green-600 mb-4">Scan Successful!</p>
+            <button
+              onClick={handleRestartScan}
+              className="bg-amber-500 text-white px-4 py-2 rounded-lg hover:bg-amber-600"
+            >
+              Scan Another Code
+            </button>
+          </div>
+        ) : (
+          <div className="space-y-4">
+            <div id="reader" className="w-full max-w-sm mx-auto overflow-hidden rounded-lg"></div>
+            
+            {!isScanning && (
+              <div className="text-center">
+                <button
+                  onClick={startScanner}
+                  className="bg-amber-500 text-white px-6 py-3 rounded-lg hover:bg-amber-600 transition-colors flex items-center justify-center mx-auto space-x-2"
+                >
+                  <Camera className="h-5 w-5" />
+                  <span>{hasCamera ? 'Start Scanning' : 'Enable Camera'}</span>
+                </button>
+              </div>
+            )}
+            
+            {isScanning && (
+              <div className="text-center">
+                <button
+                  onClick={stopScanner}
+                  className="bg-red-500 text-white px-6 py-3 rounded-lg hover:bg-red-600 transition-colors"
+                >
+                  Stop Scanning
+                </button>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
+
+
+
+const ClientQRCode = ({ onClose }) => {
+  const qrValue = "example-order-123"; // Replace with actual order ID
+
+  return (
+    <div className="bg-white rounded-lg overflow-hidden">
+
+      <div className="p-4 bg-amber-500 text-white flex justify-between items-center">
+        <h3 className="text-lg font-semibold">Your Order QR Code</h3>
+        <button onClick={onClose} className="text-white hover:text-amber-100">
+          <X className="h-6 w-6" />
+        </button>
+      </div>
+
+      <div className="p-8 text-center flex flex-col justify-center items-center">
+        <div className="w-64 h-64 bg-white  rounded-lg flex items-center justify-center border-2 border-amber-200">
+          <QrCode className="h-48 w-48 text-amber-500" />
+        </div>
+        <p className="mt-4 text-amber-700">Show this code to the merchant</p>
+      </div>
+
     </div>
   );
 };
@@ -187,7 +296,7 @@ const OrderTrackingPage = () => {
   const [showInAppMap, setShowInAppMap] = useState(false);
   const [showCancelOrderModal, setShowCancelOrderModal] = useState(false);
   const [showQRScanner, setShowQRScanner] = useState(false);
-  const [isMerchant, setIsMerchant] = useState(true); // Toggle for testing different views
+  const [isMerchant, setIsMerchant] = useState(false); // Toggle for testing different views
   const [scanComplete, setScanComplete] = useState(false);
 
   const router = useRouter();
@@ -249,14 +358,28 @@ const OrderTrackingPage = () => {
             />
             <h1 className="text-lg font-semibold">Order Details</h1>
           </div>
-          {scanComplete && (
+
+          {
+          isMerchant ?  (
+            <button
+              onClick={() => setShowQRScanner(true)}
+              className="flex items-center space-x-2 bg-white/20 px-3 py-2 rounded-lg hover:bg-white/30 transition-colors"
+            >
+              <ScanLine className="h-5 w-5" />
+              <span>Scan QR</span>
+            </button>
+          )    :  
+          
+          (
             <button
               onClick={() => setShowQRScanner(true)}
               className="p-2 bg-amber-100 rounded-full text-amber-600 hover:bg-amber-200"
             >
               <QrCode className="h-5 w-5" />
             </button>
-          )}
+          )
+          }
+
         </div>
       </div>
 
@@ -378,11 +501,16 @@ const OrderTrackingPage = () => {
         isOpen={showQRScanner}
         onClose={() => setShowQRScanner(false)}
       >
-        <QRScanner
-          onClose={() => setShowQRScanner(false)}
-          onScan={handleScanComplete}
-          isMerchant={isMerchant}
-        />
+        {isMerchant ? (
+          <MerchantScanner
+            onClose={() => setShowQRScanner(false)}
+            onScan={handleScanComplete}
+          />
+        ) : (
+          <ClientQRCode
+            onClose={() => setShowQRScanner(false)}
+          />
+        )}
       </Modal>
 
        {/* External Map Modal */}
