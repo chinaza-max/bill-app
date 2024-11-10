@@ -12,7 +12,7 @@ const ClientEmptyState = ({router}) => (
     </div>
     <h3 className="text-xl font-semibold text-amber-900 mb-2">No Orders Yet</h3>
     <p className="text-amber-600 mb-6 max-w-sm">
-      Looks like you don't have any active orders, start one now
+      Looks like you dont have any active orders, start one now
     </p>
     <button
       onClick={() => router.push(`/p2p/`)}
@@ -111,12 +111,12 @@ const OrderListPage = () => {
       id: "1",
       merchant: {
         name: "John's Cafe",
-        avatar: "https://via.placeholder.com/50",
+        avatar: "avatar.jpg",
         badge: "Top Merchant",
       },
       client: {
         name: "Alice Smith",
-        avatar: "https://via.placeholder.com/50",
+        avatar: "avatar.jpg",
       },
       amount: {
         total: 2500,
@@ -133,12 +133,12 @@ const OrderListPage = () => {
       id: "2",
       merchant: {
         name: "Pizza Palace",
-        avatar: "https://via.placeholder.com/50",
+        avatar: "avatar.jpg",
         badge: "Premium Vendor",
       },
       client: {
         name: "Bob Johnson",
-        avatar: "https://via.placeholder.com/50",
+        avatar: "avatar.jpg",
       },
       amount: {
         total: 3400,
@@ -155,12 +155,12 @@ const OrderListPage = () => {
       id: "3",
       merchant: {
         name: "Baker's Delight",
-        avatar: "https://via.placeholder.com/50",
+        avatar: "avatar.jpg",
         badge: "Trusted Partner",
       },
       client: {
         name: "Cathy Lee",
-        avatar: "https://via.placeholder.com/50",
+        avatar: "avatar.jpg",
       },
       amount: {
         total: 1200,

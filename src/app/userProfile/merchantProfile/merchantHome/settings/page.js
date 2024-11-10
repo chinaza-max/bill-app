@@ -9,16 +9,36 @@ import {
   Shield,
   AlertCircle,
   CheckCircle2,
-  XCircle
+  XCircle,
+  Wallet,
+  ExternalLink,
+  CreditCard,
+  Copy
 } from 'lucide-react';
+
 import { motion, AnimatePresence } from 'framer-motion';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 
 const SettingsPage = () => {
   const router = useRouter();
   const [activeSection, setActiveSection] = useState('');
-  const [currentTier, setCurrentTier] = useState('tier1'); // Default tier
+  const [currentTier, setCurrentTier] = useState('tier1');
   const [deliveryDistance, setDeliveryDistance] = useState(10);
+  const [hasWithdrawalAccount, setHasWithdrawalAccount] = useState(true);
+  const [accountDetails] = useState({
+    bankName: 'First Bank',
+    accountNumber: '1234567890',
+    accountName: 'John Doe'
+  });
+
+
+
+  const copyToClipboard = (text) => {
+    navigator.clipboard.writeText(text);
+    alert('Copied to clipboard!');
+  };
+
+
 
   const tiers = {
     tier1: {
@@ -61,10 +81,18 @@ const SettingsPage = () => {
     setActiveSection(activeSection === section ? '' : section);
   };
 
+  const handleSetupWithdrawalAccount = () => {
+    router.push('/userProfile/merchantProfile/setupWithdrawal');
+  };
+
+  const handleNavigateToWithdrawal = () => {
+    router.push('/userProfile/merchantProfile/merchantHome/settings/Withdrawal');
+  };
+
   return (
-    <div className="flex flex-col min-h-screen bg-gray-50">
+    <div className="flex flex-col min-h-screen bg-gray-50 pb-6">
       {/* Top Navigation */}
-      <div className="bg-gradient-to-r from-amber-600 to-amber-500 text-white px-4 py-3">
+      <div className="fixed top-0 left-0 right-0 z-50 bg-gradient-to-r from-amber-600 to-amber-500 text-white px-4 py-3">
         <div className="flex items-center space-x-3">
           <ArrowLeft onClick={handleGoBack} className="h-6 w-6 cursor-pointer" />
           <h1 className="text-lg font-semibold">Merchant Settings</h1>
@@ -72,7 +100,7 @@ const SettingsPage = () => {
       </div>
 
       {/* Current Tier Status */}
-      <div className="p-4">
+      <div className="p-4 mt-7">
         <Alert className="bg-amber-50 border-amber-200">
           <Shield className="h-5 w-5 text-amber-600" />
           <AlertDescription className="text-amber-800">
@@ -194,8 +222,88 @@ const SettingsPage = () => {
           </p>
         </div>
       </div>
+
+         {/* Withdrawal Account Section */}
+         <div className="px-4 mb-4">
+          <div className="bg-white rounded-lg shadow-sm border border-amber-100 p-4">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center space-x-2">
+                <CreditCard className="h-5 w-5 text-amber-500" />
+                <span className="font-semibold text-gray-900">Withdrawal Account</span>
+              </div>
+            </div>
+
+            {!hasWithdrawalAccount ? (
+              <div className="space-y-2">
+                <p className="text-sm text-gray-600">
+                  Set up your withdrawal account to receive payments
+                </p>
+                <button
+                  onClick={handleSetupWithdrawalAccount}
+                  className="w-full py-2 px-4 rounded-lg bg-amber-500 text-white font-medium hover:bg-amber-600 transition-colors flex items-center justify-center space-x-2"
+                >
+                  <CreditCard className="h-5 w-5" />
+                  <span>Set Up Withdrawal Account</span>
+                </button>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {/* Account Details */}
+                <div className="space-y-3 bg-amber-50 p-3 rounded-lg">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-amber-900">Bank Name</span>
+                    <span className="font-medium text-amber-900">{accountDetails.bankName}</span>
+                  </div>
+                  
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-amber-900">Account Number</span>
+                    <div className="flex items-center space-x-2">
+                      <span className="font-medium text-amber-900">{accountDetails.accountNumber}</span>
+                    
+                    </div>
+                  </div>
+                  
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-amber-900">Account Name</span>
+                    <span className="font-medium text-amber-900">{accountDetails.accountName}</span>
+                  </div>
+                </div>
+
+                {/* Status and Navigation */}
+                <div className="flex items-center justify-between bg-green-50 px-3 py-2 rounded-lg">
+                  <div className="flex items-center space-x-2">
+                    <CheckCircle2 className="h-5 w-5 text-green-500" />
+                    <span className="text-green-900">Account Connected</span>
+                  </div>
+                </div>
+
+                <button
+                  onClick={handleSetupWithdrawalAccount}
+                  className="w-full py-2 px-4 rounded-lg bg-amber-500 text-white font-medium hover:bg-amber-600 transition-colors flex items-center justify-center space-x-2"
+                >
+                  <CreditCard className="h-5 w-5" />
+                  <span>Change Withdrawal Account</span>
+                </button>
+
+                <button
+                  onClick={handleNavigateToWithdrawal}
+                  className="w-full py-2 px-4 rounded-lg bg-amber-100 text-amber-700 font-medium hover:bg-amber-200 transition-colors flex items-center justify-center space-x-2"
+                >
+                  <Wallet className="h-5 w-5" />
+                  <span>Go to Withdrawals</span>
+                  <ExternalLink className="h-4 w-4" />
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
     </div>
   );
 };
 
 export default SettingsPage;
+
+
+
+
+
