@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useRef } from 'react';
-import { ArrowLeft, Check, AlertCircle, Camera, Upload } from 'lucide-react';
+import { ArrowLeft, Check, AlertCircle, Camera, Upload, ChevronRight } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { useRouter } from 'next/navigation';
 
@@ -13,7 +13,10 @@ const UserProfilePage = () => {
     email: 'john.carter@example.com',
     phoneNumber: '+234 800 123 4567',
     isPhoneVerified: true,
-    profilePicture: '../../avatar.jpg' 
+    profilePicture: '../../avatar.jpg',
+    isMerchant: true,
+    merchantDisplayName: 'Carter Foods & Groceries',
+    merchantPhoneNumber: '+234 800 987 6543'
   });
 
   const fileInputRef = useRef(null);
@@ -41,30 +44,21 @@ const UserProfilePage = () => {
     }
   };
 
-  const handleProfileChange = (e) => {
-    const { name, value } = e.target;
-    setUserProfile(prev => ({
-      ...prev,
-      [name]: value
-    }));
-  };
-
-  const handlePasswordChange = (e) => {
-    const { name, value } = e.target;
-    setPasswordForm(prev => ({
-      ...prev,
-      [name]: value
-    }));
-  };
-
   const handleBack = () => {
-    router.push('/userProfile');
+    router.back();
+  };
+
+  const handleEditMerchantInfo = () => {
+    router.push('/userProfile/ProfileInformation/updateMerchant');
+  };
+
+  const handleEditPersonalInfo = () => {
+    router.push('/userProfile/ProfileInformation/updatePersonal');
   };
 
   const handleProfileUpdate = (e) => {
     e.preventDefault();
     setIsEditing(false);
-    // Handle profile update logic here
     if (previewImage) {
       setUserProfile(prev => ({
         ...prev,
@@ -97,16 +91,11 @@ const UserProfilePage = () => {
           <div className="flex flex-col items-center space-y-4">
             <div className="relative">
               <img
-                src={previewImage || userProfile.profilePicture}
+                src={ userProfile.profilePicture}
                 alt="Profile"
                 className="w-32 h-32 rounded-full object-cover border-4 border-amber-200"
               />
-              <button
-                onClick={handleProfilePictureClick}
-                className="absolute bottom-0 right-0 bg-amber-500 p-2 rounded-full text-white hover:bg-amber-600 transition-colors"
-              >
-                <Camera className="h-5 w-5" />
-              </button>
+             
             </div>
             <input
               ref={fileInputRef}
@@ -124,114 +113,107 @@ const UserProfilePage = () => {
           </div>
         </div>
 
-        {/* Personal Information Form */}
-        <form onSubmit={handleProfileUpdate} className="space-y-6">
+        {/* Merchant Information Section */}
+        {userProfile.isMerchant && (
           <div className="bg-white rounded-lg p-4 shadow-sm">
-            <h2 className="text-lg font-semibold text-amber-900 mb-4">Personal Information</h2>
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-lg font-semibold text-amber-900">Merchant Information</h2>
+              <button
+                onClick={handleEditMerchantInfo}
+                className="text-amber-600 flex items-center gap-1 hover:text-amber-700"
+              >
+                Edit <ChevronRight className="h-4 w-4" />
+              </button>
+            </div>
             
             <div className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-amber-700 mb-1">
-                  First Name
+                  Business Name
                 </label>
-                <input
-                  type="text"
-                  name="firstName"
-                  value={userProfile.firstName}
-                  onChange={handleProfileChange}
-                  disabled={!isEditing}
-                  className="w-full px-3 py-2 border border-amber-200 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-transparent disabled:bg-amber-50 disabled:text-amber-700"
-                />
+                <div className="w-full px-3 py-2 bg-amber-50 text-amber-700 rounded-lg">
+                  {userProfile.merchantDisplayName}
+                </div>
               </div>
 
               <div>
                 <label className="block text-sm font-medium text-amber-700 mb-1">
-                  Last Name
+                  Business Phone
                 </label>
-                <input
-                  type="text"
-                  name="lastName"
-                  value={userProfile.lastName}
-                  onChange={handleProfileChange}
-                  disabled={!isEditing}
-                  className="w-full px-3 py-2 border border-amber-200 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-transparent disabled:bg-amber-50 disabled:text-amber-700"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-amber-700 mb-1">
-                  Date of Birth
-                </label>
-                <input
-                  type="date"
-                  name="dateOfBirth"
-                  value={userProfile.dateOfBirth}
-                  onChange={handleProfileChange}
-                  disabled={!isEditing}
-                  className="w-full px-3 py-2 border border-amber-200 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-transparent disabled:bg-amber-50 disabled:text-amber-700"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-amber-700 mb-1">
-                  Email Address
-                </label>
-                <input
-                  type="email"
-                  name="email"
-                  value={userProfile.email}
-                  onChange={handleProfileChange}
-                  disabled={!isEditing}
-                  className="w-full px-3 py-2 border border-amber-200 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-transparent disabled:bg-amber-50 disabled:text-amber-700"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-amber-700 mb-1">
-                  Phone Number
-                </label>
-                <div className="relative">
-                  <input
-                    type="tel"
-                    name="phoneNumber"
-                    value={userProfile.phoneNumber}
-                    onChange={handleProfileChange}
-                    disabled={!isEditing}
-                    className="w-full px-3 py-2 border border-amber-200 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-transparent disabled:bg-amber-50 disabled:text-amber-700"
-                  />
-                  {userProfile.isPhoneVerified ? (
-                    <Check className="absolute right-3 top-1/2 -translate-y-1/2 h-5 w-5 text-amber-600" />
-                  ) : (
-                    <AlertCircle className="absolute right-3 top-1/2 -translate-y-1/2 h-5 w-5 text-amber-500" />
-                  )}
+                <div className="w-full px-3 py-2 bg-amber-50 text-amber-700 rounded-lg">
+                  {userProfile.merchantPhoneNumber}
                 </div>
               </div>
             </div>
+          </div>
+        )}
 
-            <div className="mt-6">
-              {!isEditing ? (
-                <motion.button
-                  whileHover={{ scale: 1.02 }}
-                  whileTap={{ scale: 0.98 }}
-                  type="button"
-                  onClick={() => setIsEditing(true)}
-                  className="w-full bg-amber-500 text-white rounded-lg py-2 px-4 font-medium hover:bg-amber-600 transition-colors"
-                >
-                  Edit Profile
-                </motion.button>
-              ) : (
-                <motion.button
-                  whileHover={{ scale: 1.02 }}
-                  whileTap={{ scale: 0.98 }}
-                  type="submit"
-                  className="w-full bg-amber-500 text-white rounded-lg py-2 px-4 font-medium hover:bg-amber-600 transition-colors"
-                >
-                  Save Changes
-                </motion.button>
-              )}
+        {/* Personal Information Section */}
+        <div className="bg-white rounded-lg p-4 shadow-sm">
+          <div className="flex justify-between items-center mb-4">
+            <h2 className="text-lg font-semibold text-amber-900">Personal Information</h2>
+            <button
+              onClick={handleEditPersonalInfo}
+              className="text-amber-600 flex items-center gap-1 hover:text-amber-700"
+            >
+              Edit <ChevronRight className="h-4 w-4" />
+            </button>
+          </div>
+          
+          <div className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-amber-700 mb-1">
+                First Name
+              </label>
+              <div className="w-full px-3 py-2 bg-amber-50 text-amber-700 rounded-lg">
+                {userProfile.firstName}
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-amber-700 mb-1">
+                Last Name
+              </label>
+              <div className="w-full px-3 py-2 bg-amber-50 text-amber-700 rounded-lg">
+                {userProfile.lastName}
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-amber-700 mb-1">
+                Date of Birth
+              </label>
+              <div className="w-full px-3 py-2 bg-amber-50 text-amber-700 rounded-lg">
+                {userProfile.dateOfBirth}
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-amber-700 mb-1">
+                Email Address
+              </label>
+              <div className="w-full px-3 py-2 bg-amber-50 text-amber-700 rounded-lg">
+                {userProfile.email}
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-amber-700 mb-1">
+                Phone Number
+              </label>
+              <div className="relative">
+                <div className="w-full px-3 py-2 bg-amber-50 text-amber-700 rounded-lg">
+                  {userProfile.phoneNumber}
+                </div>
+                {userProfile.isPhoneVerified ? (
+                  <Check className="absolute right-3 top-1/2 -translate-y-1/2 h-5 w-5 text-amber-600" />
+                ) : (
+                  <AlertCircle className="absolute right-3 top-1/2 -translate-y-1/2 h-5 w-5 text-amber-500" />
+                )}
+              </div>
             </div>
           </div>
-        </form>
+        </div>
 
         {/* Password Change Form */}
         <form onSubmit={handlePasswordUpdate} className="bg-white rounded-lg p-4 shadow-sm">
@@ -246,7 +228,7 @@ const UserProfilePage = () => {
                 type="password"
                 name="oldPassword"
                 value={passwordForm.oldPassword}
-                onChange={handlePasswordChange}
+                onChange={(e) => setPasswordForm(prev => ({...prev, oldPassword: e.target.value}))}
                 className="w-full px-3 py-2 border border-amber-200 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-transparent"
               />
             </div>
@@ -259,7 +241,7 @@ const UserProfilePage = () => {
                 type="password"
                 name="newPassword"
                 value={passwordForm.newPassword}
-                onChange={handlePasswordChange}
+                onChange={(e) => setPasswordForm(prev => ({...prev, newPassword: e.target.value}))}
                 className="w-full px-3 py-2 border border-amber-200 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-transparent"
               />
             </div>
@@ -272,7 +254,7 @@ const UserProfilePage = () => {
                 type="password"
                 name="confirmPassword"
                 value={passwordForm.confirmPassword}
-                onChange={handlePasswordChange}
+                onChange={(e) => setPasswordForm(prev => ({...prev, confirmPassword: e.target.value}))}
                 className="w-full px-3 py-2 border border-amber-200 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-transparent"
               />
             </div>

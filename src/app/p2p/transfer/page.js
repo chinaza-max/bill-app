@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useRef, useEffect } from 'react';
-import { ArrowLeft, Check, ChevronRight, Building2, Wallet, Eye } from 'lucide-react';
+import { ArrowLeft, Check, ChevronRight, Building2, Wallet, Eye, Copy } from 'lucide-react';
 import { motion, AnimatePresence, useAnimation } from 'framer-motion';
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useRouter } from 'next/navigation';
@@ -12,6 +12,7 @@ const TransferPage = () => {
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
   const [sliderPosition, setSliderPosition] = useState('start');
+  const [showCopySuccess, setShowCopySuccess] = useState(false);
   const contentRef = useRef(null);
   const sliderControls = useAnimation();
   const SLIDER_THRESHOLD = 0.5;
@@ -46,7 +47,17 @@ const TransferPage = () => {
 
   const handleViewOrder = () => {
     // Add your view order logic here
-    router.push('/order-details');
+    router.push('/orders/order');
+  };
+
+  const handleCopyAccountNumber = async () => {
+    try {
+      await navigator.clipboard.writeText('0123456789');
+      setShowCopySuccess(true);
+      setTimeout(() => setShowCopySuccess(false), 2000);
+    } catch (err) {
+      console.error('Failed to copy account number:', err);
+    }
   };
 
   useEffect(() => {
@@ -180,10 +191,24 @@ const TransferPage = () => {
                       <span className="text-sm text-amber-600">Bank Name:</span>
                       <span className="ml-2 text-amber-900 font-medium">First Bank</span>
                     </div>
-                    <div>
-                      <span className="text-sm text-amber-600">Account Number:</span>
-                      <span className="ml-2 text-amber-900 font-medium">0123456789</span>
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center">
+                        <span className="text-sm text-amber-600">Account Number:</span>
+                        <span className="ml-2 text-amber-900 font-medium">0123456789</span>
+                      </div>
+                      <button
+                        onClick={handleCopyAccountNumber}
+                        className="p-2 hover:bg-amber-100 rounded-full transition-colors"
+                        title="Copy account number"
+                      >
+                        <Copy className="h-4 w-4 text-amber-600" />
+                      </button>
                     </div>
+                    {showCopySuccess && (
+                      <div className="text-green-600 text-sm">
+                        Account number copied!
+                      </div>
+                    )}
                     <div>
                       <span className="text-sm text-amber-600">Account Name:</span>
                       <span className="ml-2 text-amber-900 font-medium">John Doe</span>
@@ -222,7 +247,7 @@ const TransferPage = () => {
               <div className="flex items-center justify-between bg-green-50 p-4 rounded-lg">
                 <div className="flex items-center space-x-2">
                   <Check className="h-5 w-5 text-green-500" />
-                  <span className="text-green-700 font-medium">Transaction complete</span>
+                  <span className="text-green-700 font-medium">Completed</span>
                 </div>
                 <button
                   onClick={handleViewOrder}
