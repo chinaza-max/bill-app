@@ -79,7 +79,7 @@ const OrderCard = ({ order, userType, onAcknowledgeOrder, router }) => (
       
       <div className="flex items-center space-x-2">
         <button
-          onClick={() => router.push(`/orders/${order.id}`)}
+          onClick={() => router.push(`/orders/order`)}
           className="flex items-center space-x-1 px-3 py-1.5 bg-amber-100 text-amber-600 rounded-lg hover:bg-amber-200"
         >
           <span className="text-sm font-medium">View More</span>
