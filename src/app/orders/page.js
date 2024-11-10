@@ -1,7 +1,8 @@
 'use client';
 
 
-import React from 'react';
+import React, { useState,useEffect } from 'react';
+
 import { ArrowLeft, Package, User, ExternalLink, Clock, MapPin, ShoppingBag, Check } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 
@@ -101,9 +102,12 @@ const OrderCard = ({ order, userType, onAcknowledgeOrder, router }) => (
 );
 
 const OrderListPage = () => {
+
+  const [userType, setUserType] = useState("merchant");
+
+  
   const router = useRouter();
   // You can change this to 'merchant' to test merchant view
-  const userType = 'merchant';
 
   // Sample orders data - you can set this to empty array to test empty state
   const orders = [
@@ -176,6 +180,18 @@ const OrderListPage = () => {
   ];
 
 
+  useEffect(() => {
+
+
+    const storedUserType = localStorage.getItem("who");
+
+    if (storedUserType) {
+      setUserType(storedUserType);
+    } else {
+      setUserType("merchant"); // Fallback to merchant if there's no value in localStorage
+    }
+   
+  }, []);
 
 
   const handleAcknowledgeOrder = (orderId) => {

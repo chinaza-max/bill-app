@@ -305,7 +305,15 @@ const OrderTrackingPage = () => {
   const router = useRouter();
 
   useEffect(() => {
+    
 
+    const storedUserType = localStorage.getItem("who");
+
+    if (storedUserType==="merchant") {
+      setIsMerchant(true);
+    } else {
+      setIsMerchant(false); 
+    }
 
     if (navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(

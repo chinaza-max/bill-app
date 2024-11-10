@@ -82,7 +82,7 @@ const SettingsPage = () => {
   };
 
   const handleSetupWithdrawalAccount = () => {
-    router.push('/userProfile/merchantProfile/setupWithdrawal');
+    router.push('/userProfile/merchantProfile/merchantHome/settings//settingUpAccount');
   };
 
   const handleNavigateToWithdrawal = () => {
@@ -100,7 +100,7 @@ const SettingsPage = () => {
       </div>
 
       {/* Current Tier Status */}
-      <div className="p-4 mt-7">
+      <div className="p-4 mt-11">
         <Alert className="bg-amber-50 border-amber-200">
           <Shield className="h-5 w-5 text-amber-600" />
           <AlertDescription className="text-amber-800">

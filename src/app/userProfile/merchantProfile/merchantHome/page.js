@@ -118,6 +118,9 @@ const MerchantApp = () => {
   };
 
   useEffect(() => {
+
+    localStorage.setItem('who', "merchant");
+
     startInterval();
     return () => stopInterval();
   }, []);

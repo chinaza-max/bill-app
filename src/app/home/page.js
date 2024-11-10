@@ -10,6 +10,9 @@ const EnhancedCarousel = ({ items }) => {
   const intervalRef = useRef(null);
   const controls = useAnimation();
 
+
+
+                 
   const startInterval = () => {
 
     if (!intervalRef.current) {
@@ -51,6 +54,8 @@ const EnhancedCarousel = ({ items }) => {
   };
 
   useEffect(() => {
+    localStorage.setItem('who', "client");
+
     startInterval();
    return () => stopInterval();
   }, []);
@@ -120,7 +125,36 @@ const MobileApp = () => {
   const [activeTab, setActiveTab] = useState('home');
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const router = useRouter();
-  const recentTransactions = [];
+  //const recentTransactions = [];
+
+
+  const recentTransactions = [
+    {
+      id: 1,
+      title: 'Received Payment',
+      initials: 'RP',
+      date: '2024-11-05',
+      type: 'incoming',
+      amount: '5000.00 ₦'
+    },
+    {
+      id: 2,
+      title: 'Sent Payment',
+      initials: 'SP',
+      date: '2024-11-04',
+      type: 'outgoing',
+      amount: '2000.00 ₦'
+    },
+    {
+      id: 3,
+      title: 'Purchase at Store',
+      initials: 'PS',
+      date: '2024-11-03',
+      type: 'outgoing',
+      amount: '3500.00 ₦'
+    }
+  ];
+  
 
   // Enhanced carousel data
   const carouselItems = [

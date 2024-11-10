@@ -64,9 +64,8 @@ const ProfilePage = () => {
   );
 
   const handleLogout = () => {
-    // Add logout logic here
-    router.push('/login');
-  };
+    router.push('/sign-in');
+  };  
 
   return (
     <div className="flex flex-col h-screen bg-amber-50">
