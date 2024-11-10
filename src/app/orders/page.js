@@ -11,7 +11,7 @@ const ClientEmptyState = ({router}) => (
     </div>
     <h3 className="text-xl font-semibold text-amber-900 mb-2">No Orders Yet</h3>
     <p className="text-amber-600 mb-6 max-w-sm">
-      Looks like you don't have any active orders, start one now
+      Looks like you dont have any active orders, start one now
     </p>
     <button
       onClick={() => router.push(`/p2p/`)}
