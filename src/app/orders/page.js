@@ -1,5 +1,6 @@
 'use client';
 
+
 import React from 'react';
 import { ArrowLeft, Package, User, ExternalLink, Clock, MapPin, ShoppingBag, Check } from 'lucide-react';
 import { useRouter } from 'next/navigation';
@@ -11,7 +12,7 @@ const ClientEmptyState = ({router}) => (
     </div>
     <h3 className="text-xl font-semibold text-amber-900 mb-2">No Orders Yet</h3>
     <p className="text-amber-600 mb-6 max-w-sm">
-      Looks like you dont have any active orders, start one now
+      Looks like you don't have any active orders, start one now
     </p>
     <button
       onClick={() => router.push(`/p2p/`)}
@@ -34,7 +35,7 @@ const MerchantEmptyState = () => (
   </div>
 );
 
-const OrderCard = ({ order, userType, onAcceptOrder, router }) => (
+const OrderCard = ({ order, userType, onAcknowledgeOrder, router }) => (
   <div className="bg-white rounded-lg shadow-md p-4">
     <div className="flex items-center justify-between mb-4">
       <div className="flex items-center space-x-3">
@@ -64,24 +65,6 @@ const OrderCard = ({ order, userType, onAcceptOrder, router }) => (
       </div>
     </div>
 
-    {/* Order Details */}
-    <div className="mb-4 p-3 bg-amber-50 rounded-lg">
-      <h4 className="font-medium text-amber-900 mb-2">Order Details</h4>
-      <div className="space-y-1">
-        <div className="text-sm text-amber-700">
-          <span className="font-medium">Items:</span> {order.items.join(', ')}
-        </div>
-        <div className="text-sm text-amber-700">
-          <span className="font-medium">Quantity:</span> {order.quantity}
-        </div>
-        {order.notes && (
-          <div className="text-sm text-amber-700">
-            <span className="font-medium">Notes:</span> {order.notes}
-          </div>
-        )}
-      </div>
-    </div>
-
     <div className="flex justify-between items-center">
       <div className="flex items-center space-x-4">
         <div className="flex items-center space-x-1 text-amber-600">
@@ -94,23 +77,25 @@ const OrderCard = ({ order, userType, onAcceptOrder, router }) => (
         </div>
       </div>
       
-      {userType === 'merchant' ? (
+      <div className="flex items-center space-x-2">
         <button
-          onClick={() => onAcceptOrder(order.id)}
-          className="flex items-center space-x-1 px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600"
-        >
-          <Check className="h-4 w-4" />
-          <span className="text-sm font-medium">Accept Order</span>
-        </button>
-      ) : (
-        <button
-          onClick={() => router.push(`/orders/order`)}
+          onClick={() => router.push(`/orders/${order.id}`)}
           className="flex items-center space-x-1 px-3 py-1.5 bg-amber-100 text-amber-600 rounded-lg hover:bg-amber-200"
         >
-          <span className="text-sm font-medium">View Details</span>
+          <span className="text-sm font-medium">View More</span>
           <ExternalLink className="h-4 w-4" />
         </button>
-      )}
+        
+        {userType === 'merchant' && (
+          <button
+            onClick={() => onAcknowledgeOrder(order.id)}
+            className="flex items-center space-x-1 px-4 py-1.5 bg-green-500 text-white rounded-lg hover:bg-green-600"
+          >
+            <Check className="h-4 w-4" />
+            <span className="text-sm font-medium">Acknowledge Order</span>
+          </button>
+        )}
+      </div>
     </div>
   </div>
 );
@@ -121,7 +106,6 @@ const OrderListPage = () => {
   const userType = 'merchant';
 
   // Sample orders data - you can set this to empty array to test empty state
-  //const orders = [];
   const orders = [
     {
       id: "1",
@@ -190,10 +174,13 @@ const OrderListPage = () => {
       },
     },
   ];
-  
-  const handleAcceptOrder = (orderId) => {
-    // Handle order acceptance logic here
-    console.log(`Accepting order ${orderId}`);
+
+
+
+
+  const handleAcknowledgeOrder = (orderId) => {
+    // Handle order acknowledgement logic here
+    console.log(`Acknowledging order ${orderId}`);
   };
 
   return (
@@ -234,7 +221,7 @@ const OrderListPage = () => {
                 key={order.id}
                 order={order}
                 userType={userType}
-                onAcceptOrder={handleAcceptOrder}
+                onAcknowledgeOrder={handleAcknowledgeOrder}
                 router={router}
               />
             ))}
@@ -296,10 +283,83 @@ export default OrderListPage;
         total: "7,800"
       }
     }
-    ]; */
+    ]; 
+    
+    
+    
+      const orders = [
+    {
+      id: "1",
+      merchant: {
+        name: "John's Cafe",
+        avatar: "https://via.placeholder.com/50",
+        badge: "Top Merchant",
+      },
+      client: {
+        name: "Alice Smith",
+        avatar: "https://via.placeholder.com/50",
+      },
+      amount: {
+        total: 2500,
+      },
+      items: ["Latte", "Blueberry Muffin"],
+      quantity: 2,
+      notes: "Extra whipped cream on the latte",
+      location: {
+        distance: "1.5 km",
+        estimatedTime: "15 min",
+      },
+    },
+    {
+      id: "2",
+      merchant: {
+        name: "Pizza Palace",
+        avatar: "https://via.placeholder.com/50",
+        badge: "Premium Vendor",
+      },
+      client: {
+        name: "Bob Johnson",
+        avatar: "https://via.placeholder.com/50",
+      },
+      amount: {
+        total: 3400,
+      },
+      items: ["Pepperoni Pizza", "Garlic Bread"],
+      quantity: 3,
+      notes: "No olives on the pizza",
+      location: {
+        distance: "3 km",
+        estimatedTime: "25 min",
+      },
+    },
+    {
+      id: "3",
+      merchant: {
+        name: "Baker's Delight",
+        avatar: "https://via.placeholder.com/50",
+        badge: "Trusted Partner",
+      },
+      client: {
+        name: "Cathy Lee",
+        avatar: "https://via.placeholder.com/50",
+      },
+      amount: {
+        total: 1200,
+      },
+      items: ["Chocolate Cake", "Iced Coffee"],
+      quantity: 1,
+      notes: "Less sugar in the coffee",
+      location: {
+        distance: "500 m",
+        estimatedTime: "5 min",
+      },
+    },
+  ];*/
 
 
     /**
       1. add the view more button 
+      2.  acknowledge button not accept
 
-     */
+
+     */ 
