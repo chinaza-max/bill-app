@@ -10,17 +10,17 @@ import Link from 'next/link';
 const introSlides = [
   {
     title: "Live Beyond Expectation. Order Smarter, Live Better",
-    description: "Order money at your comfort zone without stress with billbolt",
+    description: "Order money at your comfort zone without stress with fintread",
     image: "splash1.png",
   },
   {
     title: "Unlock Convenience Order in tap, Enjoy in a Snap",
-    description: "Order money at your comfort zone without stress with billbolt",
+    description: "Order money at your comfort zone without stress with fintread",
     image: "splash2.png",
   },
   {
     title: "Turn Your Spare Time Into Money By Becoming a Merchant",
-    description: "Order money at your comfort zone without stress with billbolt",
+    description: "Order money at your comfort zone without stress with fintread",
     image: "splash3.png",
   }
 ];
