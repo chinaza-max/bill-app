@@ -39,7 +39,7 @@ const PasswordReset = () => {
             Reset Your Password
           </h1>
           <p className="text-sm text-amber-700 mb-8">
-            Enter your email address and we'll send you a link to reset your password
+            Enter your email address and we will send you a link to reset your password
           </p>
         </div>
 
@@ -50,11 +50,11 @@ const PasswordReset = () => {
               <h2 className="text-lg font-semibold text-green-800">Check Your Email</h2>
             </div>
             <p className="text-green-700">
-              We've sent a password reset link to your email address. Please check your inbox and follow the instructions to reset your password.
+              We have sent a password reset link to your email address. Please check your inbox and follow the instructions to reset your password.
             </p>
             <div className="pt-4">
               <p className="text-sm text-green-600">
-                Didn't receive the email? Check your spam folder or{' '}
+                Did not receive the email? Check your spam folder or{' '}
                 <button
                   onClick={() => setIsSubmitted(false)}
                   className="text-green-800 hover:text-green-900 underline"
