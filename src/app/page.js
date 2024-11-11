@@ -32,6 +32,7 @@ export default function Home() {
   const [direction, setDirection] = useState(0);
   const [autoPlayEnabled, setAutoPlayEnabled] = useState(true);
   const [isOverlayVisible, setOverlayVisible] = useState(true);
+  const [isOverlayVisible2, setOverlayVisible2] = useState(true);
 
 
   const router = useRouter();
@@ -84,12 +85,19 @@ export default function Home() {
     const timer2 = setTimeout(() => {
       setOverlayVisible(false); 
     }, 3000);
+
+
+    const timer3 = setTimeout(() => {
+      setOverlayVisible2(false); 
+    }, 4000)
     
 
-
     return () =>{
+
       clearInterval(timer);
       clearInterval(timer2);
+      clearInterval(timer3);
+
     } 
   }, [currentIndex, autoPlayEnabled])
 
@@ -98,7 +106,7 @@ export default function Home() {
     <>
 
     {
-      isOverlayVisible ?
+      isOverlayVisible2 ?
         <Overlay isVisible={isOverlayVisible}  />
           :  (
         <div className="fixed inset-0 bg-gradient-to-b  bg-white">
@@ -233,7 +241,6 @@ export default function Home() {
 
 
 
-
 const Overlay = ({ isVisible }) => {
 
 
@@ -270,7 +277,7 @@ const Overlay = ({ isVisible }) => {
         ease: "easeInOut"
       }
     }
-  };
+  }
 
   return (
     <motion.div
@@ -303,7 +310,6 @@ const Overlay = ({ isVisible }) => {
           variants={imageVariants}
           initial="initial"
           animate="animate"
-          
       />
 
     </motion.div>
