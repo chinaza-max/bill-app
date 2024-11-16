@@ -306,7 +306,7 @@ const Overlay = ({ isVisible }) => {
       <motion.img
           src={"fulllogo.png"}
           alt={"logo"}
-          className="w-52 h-11"
+          className="w-48  h-18"
           variants={imageVariants}
           initial="initial"
           animate="animate"

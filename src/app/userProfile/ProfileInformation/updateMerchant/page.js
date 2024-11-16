@@ -4,7 +4,7 @@
 import React, { useState } from 'react';
 import { ArrowLeft, Check, AlertCircle } from 'lucide-react';
 import { motion } from 'framer-motion';
-import { useRouter } from 'next/navigation';
+  import { useRouter } from 'next/navigation';
 
 const MerchantEditPage = () => {
   const [merchantInfo, setMerchantInfo] = useState({
