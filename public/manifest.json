@@ -3,7 +3,7 @@
   "short_name": "Fintread",
   "theme_color": "#F5DEB3",
   "background_color": "#1B4D3E",
-  "display": "standalone",
+  "display": "fullScreen",
   "orientation": "portrait",
   "scope": "/",
   "start_url": "/",
