@@ -124,7 +124,7 @@ const OnboardingScreen = () => {
               ? 'bg-green-600 text-white hover:bg-green-700'
               : 'bg-amber-200 text-amber-700 cursor-not-allowed'
           }`}
-          onClick={()=>   router.push('/home')}
+          onClick={()=>   router.push('/validation-email')}
           disabled={!selected}
         >
 

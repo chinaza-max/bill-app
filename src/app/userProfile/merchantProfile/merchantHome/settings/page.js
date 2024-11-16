@@ -13,7 +13,8 @@ import {
   Wallet,
   ExternalLink,
   CreditCard,
-  Copy
+  Copy,
+  Store
 } from 'lucide-react';
 
 import { motion, AnimatePresence } from 'framer-motion';
@@ -24,6 +25,7 @@ const SettingsPage = () => {
   const [activeSection, setActiveSection] = useState('');
   const [currentTier, setCurrentTier] = useState('tier1');
   const [deliveryDistance, setDeliveryDistance] = useState(10);
+  const [isAvailable, setIsAvailable] = useState(true);
   const [hasWithdrawalAccount, setHasWithdrawalAccount] = useState(true);
   const [accountDetails] = useState({
     bankName: 'First Bank',
@@ -98,6 +100,43 @@ const SettingsPage = () => {
           <h1 className="text-lg font-semibold">Merchant Settings</h1>
         </div>
       </div>
+
+
+         {/* Availability Toggle Section */}
+         <div className="px-4 mt-16 mb-4">
+        <div className="bg-white rounded-lg shadow-sm border border-amber-100 p-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-3">
+              <Store className={`h-5 w-5 ${isAvailable ? 'text-green-500' : 'text-gray-400'}`} />
+              <div>
+                <h3 className="font-semibold text-gray-900">Merchant Availability</h3>
+                <p className="text-sm text-gray-600">
+                  {isAvailable ? 'You are currently accepting orders' : 'You are not accepting orders'}
+                </p>
+              </div>
+            </div>
+            <button
+              onClick={() => setIsAvailable(!isAvailable)}
+              className="relative inline-flex h-6 w-11 items-center rounded-full transition-colors duration-300 focus:outline-none"
+              style={{
+                backgroundColor: isAvailable ? '#10B981' : '#D1D5DB'
+              }}
+            >
+              <span
+                className={`inline-block h-5 w-5 transform rounded-full bg-white shadow-lg transition-transform duration-300 ${
+                  isAvailable ? 'translate-x-6' : 'translate-x-1'
+                }`}
+              />
+            </button>
+          </div>
+          <div className={`mt-2 text-sm ${isAvailable ? 'text-green-600' : 'text-gray-500'}`}>
+            {isAvailable
+              ? 'Customers can currently place orders with you'
+              : 'Customers cannot place orders with you while you are unavailable'}
+          </div>
+        </div>
+      </div>
+
 
       {/* Current Tier Status */}
       <div className="p-4 mt-11">
@@ -302,8 +341,3 @@ const SettingsPage = () => {
 };
 
 export default SettingsPage;
-
-
-
-
-

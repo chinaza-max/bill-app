@@ -36,6 +36,7 @@ const MerchantEmptyState = () => (
   </div>
 );
 
+/*
 const OrderCard = ({ order, userType, onAcknowledgeOrder, router }) => (
   <div className="bg-white rounded-lg shadow-md p-4">
     <div className="flex items-center justify-between mb-4">
@@ -83,7 +84,7 @@ const OrderCard = ({ order, userType, onAcknowledgeOrder, router }) => (
           onClick={() => router.push(`/orders/order`)}
           className="flex items-center space-x-1 px-3 py-1.5 bg-amber-100 text-amber-600 rounded-lg hover:bg-amber-200"
         >
-          <span className="text-sm font-medium">View More</span>
+          <span className="text-sm font-medium">View2 More</span>
           <ExternalLink className="h-4 w-4" />
         </button>
         
@@ -96,10 +97,88 @@ const OrderCard = ({ order, userType, onAcknowledgeOrder, router }) => (
             <span className="text-sm font-medium">Acknowledge Order</span>
           </button>
         )}
+      
       </div>
     </div>
   </div>
 );
+*/
+
+const OrderCard = ({ order, userType, onAcknowledgeOrder, router }) => {
+  const [isAcknowledged, setIsAcknowledged] = useState(false);
+
+  const handleAcknowledge = () => {
+    onAcknowledgeOrder(order.id);
+    setIsAcknowledged(true);
+  };
+
+  return (
+    <div className="bg-white rounded-lg shadow-md p-4">
+      <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center space-x-3">
+          <div className="w-12 h-12 rounded-full bg-amber-100 flex items-center justify-center">
+            <img
+              src={userType === 'client' ? order.merchant.avatar : order.client.avatar}
+              alt={userType === 'client' ? order.merchant.name : order.client.name}
+              className="w-full h-full object-cover rounded-full"
+              onError={(e) => {
+                e.target.onerror = null;
+                e.target.src = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2'%3E%3C/path%3E%3Ccircle cx='12' cy='7' r='4'%3E%3C/circle%3E%3C/svg%3E";
+              }}
+            />
+          </div>
+          <div>
+            <h3 className="font-semibold text-amber-900">
+              {userType === 'client' ? order.merchant.name : order.client.name}
+            </h3>
+            <span className="px-2 py-1 bg-amber-100 text-amber-600 text-xs rounded-full">
+              {userType === 'client' ? order.merchant.badge : 'Customer'}
+            </span>
+          </div>
+        </div>
+        <div className="text-right">
+          <div className="text-lg font-semibold text-amber-900">₦{order.amount.total}</div>
+          <div className="text-sm text-amber-600">Order #{order.id}</div>
+        </div>
+      </div>
+
+      <div className="space-y-4">
+        <div className="flex justify-between items-center">
+          <div className="flex items-center space-x-4">
+            <div className="flex items-center space-x-1 text-amber-600">
+              <MapPin className="h-4 w-4" />
+              <span className="text-sm">{order.location.distance}</span>
+            </div>
+            <div className="flex items-center space-x-1 text-amber-600">
+              <Clock className="h-4 w-4" />
+              <span className="text-sm">{order.location.estimatedTime}</span>
+            </div>
+          </div>
+          
+          <button
+            onClick={() => router.push(`/orders/order`)}
+            className="flex items-center space-x-1 px-3 py-1.5 bg-amber-100 text-amber-600 rounded-lg hover:bg-amber-200"
+          >
+            <span className="text-sm font-medium">View More</span>
+            <ExternalLink className="h-4 w-4" />
+          </button>
+        </div>
+
+        {userType === 'merchant' && !isAcknowledged && (
+          <button
+            onClick={handleAcknowledge}
+            className="w-full flex items-center justify-center space-x-2 px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors"
+          >
+            <Check className="h-4 w-4" />
+            <span className="text-sm font-medium">Acknowledge Order</span>
+          </button>
+        )}
+      </div>
+    </div>
+  );
+};
+
+
 
 const OrderListPage = () => {
 
