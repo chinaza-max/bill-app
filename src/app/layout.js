@@ -18,7 +18,7 @@ export const metadata = {
   title: 'Fintread',
   description: 'Your app description',
   manifest: '/manifest.json',
-  themeColor: '#000000',
+  themeColor: '#F5DEB3',
   viewport: 'width=device-width, initial-scale=1, maximum-scale=1',
   appleWebApp: {
     capable: true,
