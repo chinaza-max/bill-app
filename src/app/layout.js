@@ -13,6 +13,17 @@ const geistMono = localFont({
 });
 
 
+export const viewport = {
+  themeColor: '#000000',
+  viewportFit: 'cover',
+  width: 'device-width',
+  initialScale: 1,
+  minimumScale: 1,
+  maximumScale: 1,
+  userScalable: false,
+}
+
+
 
 export const metadata = {
   title: 'Fintread',
@@ -26,6 +37,7 @@ export const metadata = {
     title: 'Fintread'
   },
 };
+
 
 export default function RootLayout({ children }) {
   return (

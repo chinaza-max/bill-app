@@ -417,7 +417,7 @@ const OrderTrackingPage = () => {
           (
             <button
               onClick={() => setShowQRScanner(true)}
-              className="p-2 bg-amber-100 rounded-full text-amber-600 hover:bg-amber-200"
+              className="p-2 bg-amber-100 rounded-full text-black hover:bg-amber-200"
             >
               <QrCode className="h-5 w-5" />
             </button>
