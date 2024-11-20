@@ -5,6 +5,7 @@
   "background_color": "#36b300",
   "display": "standalone",
   "orientation": "portrait",
+  "id":"8",
   "scope": "/",
   "start_url": "/",
   "icons": [
@@ -48,5 +49,24 @@
       "sizes": "512x512",
       "type": "image/png"
     }
+  ],
+  "screenshots": [
+    {
+      "src": "images/main-screen.png",
+      "sizes": "1920x1080",
+      "type": "image/png",
+      "form_factor": "wide"
+    },
+    {
+      "src": "images/checkout.png",
+      "sizes": "1280x720",
+      "type": "image/png",
+      "form_factor": "narrow"
+  
+    }
   ]
 }
+
+
+
+
