@@ -411,7 +411,7 @@ const OrderTrackingPage = () => {
             >
               <ScanLine className="h-5 w-5" />
               <span>Scan QR</span>
-            </button>
+            </button>  
           )    :  
           
           (
