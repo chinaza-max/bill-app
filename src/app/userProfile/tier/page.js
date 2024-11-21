@@ -10,16 +10,18 @@ import {
   Store,
   ChevronUp,
   ChevronDown,
-  AlertCircle
+  AlertCircle,
+  ArrowUpRight,
+  CheckCircle2
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
 const TierPage = () => {
   const router = useRouter();
-  const [activeSection, setActiveSection] = useState(null);
+  const [activeSection, setActiveSection] = useState('client');
   const [expandedTier, setExpandedTier] = useState(null);
 
-  // Sample current tier data for both account types
+  // Current tier data remains the same
   const currentTiers = {
     client: {
       type: 'Client',
@@ -41,12 +43,13 @@ const TierPage = () => {
     }
   };
 
-  // Sample tier data remains the same...
+  // Enhanced tier data with status
   const tierData = {
     client: [
       {
         name: 'Bronze',
         maxAmount: 100000,
+        status: 'completed',
         requirements: [
           'Complete profile verification',
           'Complete at least 5 transactions',
@@ -56,6 +59,7 @@ const TierPage = () => {
       {
         name: 'Silver',
         maxAmount: 500000,
+        status: 'current',
         requirements: [
           'Complete advanced verification',
           'Complete at least 20 transactions',
@@ -66,6 +70,7 @@ const TierPage = () => {
       {
         name: 'Gold',
         maxAmount: 1000000,
+        status: 'locked',
         requirements: [
           'Complete business verification',
           'Complete at least 50 transactions',
@@ -78,6 +83,7 @@ const TierPage = () => {
       {
         name: 'Basic Merchant',
         maxAmount: 1000000,
+        status: 'current',
         requirements: [
           'Business registration documents',
           'Complete at least 10 successful sales',
@@ -87,6 +93,7 @@ const TierPage = () => {
       {
         name: 'Premium Merchant',
         maxAmount: 5000000,
+        status: 'locked',
         requirements: [
           'Valid business license',
           'Complete at least 50 successful sales',
@@ -97,6 +104,7 @@ const TierPage = () => {
       {
         name: 'Elite Merchant',
         maxAmount: 10000000,
+        status: 'locked',
         requirements: [
           'Corporate documentation',
           'Complete at least 200 successful sales',
@@ -111,104 +119,95 @@ const TierPage = () => {
     router.push('/home');
   };
 
-  const CurrentTierCard = ({ tierInfo }) => (
-    <div className={`bg-white rounded-lg p-4 shadow-sm ${!tierInfo.isActive && 'opacity-60'}`}>
-      <div className="flex items-center justify-between mb-3">
-        <div className="flex items-center space-x-3">
-          <div className="w-10 h-10 rounded-full bg-amber-100 flex items-center justify-center">
-            {tierInfo.type === 'Client' ? (
-              <User className="h-5 w-5 text-amber-600" />
-            ) : (
-              <Store className="h-5 w-5 text-amber-600" />
-            )}
-          </div>
-          <div>
-            <div className="flex items-center space-x-2">
-              <h3 className="font-semibold text-amber-900">{tierInfo.type}</h3>
-              {!tierInfo.isActive && (
-                <span className="text-xs bg-amber-100 text-amber-600 px-2 py-1 rounded-full">
-                  Inactive
-                </span>
-              )}
-            </div>
-            <p className="text-sm text-amber-600">{tierInfo.name}</p>
-          </div>
-        </div>
-        <div className="text-right">
-          <p className="text-sm text-amber-900 font-medium">
-            Max: ₦{tierInfo.maxAmount.toLocaleString()}
-          </p>
-        </div>
-      </div>
+  const TierProgress = ({ tier, index, total }) => {
+    const getStatusColor = (status) => {
+      switch (status) {
+        case 'completed':
+          return 'bg-green-500';
+        case 'current':
+          return 'bg-amber-500';
+        default:
+          return 'bg-gray-300';
+      }
+    };
 
-      {tierInfo.isActive && (
-        <div className="space-y-2">
-          <div className="h-2 bg-amber-100 rounded-full overflow-hidden">
-            <div
-              className="h-full bg-amber-500 rounded-full transition-all duration-500"
-              style={{ width: `${tierInfo.progress}%` }}
-            />
-          </div>
-          <p className="text-xs text-amber-600">
-            ₦{tierInfo.remainingAmount.toLocaleString()} more to reach {tierInfo.nextTier}
-          </p>
-        </div>
-      )}
-    </div>
-  );
+    const getStatusIcon = (status) => {
+      switch (status) {
+        case 'completed':
+          return <CheckCircle2 className="h-6 w-6 text-green-500" />;
+        case 'current':
+          return <Shield className="h-6 w-6 text-amber-500" />;
+        default:
+          return <Shield className="h-6 w-6 text-gray-400" />;
+      }
+    };
 
-  const TierCard = ({ tier }) => (
-    <motion.div
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      className="bg-white rounded-lg p-4 shadow-sm"
-    >
-      <div className="flex justify-between items-center">
-        <div className="flex items-center space-x-3">
-          <div className="w-12 h-12 rounded-full bg-amber-100 flex items-center justify-center">
-            <Shield className="h-6 w-6 text-amber-600" />
-          </div>
-          <div>
-            <h3 className="font-semibold text-amber-900">{tier.name}</h3>
-            <p className="text-sm text-amber-600">
-              Up to ₦{tier.maxAmount.toLocaleString()}
-            </p>
-          </div>
-        </div>
-        <button
-          onClick={() => setExpandedTier(expandedTier === tier.name ? null : tier.name)}
-          className="text-amber-500"
-        >
-          {expandedTier === tier.name ? (
-            <ChevronUp className="h-6 w-6" />
-          ) : (
-            <ChevronRight className="h-6 w-6" />
+    return (
+      <div className="relative">
+        <div className="flex items-start space-x-4">
+          {/* Status Line */}
+          {index < total - 1 && (
+            <div className="absolute top-8 left-6 w-0.5 h-full bg-gray-200" />
           )}
-        </button>
-      </div>
+          
+          {/* Tier Content */}
+          <div className="relative">
+            <div className="z-10 bg-amber-50">
+              {getStatusIcon(tier.status)}
+            </div>
+          </div>
+          
+          <div className="flex-1 pb-8">
+            <div 
+              className={`bg-white rounded-lg p-4 shadow-sm border-l-4 
+                ${tier.status === 'current' ? 'border-amber-500' : 
+                  tier.status === 'completed' ? 'border-green-500' : 'border-gray-300'}`}
+            >
+              <div className="flex justify-between items-start mb-3">
+                <div>
+                  <h3 className="font-semibold text-amber-900">{tier.name}</h3>
+                  <p className="text-sm text-amber-600">
+                    Max: ₦{tier.maxAmount.toLocaleString()}
+                  </p>
+                </div>
+                <button
+                  onClick={() => setExpandedTier(expandedTier === tier.name ? null : tier.name)}
+                  className="text-amber-500 p-1"
+                >
+                  {expandedTier === tier.name ? (
+                    <ChevronUp className="h-5 w-5" />
+                  ) : (
+                    <ChevronDown className="h-5 w-5" />
+                  )}
+                </button>
+              </div>
 
-      <AnimatePresence>
-        {expandedTier === tier.name && (
-          <motion.div
-            initial={{ opacity: 0, height: 0 }}
-            animate={{ opacity: 1, height: 'auto' }}
-            exit={{ opacity: 0, height: 0 }}
-            className="mt-4 space-y-2"
-          >
-            <h4 className="text-sm font-medium text-amber-800">Requirements:</h4>
-            <ul className="space-y-2">
-              {tier.requirements.map((req, index) => (
-                <li key={index} className="flex items-center space-x-2 text-sm text-amber-600">
-                  <div className="w-1.5 h-1.5 rounded-full bg-amber-400" />
-                  <span>{req}</span>
-                </li>
-              ))}
-            </ul>
-          </motion.div>
-        )}
-      </AnimatePresence>
-    </motion.div>
-  );
+              <AnimatePresence>
+                {expandedTier === tier.name && (
+                  <motion.div
+                    initial={{ opacity: 0, height: 0 }}
+                    animate={{ opacity: 1, height: 'auto' }}
+                    exit={{ opacity: 0, height: 0 }}
+                    className="mt-2"
+                  >
+                    <h4 className="text-sm font-medium text-amber-800 mb-2">Requirements:</h4>
+                    <ul className="space-y-2">
+                      {tier.requirements.map((req, index) => (
+                        <li key={index} className="flex items-center space-x-2 text-sm text-amber-600">
+                          <div className="w-1.5 h-1.5 rounded-full bg-amber-400" />
+                          <span>{req}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  };
 
   return (
     <div className="flex flex-col h-screen bg-amber-50">
@@ -220,60 +219,66 @@ const TierPage = () => {
         </div>
       </div>
 
-      {/* Current Tiers Section */}
-      <div className="px-4 py-6 space-y-4">
-        <h2 className="text-lg font-semibold text-amber-900 px-1">Current Status</h2>
-        <div className="space-y-4">
-          <CurrentTierCard tierInfo={currentTiers.client} />
-          <CurrentTierCard tierInfo={currentTiers.merchant} />
+      {/* Section Toggles - Fixed below header */}
+      <div className="sticky top-0 z-10 bg-amber-50 px-4 pt-4 pb-2">
+        <div className="flex space-x-4">
+          <motion.button
+            whileTap={{ scale: 0.95 }}
+            onClick={() => setActiveSection('client')}
+            className={`flex-1 py-3 px-4 rounded-lg flex items-center justify-center space-x-2
+              ${activeSection === 'client' ? 'bg-amber-500 text-white' : 'bg-white text-amber-900'}`}
+          >
+            <User className="h-5 w-5" />
+            <span className="font-medium">Client Tiers</span>
+          </motion.button>
+
+          <motion.button
+            whileTap={{ scale: 0.95 }}
+            onClick={() => setActiveSection('merchant')}
+            className={`flex-1 py-3 px-4 rounded-lg flex items-center justify-center space-x-2
+              ${activeSection === 'merchant' ? 'bg-amber-500 text-white' : 'bg-white text-amber-900'}`}
+          >
+            <Store className="h-5 w-5" />
+            <span className="font-medium">Merchant Tiers</span>
+          </motion.button>
         </div>
       </div>
 
-      {/* Section Toggles */}
-      <div className="grid grid-cols-2 gap-4 px-4 py-4">
-        <motion.button
-          whileTap={{ scale: 0.95 }}
-          onClick={() => setActiveSection('client')}
-          className={`p-4 rounded-lg flex flex-col items-center space-y-2 ${
-            activeSection === 'client'
-              ? 'bg-amber-500 text-white'
-              : 'bg-white text-amber-900'
-          }`}
-        >
-          <User className="h-6 w-6" />
-          <span className="text-sm font-medium">Client Tiers</span>
-        </motion.button>
-
-        <motion.button
-          whileTap={{ scale: 0.95 }}
-          onClick={() => setActiveSection('merchant')}
-          className={`p-4 rounded-lg flex flex-col items-center space-y-2 ${
-            activeSection === 'merchant'
-              ? 'bg-amber-500 text-white'
-              : 'bg-white text-amber-900'
-          }`}
-        >
-          <Store className="h-6 w-6" />
-          <span className="text-sm font-medium">Merchant Tiers</span>
-        </motion.button>
+      {/* Current Tier Summary */}
+      <div className="px-4 py-4">
+        <div className="bg-white rounded-lg p-4 shadow-sm">
+          <h2 className="text-sm font-medium text-amber-600 mb-2">Current Tier</h2>
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="font-semibold text-amber-900">
+                {currentTiers[activeSection].name}
+              </p>
+              <p className="text-sm text-amber-600">
+                Max: ₦{currentTiers[activeSection].maxAmount.toLocaleString()}
+              </p>
+            </div>
+            <div className="text-right">
+              <p className="text-sm text-amber-600">Next: {currentTiers[activeSection].nextTier}</p>
+              <p className="text-xs text-amber-500">
+                {currentTiers[activeSection].progress}% Complete
+              </p>
+            </div>
+          </div>
+        </div>
       </div>
 
-      {/* Tier Lists */}
-      <div className="flex-1 overflow-auto px-4 py-3">
-        <AnimatePresence mode="wait">
-          {activeSection && (
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              className="space-y-4"
-            >
-              {tierData[activeSection].map((tier) => (
-                <TierCard key={tier.name} tier={tier} />
-              ))}
-            </motion.div>
-          )}
-        </AnimatePresence>
+      {/* Scrollable Tier List */}
+      <div className="flex-1 overflow-y-auto px-4">
+        <div className="space-y-2">
+          {tierData[activeSection].map((tier, index) => (
+            <TierProgress 
+              key={tier.name} 
+              tier={tier} 
+              index={index}
+              total={tierData[activeSection].length}
+            />
+          ))}
+        </div>
       </div>
     </div>
   );
