@@ -124,6 +124,11 @@ const MobileApp = () => {
   const [userType, setUserType] = useState('Client');
   const [activeTab, setActiveTab] = useState('home');
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const [notifications, setNotifications] = useState([
+    { id: 1, message: 'New transaction received', read: false },
+    { id: 2, message: 'Promotion available', read: false },
+    { id: 3, message: 'Account update', read: true }
+  ]);
   const router = useRouter();
   //const recentTransactions = [];
 
@@ -238,7 +243,21 @@ const MobileApp = () => {
             </div>
           </div>
           <div className="flex items-center space-x-4">
-            <Bell className="h-6 w-6" />
+            <div className="relative">
+              <Bell 
+                className="h-6 w-6 cursor-pointer"    
+                onClick={() => router.push('/home/notification')}
+              />
+              {notifications.filter(n => !n.read).length > 0 && (
+                <span 
+                  className="absolute -top-2 -right-2 bg-red-500 text-white 
+                             rounded-full text-xs w-5 h-5 flex items-center 
+                             justify-center"
+                >
+                  {notifications.filter(n => !n.read).length}
+                </span>
+              )}
+            </div>
             <div className="relative">
               <button
                 onClick={() => setIsDropdownOpen(!isDropdownOpen)}
@@ -396,3 +415,29 @@ const MobileApp = () => {
 };
 
 export default MobileApp;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

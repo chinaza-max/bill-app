@@ -69,7 +69,7 @@ export const metadata = {
       template: APP_TITLE_TEMPLATE,
     },
     description: APP_DESCRIPTION,
-  },
+  },    
 };
 
 export const viewport = {

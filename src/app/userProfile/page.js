@@ -17,7 +17,8 @@ import {
   Store,
   Phone,
   HelpCircle,
-  Package2
+  Package2,
+  
 } from 'lucide-react';
 import { motion } from 'framer-motion';
 
@@ -125,6 +126,13 @@ const ProfilePage = () => {
             title="Wallet"
             subtitle="Upgrade to wallet"
             path="/userProfile/wallet"
+            highlight={true}
+          />
+           <MenuItem
+            icon={Shield}
+            title="Tier"
+            subtitle="Upgrade upgrade your Tier"
+            path="/userProfile/tier"
             highlight={true}
           />
         </Section>
