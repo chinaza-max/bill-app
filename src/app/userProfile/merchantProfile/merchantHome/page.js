@@ -43,13 +43,13 @@ const MerchantApp = () => {
       id: 1,
       title: "Available Balance",
       amount: merchantData.mainBalance,
-      color: "from-amber-400 to-amber-600"
+      color: "from-green-400 to-green-600"
     },
     {
       id: 2,
       title: "Escrow Balance",
       amount: merchantData.escrowBalance,
-      color: "from-amber-500 to-amber-700"
+      color: "from-green-500 to-green-700"
     }
   ];
 

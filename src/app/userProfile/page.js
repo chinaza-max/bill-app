@@ -142,7 +142,7 @@ const ProfilePage = () => {
             icon={Bell}
             title="Notifications"
             subtitle="Push notifications"
-            path="/userProfile/notifications"
+            path="/userProfile/notification"
           />
           <MenuItem
             icon={Users}
@@ -168,9 +168,9 @@ const ProfilePage = () => {
           />
           <MenuItem
             icon={HelpCircle}
-            title="Support"
+            title="Support or suggestion"
             subtitle="Get help"
-            path="/profile/support"
+            path="/userProfile/support"
             highlight={true}
           />
         </Section>

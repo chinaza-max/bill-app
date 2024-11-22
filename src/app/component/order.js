@@ -391,12 +391,12 @@ const OrderTrackingPage = () => {
   };
 
   return (
-    <div className="flex flex-col h-screen bg-amber-50">
+    <div className="flex flex-col h-screen bg-amber-50 " style={{paddingBottom:"700px"}}>
       {/* Fixed Header */}
       <div className="fixed top-0 left-0 right-0 z-10 bg-gradient-to-r from-amber-600 to-amber-500 text-white px-4 py-3">
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-3">
-            <ArrowLeft
+            <ArrowLeft     
               onClick={() => router.back()}
               className="h-6 w-6 cursor-pointer"
             />
@@ -667,13 +667,15 @@ const OrderTrackingPage = () => {
       </Modal>
 
         {/* Added Report Button */}
-        <button
+        <div className="fixed bottom-0 left-0 right-0 p-4 bg-white shadow-lg z-10">
+          <button
             onClick={() => setShowReportModal(true)}
-            className="w-full mt-4 p-3 bg-amber-100 text-amber-600 rounded-lg flex items-center justify-center space-x-2 hover:bg-amber-200"
+            className="w-full p-3 bg-amber-100 text-amber-600 rounded-lg flex items-center justify-center space-x-2 hover:bg-amber-200"
           >
             <Flag className="h-5 w-5" />
             <span>Report Issue</span>
           </button>
+        </div>
 
       {/* Cancel Order Confirmation Modal */}
       <Modal
