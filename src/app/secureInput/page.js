@@ -1,6 +1,10 @@
 'use client';
+
+
+
 import React, { useState, useEffect } from 'react';
 import { X, Delete, ArrowRight } from 'lucide-react';
+import Image from 'next/image';
 
 const SecureLogin = () => {
   const [pin, setPin] = useState('');
@@ -40,14 +44,21 @@ const SecureLogin = () => {
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-green-50 to-green-100 flex flex-col items-center px-4 py-6">
-      {/* Logo Section - Reduced size */}
-      <div className="mb-6 mt-4">
-        <div className="w-20 h-20 bg-gradient-to-r from-yellow-600 to-yellow-400 rounded-full flex items-center justify-center shadow-md">
-          <span className="text-2xl font-bold text-white">LOGO</span>
+      {/* Logo Section with Next.js Image */}
+      <div className="mb-6 mt-4 relative">
+        <div className="w-20 h-20 relative">
+          <Image
+            src="/icon.png" // Replace with your logo path
+            alt="Company Logo"
+            fill
+            className="object-contain"
+            sizes="(max-width: 80px) 100vw, 80px"
+            priority
+          />
         </div>
       </div>
 
-      {/* Main Container - More compact */}
+      {/* Main Container */}
       <div className="bg-white rounded-xl shadow-md p-4 w-full max-w-sm">
         <div className="flex justify-between items-center mb-4">
           <h2 className="text-lg font-semibold text-gray-800">Enter PIN</h2>
@@ -59,7 +70,6 @@ const SecureLogin = () => {
           </button>
         </div>
 
-        {/* PIN Dots - Smaller dots, less spacing */}
         <div className="flex justify-center space-x-3 mb-6">
           {[...Array(6)].map((_, i) => (
             <div
@@ -73,7 +83,6 @@ const SecureLogin = () => {
           ))}
         </div>
 
-        {/* Number Pad - Reduced spacing */}
         <div className="grid grid-cols-3 gap-2 mb-4">
           {numbers.map((num) => (
             <button
@@ -98,7 +107,6 @@ const SecureLogin = () => {
           </button>
         </div>
 
-        {/* Security Notice - Smaller text */}
         <p className="text-xs text-gray-500 text-center">
           Keypad layout randomizes for security
         </p>
