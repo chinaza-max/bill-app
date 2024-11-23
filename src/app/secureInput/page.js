@@ -41,7 +41,7 @@ const SecureLogin = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col items-center px-4 py-6">
+    <div className="min-h-screen bg-gray-50 flex flex-col items-center px-4 py-6 relative">
       {/* Logo Section */}
       <div className="mb-8 mt-4 relative">
         <div className="w-20 h-20 relative">
@@ -57,7 +57,9 @@ const SecureLogin = () => {
       </div>
 
       {/* Main Container */}
-      <div className="bg-white rounded-lg shadow-sm border border-gray-100 p-6 w-full max-w-sm">
+      <div className="bg-white rounded-lg shadow-sm border border-gray-100 p-6 w-full max-w-sm" 
+          style={{ position: 'absolute', bottom: '50px' }}
+        >
         <div className="flex justify-between items-center mb-6">
           <h2 className="text-lg font-medium text-gray-700">Enter PIN</h2>
           <button 
