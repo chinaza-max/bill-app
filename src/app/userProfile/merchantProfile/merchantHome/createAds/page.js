@@ -2,13 +2,14 @@
 
 
 import React, { useState, useEffect } from 'react';
-import { ArrowLeft, Check, PlayCircle, HelpCircle } from 'lucide-react';
+import { ArrowLeft, Check, PlayCircle, HelpCircle , Eye } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { useRouter } from 'next/navigation';
 
 const CreateAdsPage = () => {
   const [minPrice, setMinPrice] = useState('');
@@ -18,7 +19,8 @@ const CreateAdsPage = () => {
   const [selectedCharge, setSelectedCharge] = useState('');
   const [adsList, setAdsList] = useState([]);
   const [showHelpModal, setShowHelpModal] = useState(false);
-  
+  const router = useRouter();
+
   // All possible amounts and their charges
   const allAmounts = [
     { value: '1000', label: '₦1,000' },
@@ -201,18 +203,27 @@ const CreateAdsPage = () => {
 
   return (
     <div className="flex flex-col h-screen bg-amber-50">
-      <div className="sticky top-0 z-10 px-4 py-3 bg-gradient-to-r from-amber-600 to-amber-500 text-white flex items-center justify-between">
+       <div className="sticky top-0 z-10 px-4 py-3 bg-gradient-to-r from-amber-600 to-amber-500 text-white flex items-center justify-between">
         <div className="flex items-center">
           <ArrowLeft className="h-6 w-6 mr-3" onClick={() => window.history.back()} />
           <h1 className="text-lg font-semibold">Create Ads</h1>
         </div>
-        <button 
-          onClick={() => setShowHelpModal(true)}
-          className="flex items-center space-x-1 bg-white/20 px-3 py-1 rounded-full"
-        >
-          <HelpCircle className="w-4 h-4" />
-          <span className="text-sm">Help</span>
-        </button>
+        <div className="flex items-center space-x-2">
+          <button 
+            onClick={() =>    router.push('/userProfile/merchantProfile/merchantHome/viewAds') }
+            className="flex items-center space-x-1 bg-white/20 px-3 py-1 rounded-full"
+          >
+            <Eye className="w-4 h-4" />
+            <span className="text-sm">View Ads</span>
+          </button>
+          <button 
+            onClick={() => setShowHelpModal(true)}
+            className="flex items-center space-x-1 bg-white/20 px-3 py-1 rounded-full"
+          >
+            <HelpCircle className="w-4 h-4" />
+            <span className="text-sm">Help</span>
+          </button>
+        </div>
       </div>
 
       <div className="flex-1 overflow-auto p-4 space-y-6">
@@ -226,7 +237,7 @@ const CreateAdsPage = () => {
                 value={minPrice}
                 onChange={(e) => handleMinPriceChange(e.target.value)}
                 className="w-full p-2 border border-amber-200 rounded-lg focus:outline-none focus:border-amber-500"
-                placeholder="Min amount (₦1,000)"
+                placeholder="Min (₦1,000)"
                 min="1000"
                 max="20000"
               />
@@ -238,7 +249,7 @@ const CreateAdsPage = () => {
                 value={maxPrice}
                 onChange={(e) => handleMaxPriceChange(e.target.value)}
                 className="w-full p-2 border border-amber-200 rounded-lg focus:outline-none focus:border-amber-500"
-                placeholder="Max amount (₦20,000)"
+                placeholder="Max (₦20,000)"
                 min="1000"
                 max="20000"
               />

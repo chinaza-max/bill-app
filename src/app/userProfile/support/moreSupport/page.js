@@ -25,7 +25,7 @@ const GeneralInquiryPage = () => {
   });
 
   const handleBack = () => {
-    router.push('/support');
+    router.back();
   };
 
   const Section = ({ title, children }) => (
@@ -118,22 +118,7 @@ const GeneralInquiryPage = () => {
 
       {/* Main Content - Scrollable */}
       <div className="flex-1 overflow-auto py-4">
-        {!inquiryType ? (
-          <Section title="Select Inquiry Type">
-            {InquiryTypes.map((type, index) => (
-              <MenuItem
-                key={index}
-                icon={type.icon}
-                title={type.title}
-                subtitle={type.subtitle}
-                value={type.value}
-                highlight={false}
-              />
-            ))}
-          </Section>
-        ) : (
-          <Section title={`${InquiryTypes.find(t => t.value === inquiryType).title} Form`}>
-            <form onSubmit={handleSubmit} className="p-4 space-y-4">
+      <form onSubmit={handleSubmit} className="p-4 space-y-4">
               <div>
                 <label className="block text-amber-900 mb-2" htmlFor="name">
                   Full Name
@@ -205,8 +190,6 @@ const GeneralInquiryPage = () => {
                 Submit Inquiry
               </motion.button>
             </form>
-          </Section>
-        )}
 
         {/* Additional Information */}
         <Section title="Need More Help?">

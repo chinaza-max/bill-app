@@ -115,14 +115,23 @@ const SupportPage = () => {
       whileTap={{ scale: 0.98 }}
       className="w-full flex items-center justify-between p-4 border-b border-amber-100 last:border-0 hover:bg-emerald-50/30"
       onClick={() => {
-        if (path) {
-          //router.push(path);
+
+        if (path === "/userProfile/support/moreSupport" ) {
+
+          console.log("/userProfile/support/moreSupport" )
+
+          router.push(path);
         }
-        setSelectedCategory(
-          selectedCategory === SupportCategories.findIndex(cat => cat.path === path) 
-            ? null 
-            : SupportCategories.findIndex(cat => cat.path === path)
-        );
+        else{
+
+          setSelectedCategory(
+            selectedCategory === SupportCategories.findIndex(cat => cat.path === path) 
+              ? null 
+              : SupportCategories.findIndex(cat => cat.path === path)
+          );
+          
+        }
+        
       }}
     >
       <div className="flex items-center space-x-3">
@@ -171,9 +180,9 @@ const SupportPage = () => {
         {selectedCategory !== null && (
           <div className="p-4 m-4 bg-white rounded-lg shadow-md">
             <h2 className="text-lg font-semibold text-amber-900 mb-3">
-              {SupportCategories[selectedCategory].title}
+              {SupportCategories[selectedCategory]?.title}
             </h2>
-            {SupportCategories[selectedCategory].content}
+            {SupportCategories[selectedCategory]?.content}
           </div>
         )}
 
@@ -183,7 +192,8 @@ const SupportPage = () => {
             icon={HelpCircle}
             title="Contact Support Team"
             subtitle="Direct help from our experts"
-            path="/support/contact"
+            path="/userProfile/support/moreSupport"
+            highlight={false}
           />
         </Section>
       </div>
