@@ -116,7 +116,7 @@ const SupportPage = () => {
       className="w-full flex items-center justify-between p-4 border-b border-amber-100 last:border-0 hover:bg-emerald-50/30"
       onClick={() => {
         if (path) {
-          router.push(path);
+          //router.push(path);
         }
         setSelectedCategory(
           selectedCategory === SupportCategories.findIndex(cat => cat.path === path) 
