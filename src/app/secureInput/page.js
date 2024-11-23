@@ -3,6 +3,13 @@
 import React, { useState, useEffect } from 'react';
 import { X, Delete, ArrowRight } from 'lucide-react';
 import Image from 'next/image';
+import { Doto  } from 'next/font/google'
+
+
+const cormorantGaramond = Doto({
+    subsets: ['latin'],
+    weight: ['400', '600', '700'],
+});
 
 const SecureLogin = () => {
   const [pin, setPin] = useState('');
@@ -43,7 +50,7 @@ const SecureLogin = () => {
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col items-center px-4 py-6 relative">
       {/* Logo Section */}
-      <div className="mb-8 mt-4 relative">
+      <div className=" mt-4 relative">
         <div className="w-20 h-20 relative">
             <Image
                 src="/icon.png" // Replace with your logo path
@@ -53,8 +60,15 @@ const SecureLogin = () => {
                 sizes="(max-width: 80px) 100vw, 80px"
                 priority
             />
+            
         </div>
+
+       
+
       </div>
+      <div className={`${cormorantGaramond.className} text-2xl text-gray-800`}>
+         Unlocking Convience
+        </div>
 
       {/* Main Container */}
       <div className="bg-white rounded-lg shadow-sm border border-gray-100 p-6 w-full max-w-sm" 
