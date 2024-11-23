@@ -67,7 +67,7 @@ const SecureLogin = () => {
 
       </div>
       <div className={`${cormorantGaramond.className} text-2xl text-gray-800`}>
-         Unlocking Convience
+         Unlocking Convenience
         </div>
 
       {/* Main Container */}
