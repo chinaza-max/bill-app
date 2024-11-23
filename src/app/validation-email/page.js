@@ -176,11 +176,12 @@ const OTPValidation = () => {
                 </div>
 
                 <button
-                  type="submit"
-                  onClick={()=>   router.push('/home')}
+                  type="submit"       
+                  onClick={()=>   router.push('/secureInput')}
                   disabled={isSubmitting || otp.join("").length !== 6}
                   className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-amber-600 hover:bg-amber-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-amber-500 disabled:opacity-50"
                 >
+
                   {isSubmitting ? (
                     <div className="flex items-center">
                       <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
