@@ -35,7 +35,7 @@ const SupportPage = () => {
       subtitle: 'Ask about our services',
       path: '/userProfile/support/general',
       content: (
-        <div className="p-4 space-y-3">
+        <div className="p-4 space-y-3">  
           <textarea 
             className="w-full border border-amber-200 rounded-lg p-3 h-32 focus:ring-2 focus:ring-emerald-500"
             placeholder="Type your general inquiry here..."
