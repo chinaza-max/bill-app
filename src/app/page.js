@@ -54,15 +54,7 @@ const PWAInstallGuide = () => {
               <p className="text-gray-700 mb-2">
                 On mobile? Tap the menu button and select Add to Home Screen
               </p>
-              {/* Animated Arrow pointing down */}
-              <div className="absolute left-1/2 transform -translate-x-1/2 -bottom-12 animate-bounce">
-                <ArrowDown 
-                  className="w-8 h-8 text-amber-600"
-                  style={{
-                    filter: 'drop-shadow(0 0 2px rgba(0, 0, 0, 0.1))'
-                  }}
-                />
-              </div>
+              
             </div>
           </div>
 

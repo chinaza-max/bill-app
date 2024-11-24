@@ -140,7 +140,7 @@ const ProfilePage = () => {
             icon={Shield}
             title="Security"
             subtitle="Chnage you pin"
-            path="/userProfile/changePin"
+            path="/userProfile/updatepin"
             highlight={true}
           />
         </Section>

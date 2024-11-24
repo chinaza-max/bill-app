@@ -9,16 +9,16 @@ import { useRouter } from 'next/navigation';
 const ChangePin = () => {
   const [currentPin, setCurrentPin] = useState('');
   const [newPin, setNewPin] = useState('');
-  const [confirmPin, setConfirmPin] = useState('');
-  const [keypadNumbers, setKeypadNumbers] = useState([]);
-  const [stage, setStage] = useState('verify'); // 'verify', 'new', or 'confirm'
-  const [error, setError] = useState('');
-  const [success, setSuccess] = useState(false);
+  const [ confirmPin, setConfirmPin ] = useState('');
+  const [ keypadNumbers, setKeypadNumbers] = useState([]);
+  const [ stage, setStage] = useState('verify'); // 'verify', 'new', or 'confirm'
+  const [ error, setError] = useState('');
+  const [ success, setSuccess] = useState(false);
   const router = useRouter();
 
   // In a real app, you'd get this from secure storage or an API
   const verifyStoredPin = () => {
-    const storedPin = localStorage.getItem('userPin');
+    const storedPin = localStorage.getItem('userPin')||'1111';
     return storedPin === currentPin;
   };
 
