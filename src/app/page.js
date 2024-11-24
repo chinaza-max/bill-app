@@ -17,8 +17,8 @@ const PWAInstallGuide = () => {
           <Image 
             src="/icon.png" 
             alt="App Logo"
-            width={120}
-            height={120}
+            width={90}
+            height={60}
             className="rounded-xl shadow-lg object-cover"
             priority
           />
