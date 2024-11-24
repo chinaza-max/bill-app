@@ -66,26 +66,6 @@ const PWAInstallGuide = () => {
             </div>
           </div>
 
-          {/* Benefits Section */}
-          <div className="mt-16">
-            <h2 className="text-xl font-semibold text-gray-800 mb-4">
-              Benefits of Installing
-            </h2>
-            <div className="space-y-3">
-              <div className="flex items-center text-gray-700">
-                <div className="w-2 h-2 rounded-full bg-green-600 mr-3"></div>
-                <p>Faster access to your favorite features</p>
-              </div>
-              <div className="flex items-center text-gray-700">
-                <div className="w-2 h-2 rounded-full bg-amber-600 mr-3"></div>
-                <p>Works offline for better reliability</p>
-              </div>
-              <div className="flex items-center text-gray-700">
-                <div className="w-2 h-2 rounded-full bg-green-600 mr-3"></div>
-                <p>Regular updates and improvements</p>
-              </div>
-            </div>
-          </div>
         </div>
       </div>
     </div>

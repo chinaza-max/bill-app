@@ -6,7 +6,7 @@
   "display": "standalone",
   "orientation": "portrait",
   "id":"8",
-  "scope": "/",
+  "scope": "/onboarding",
   "start_url": "/onboarding",
   "icons": [
     {

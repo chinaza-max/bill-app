@@ -135,6 +135,14 @@ const ProfilePage = () => {
             path="/userProfile/tier"
             highlight={true}
           />
+
+          <MenuItem
+            icon={Shield}
+            title="Security"
+            subtitle="Chnage you pin"
+            path="/userProfile/changePin"
+            highlight={true}
+          />
         </Section>
 
         <Section title="Preferences">
