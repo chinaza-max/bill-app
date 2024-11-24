@@ -13,6 +13,7 @@ const SignUpForm = () => {
   const initialValues = {
     firstName: '',
     lastName: '',
+    email: '',
     phoneNumber: '',
     password: '',
     dateOfBirth: '',
@@ -26,6 +27,9 @@ const SignUpForm = () => {
     lastName: Yup.string()
       .required('Last name is required')
       .min(2, 'Last name must be at least 2 characters'),
+    email: Yup.string()
+      .required('Email is required')
+      .email('Invalid email format'),
     phoneNumber: Yup.string()
       .required('Phone number is required')
       .matches(/^[0-9]{10}$/, 'Phone number must be 10 digits'),
@@ -113,6 +117,26 @@ const SignUpForm = () => {
                       className="mt-1 text-xs text-red-500"
                     />
                   </div>
+                </div>
+
+                <div>
+                  <label htmlFor="email" className="block text-sm font-medium text-amber-800 mb-1">
+                    Email Address
+                  </label>
+                  <Field
+                    type="email"
+                    name="email"
+                    className={`appearance-none relative block w-full px-3 py-2 border ${
+                      errors.email && touched.email
+                        ? 'border-red-500'
+                        : 'border-amber-300'
+                    } placeholder-amber-400 text-amber-900 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500 focus:z-10 sm:text-sm`}
+                  />
+                  <ErrorMessage
+                    name="email"
+                    component="div"
+                    className="mt-1 text-xs text-red-500"
+                  />
                 </div>
 
                 <div>
@@ -211,9 +235,8 @@ const SignUpForm = () => {
 
                 <button
                   type="submit"
-                  onClick={()=>   router.push('/sign2-up')}
+                  onClick={()=> router.push('/sign2-up')}
                   disabled={isSubmitting}
-
                   className="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 disabled:opacity-50"
                 >
                   {isSubmitting ? (
