@@ -1,5 +1,6 @@
 'use client';
 
+
 import React, { useState, useEffect } from 'react';
 import { ArrowLeft, AlertCircle, Check } from 'lucide-react';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
@@ -15,8 +16,15 @@ const ChangePin = () => {
   const [success, setSuccess] = useState(false);
   const router = useRouter();
 
-  // Stored PIN for demo (in real app, this would come from secure storage/API)
-  const DEMO_PIN = '1234';
+  // In a real app, you'd get this from secure storage or an API
+  const verifyStoredPin = () => {
+    const storedPin = localStorage.getItem('userPin');
+    return storedPin === currentPin;
+  };
+
+  const saveNewPin = (pin) => {
+    localStorage.setItem('userPin', pin);
+  };
 
   useEffect(() => {
     randomizeKeypad();
@@ -55,7 +63,7 @@ const ChangePin = () => {
 
   const handleContinue = () => {
     if (stage === 'verify') {
-      if (currentPin === DEMO_PIN) {
+      if (verifyStoredPin()) {
         setStage('new');
         setCurrentPin('');
       } else {
@@ -63,11 +71,16 @@ const ChangePin = () => {
         setCurrentPin('');
       }
     } else if (stage === 'new' && newPin.length === 4) {
+      if (newPin === currentPin) {
+        setError('New PIN must be different from current PIN');
+        setNewPin('');
+        return;
+      }
       setStage('confirm');
     } else if (stage === 'confirm' && confirmPin.length === 4) {
       if (newPin === confirmPin) {
+        saveNewPin(newPin);
         setSuccess(true);
-        // Here you would typically make an API call to update the PIN
         setTimeout(() => {
           router.push('/home');
         }, 1500);
@@ -80,38 +93,15 @@ const ChangePin = () => {
     }
   };
 
-  const getStageTitle = () => {
-    switch (stage) {
-      case 'verify':
-        return 'Enter Current PIN';
-      case 'new':
-        return 'Enter New PIN';
-      case 'confirm':
-        return 'Confirm New PIN';
-      default:
-        return '';
-    }
-  };
-
-  const getCurrentCode = () => {
-    switch (stage) {
-      case 'verify':
-        return currentPin;
-      case 'new':
-        return newPin;
-      case 'confirm':
-        return confirmPin;
-      default:
-        return '';
-    }
-  };
-
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col">
       {/* Top Navigation */}
       <div className="bg-gradient-to-r from-amber-600 to-amber-500 text-white px-4 py-3">
         <div className="flex items-center space-x-3">
-          <ArrowLeft onClick={() => router.push('/home')} className="h-6 w-6 cursor-pointer" />
+          <ArrowLeft 
+            onClick={() => router.push('/home')} 
+            className="h-6 w-6 cursor-pointer" 
+          />
           <h1 className="text-lg font-semibold">Change PIN</h1>
         </div>
       </div>
@@ -121,10 +111,15 @@ const ChangePin = () => {
         <div className="w-full max-w-md space-y-8">
           <div className="text-center">
             <h2 className="text-2xl font-semibold text-gray-900">
-              {getStageTitle()}
+              {stage === 'verify' 
+                ? 'Enter Current PIN'
+                : stage === 'new'
+                ? 'Enter New PIN'
+                : 'Confirm New PIN'
+              }
             </h2>
             <p className="mt-2 text-gray-600">
-              {stage === 'verify' 
+              {stage === 'verify'
                 ? 'Please enter your current PIN to continue'
                 : stage === 'new'
                 ? 'Choose a new 4-digit PIN'
@@ -135,16 +130,24 @@ const ChangePin = () => {
 
           {/* PIN Display */}
           <div className="flex justify-center space-x-4 my-8">
-            {Array(4).fill(0).map((_, i) => (
-              <div
-                key={i}
-                className={`w-4 h-4 rounded-full border-2 ${
-                  getCurrentCode().length > i 
-                    ? 'bg-amber-600 border-amber-600' 
-                    : 'border-gray-300'
-                }`}
-              />
-            ))}
+            {Array(4).fill(0).map((_, i) => {
+              const code = 
+                stage === 'verify' 
+                  ? currentPin 
+                  : stage === 'new'
+                  ? newPin
+                  : confirmPin;
+              return (
+                <div
+                  key={i}
+                  className={`w-4 h-4 rounded-full border-2 ${
+                    code.length > i 
+                      ? 'bg-amber-600 border-amber-600' 
+                      : 'border-gray-300'
+                  }`}
+                />
+              );
+            })}
           </div>
 
           {/* Keypad Grid */}
@@ -166,9 +169,15 @@ const ChangePin = () => {
             </button>
             <button
               onClick={handleContinue}
-              disabled={getCurrentCode().length !== 4}
+              disabled={
+                (stage === 'verify' && currentPin.length !== 4) ||
+                (stage === 'new' && newPin.length !== 4) ||
+                (stage === 'confirm' && confirmPin.length !== 4)
+              }
               className={`p-4 text-base font-medium rounded-lg ${
-                getCurrentCode().length === 4
+                ((stage === 'verify' && currentPin.length === 4) ||
+                (stage === 'new' && newPin.length === 4) ||
+                (stage === 'confirm' && confirmPin.length === 4))
                   ? 'bg-amber-600 text-white hover:bg-amber-700'
                   : 'bg-gray-100 text-gray-400 cursor-not-allowed'
               }`}
