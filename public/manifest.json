@@ -7,7 +7,7 @@
   "orientation": "portrait",
   "id":"8",
   "scope": "/",
-  "start_url": "/",
+  "start_url": "/onboarding",
   "icons": [
     {
       "src": "images/icons/icon-72x72.png",
