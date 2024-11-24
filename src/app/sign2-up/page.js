@@ -1,6 +1,5 @@
 'use client';
 
-
 import React, { useState } from 'react';
 import { Card } from '@/components/ui/card';
 import { Check, Briefcase, CreditCard, Building2, GraduationCap, Users, ShoppingBag, Home, Landmark, HeartHandshake } from 'lucide-react';
@@ -15,66 +14,63 @@ const OnboardingScreen = () => {
       id: 'enterprise',
       title: 'Enterprise Business',
       icon: Landmark,
-      description: 'Large-scale business operations or corporate entity',
+      description: 'Large-scale business operations'
     },
     {
       id: 'business_owner',
       title: 'Business Owner',
       icon: Briefcase,
-      description: 'Small to medium business owner or entrepreneur',
-   
+      description: 'Small to medium business owner'
     },
     {
       id: 'corporate',
       title: 'Corporate Professional',
       icon: Building2,
-      description: 'Employed in corporate or government sector',
-   
+      description: 'Corporate or government sector'
     },
     {
       id: 'merchant',
       title: 'Merchant / Trader',
       icon: ShoppingBag,
-      description: 'Retail or wholesale trade business owner',
-    
+      description: 'Retail or wholesale trade'
     },
     {
       id: 'freelancer',
-      title: 'Freelancer / Self-Employed',
+      title: 'Freelancer',
       icon: CreditCard,
-      description: 'Independent contractor or self-employed professional'
+      description: 'Independent contractor'
     },
     {
       id: 'regular',
-      title: 'Regular Income Earner',
+      title: 'Regular Income',
       icon: HeartHandshake,
-      description: 'Steady income from employment or pension'
+      description: 'Steady employment income'
     },
     {
       id: 'student',
-      title: 'Student / Youth',
+      title: 'Student',
       icon: GraduationCap,
-      description: 'Currently in education or recent graduate'
+      description: 'In education or recent graduate'
     },
     {
       id: 'personal',
       title: 'Personal User',
       icon: Home,
-      description: 'Individual user for personal transactions'
+      description: 'Individual transactions'
     }
   ];
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-amber-50 to-amber-100 p-6">
-      <div className="max-w-3xl mx-auto space-y-6">
-        <div className="text-center space-y-3">
-          <h1 className="text-3xl font-bold text-amber-900">What best describes you?</h1>
-          <p className="text-amber-700">
-            Help us personalize your experience and match you with suitable transaction partners
+    <div className="min-h-screen bg-white p-4 md:p-6">
+      <div className="max-w-4xl mx-auto space-y-4">
+        <div className="text-center space-y-2 mb-6">
+          <h1 className="text-2xl font-semibold text-gray-900">What best describes you?</h1>
+          <p className="text-gray-600 text-sm">
+            Help us personalize your experience
           </p>
         </div>
 
-        <div className="grid md:grid-cols-2 gap-4">
+        <div className="grid md:grid-cols-3 gap-3">
           {options.map((option) => {
             const Icon = option.icon;
             const isSelected = selected === option.id;
@@ -82,35 +78,34 @@ const OnboardingScreen = () => {
             return (
               <Card
                 key={option.id}
-                className={`p-4 cursor-pointer transition-all duration-200 hover:shadow-lg ${
+                className={`p-3 cursor-pointer transition-all duration-200 hover:shadow-sm ${
                   isSelected
-                    ? 'border-2 border-green-500 bg-amber-50'
-                    : 'border border-amber-200 hover:border-amber-300'
+                    ? 'border border-green-600 bg-green-50/30'
+                    : 'border border-gray-200 hover:border-amber-200'
                 }`}
                 onClick={() => setSelected(option.id)}
               >
-                <div className="flex items-start gap-4">
-                  <div className={`p-2 rounded-full ${
-                    isSelected ? 'bg-green-100' : 'bg-amber-100'
+                <div className="flex items-start gap-3">
+                  <div className={`p-1.5 rounded-lg ${
+                    isSelected ? 'bg-green-50' : 'bg-amber-50'
                   }`}>
-                    <Icon className={`w-6 h-6 ${
+                    <Icon className={`w-4 h-4 ${
                       isSelected ? 'text-green-600' : 'text-amber-600'
                     }`} />
                   </div>
                   
-                  <div className="flex-1">
-                    <div className="flex justify-between items-center">
-                      <h3 className="font-semibold text-amber-900">
+                  <div className="flex-1 min-w-0">
+                    <div className="flex justify-between items-center gap-1">
+                      <h3 className="font-medium text-sm text-gray-900 truncate">
                         {option.title}
                       </h3>
                       {isSelected && (
-                        <Check className="w-5 h-5 text-green-500" />
+                        <Check className="w-4 h-4 flex-shrink-0 text-green-600" />
                       )}
                     </div>
-                    <p className="text-sm text-amber-700 mt-1">
+                    <p className="text-xs text-gray-500 mt-0.5 truncate">
                       {option.description}
                     </p>
-                   
                   </div>
                 </div>
               </Card>
@@ -119,17 +114,15 @@ const OnboardingScreen = () => {
         </div>
 
         <button
-          className={`w-full p-4 rounded-lg font-medium transition-all duration-200 ${
+          className={`w-full p-3 rounded-lg font-medium text-sm transition-all duration-200 ${
             selected
-              ? 'bg-green-600 text-white hover:bg-green-700'
-              : 'bg-amber-200 text-amber-700 cursor-not-allowed'
+              ? 'bg-amber-600 text-white hover:bg-amber-700'
+              : 'bg-gray-100 text-gray-400 cursor-not-allowed'
           }`}
-          onClick={()=>   router.push('/validation-email')}
+          onClick={() => router.push('/validation-email')}
           disabled={!selected}
         >
-
           Continue
-          
         </button>
       </div>
     </div>
