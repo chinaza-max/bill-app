@@ -34,9 +34,10 @@ const PWAInstallGuide = () => {
           <div className="mb-12 relative">
             <div className="p-4 border rounded-lg bg-gray-50">
               <p className="text-gray-700 mb-2">
-                Look for the install icon in your browsers address bar
+                
+                On mobile? Tap the menu button and select Add to Home Screen
               </p>
-              {/* Animated Arrow pointing up-right */}
+            
               <div className="absolute -right-4 -top-4 animate-bounce">
                 <ArrowUpRight 
                   className="w-8 h-8 text-green-600"
@@ -48,11 +49,11 @@ const PWAInstallGuide = () => {
             </div>
           </div>
 
-          {/* Mobile Guide */}
+          
           <div className="relative">
             <div className="p-4 border rounded-lg bg-gray-50">
               <p className="text-gray-700 mb-2">
-                On mobile? Tap the menu button and select Add to Home Screen
+              Look for the install icon in your browsers address bar
               </p>
               
             </div>

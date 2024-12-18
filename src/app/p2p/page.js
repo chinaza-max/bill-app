@@ -15,7 +15,8 @@ import {
   History,
   ShoppingBag,
   Circle,
-  Check
+  Check,
+  MapPin
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -75,11 +76,14 @@ const P2PPage = () => {
       avatar: 'avatar.jpg',
       online: true,
       badge: 'Verified',
-      minRange: 1000,
-      maxRange: 5000,
-      charge: 200,
+      priceRanges: [
+        { min: 1000, max: 5000, charge: 200 },
+        { min: 5001, max: 10000, charge: 300 },
+        { min: 10001, max: 20000, charge: 400 }
+      ],
       orders: 156,
       accuracy: 98.5,
+      distance: 2.5, // kilometers
     },
     {
       id: 2,
@@ -87,13 +91,16 @@ const P2PPage = () => {
       avatar: 'avatar.jpg',
       online: true,
       badge: 'Verified',
-      minRange: 5000,
-      maxRange: 10000,
-      charge: 180,
+      priceRanges: [
+        { min: 1000, max: 5000, charge: 180 },
+        { min: 5001, max: 10000, charge: 250 },
+        { min: 10001, max: 20000, charge: 350 }
+      ],
       orders: 234,
       accuracy: 95.2,
+      distance: 5.7, // kilometers
     },
-    // ... (more sample data)
+    // ... more sample data
   ];
 
   const handleFilterClick = (filterName) => {
@@ -135,26 +142,28 @@ const P2PPage = () => {
             exit={{ opacity: 0, y: 20 }}
             className="bg-amber-50 rounded-lg p-4"
           >
-            <div className="space-y-2">
-              <div>
-                <div className="text-sm text-amber-600">Range</div>
-                <div className="font-medium text-amber-900">
-                  ₦{offer.minRange.toLocaleString()} - ₦{offer.maxRange.toLocaleString()}
+                <div className="space-y-3">
+              {offer.priceRanges.map((range, index) => (
+                <div key={index} className="border-b border-amber-100 pb-2 last:border-b-0">
+                  <div className="flex justify-between">
+                    <div>
+                      <div className="text-sm text-amber-600">Range</div>
+                      <div className="font-medium text-amber-900">
+                        ₦{range.min.toLocaleString()} - ₦{range.max.toLocaleString()}
+                      </div>
+                    </div>
+                    <div>
+                      <div className="text-sm text-amber-600">Charge</div>
+                      <div className="font-medium text-amber-900">
+                        ₦{range.charge}
+                      </div>
+                    </div>
+                  </div>
                 </div>
-              </div>
-              <div>
-                <div className="text-sm text-amber-600">Charge</div>
-                <div className="font-medium text-amber-900">
-                  ₦1,000 - ₦5,000: ₦{(offer.minRange * offer.charge / 100).toLocaleString()}
-                </div>
-              </div>
-              <div>
-                <div className="text-sm text-amber-600">Charge</div>
-                <div className="font-medium text-amber-900">
-                  ₦5,001 - ₦10,000: ₦{((offer.maxRange * (offer.charge - 2)) / 100).toLocaleString()}
-                </div>
-              </div>
+              ))}
             </div>
+
+
           </motion.div>
         )}
       </AnimatePresence>
@@ -241,11 +250,7 @@ const P2PPage = () => {
         </div>
       </div>
 
-      {/* Overlay when filter is open */}
-      {/*openFilter && (
-        <div className="fixed inset-0 bg-black/20 z-10" onClick={() => setOpenFilter('')} />
-      )*/}
-
+      
       {/* P2P Offers List */}
       <div className="flex-1 overflow-auto px-4 py-3">
         <div className="space-y-3">
@@ -256,6 +261,8 @@ const P2PPage = () => {
               animate={{ opacity: 1, y: 0 }}
               className="bg-white rounded-lg p-4 shadow-sm"
             >
+
+
               <div className="flex items-center justify-between mb-3">
                 <div className="flex items-center space-x-3">
                   <div className="relative">
@@ -294,7 +301,7 @@ const P2PPage = () => {
                   <div className="text-sm text-amber-600">Range</div>
                   <div className="flex items-center space-x-2">
                     <div className="font-medium text-amber-900">
-                      ₦{offer.minRange.toLocaleString()} - ₦{offer.maxRange.toLocaleString()}
+                      ₦{offer.priceRanges[0].min.toLocaleString()} - ₦{offer.priceRanges[offer.priceRanges.length - 1].max.toLocaleString()}
                     </div>
                     <button
                       onClick={() => handleOfferDetailsToggle(offer)}
@@ -307,6 +314,10 @@ const P2PPage = () => {
                       )}
                     </button>
                   </div>
+                </div>
+                <div className="flex items-center space-x-2 text-amber-600">
+                  <MapPin className="h-5 w-5" />
+                  <span>{offer.distance} km away</span>
                 </div>
               </div>
 
