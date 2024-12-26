@@ -119,7 +119,7 @@ const OnboardingScreen = () => {
               ? 'bg-amber-600 text-white hover:bg-amber-700'
               : 'bg-gray-100 text-gray-400 cursor-not-allowed'
           }`}
-          onClick={() => router.push('/validation-email')}
+          onClick={() => router.push('/settingupSecurePin')}
           disabled={!selected}
         >
           Continue

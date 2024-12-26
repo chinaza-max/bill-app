@@ -4,6 +4,10 @@ import React, { useEffect, useState, useRef } from 'react';
 import { Bell, ChevronDown, Home, History, Users, ShoppingBag, Package2 } from 'lucide-react';
 import { motion, AnimatePresence, useMotionValue, useAnimation } from 'framer-motion';
 import { useRouter } from 'next/navigation';
+import BottomNav from '../component/bottomNav';
+
+/**      <BottomNav  activeTabP={activeTab}/>
+ */
 
 const EnhancedCarousel = ({ items }) => {
   const [currentSlide, setCurrentSlide] = useState(0);
@@ -363,53 +367,8 @@ const MobileApp = () => {
       </div>
 
       {/* Bottom Navigation */}
-      <div className="bg-white border-t border-amber-200">
-        <div className="flex justify-around py-2">
-          <motion.button
-            whileTap={{ scale: 0.95 }}
-            onClick={() => handleTabChange('home')}
-            className={`flex flex-col items-center p-2 ${
-              activeTab === 'home' ? 'text-amber-600' : 'text-amber-400'
-            }`}
-          >
-            <Home className="h-6 w-6" />
-            <span className="text-xs mt-1">Home</span>
-          </motion.button>
-
-          <motion.button
-            whileTap={{ scale: 0.95 }}
-            onClick={() => handleTabChange('orders')}
-            className={`flex flex-col items-center p-2 ${
-              activeTab === 'order' ? 'text-amber-600' : 'text-amber-400'
-            }`}
-          >
-            <ShoppingBag className="h-6 w-6" />
-            <span className="text-xs mt-1">Orders</span>
-          </motion.button>
-
-          <motion.button
-            whileTap={{ scale: 0.95 }}
-            onClick={() => handleTabChange('history')}
-            className={`flex flex-col items-center p-2 ${
-              activeTab === 'history' ? 'text-amber-600' : 'text-amber-400'
-            }`}
-          >
-            <History className="h-6 w-6" />
-            <span className="text-xs mt-1">History</span>
-          </motion.button>
-
-          <motion.button
-            whileTap={{ scale: 0.95 }}
-            onClick={() => {handleTabChange('p2p')}}
-            className={`flex flex-col items-center p-2 ${
-              activeTab === 'p2p' ? 'text-amber-600' : 'text-amber-400'
-            }`}
-          >
-            <Users className="h-6 w-6" />
-            <span className="text-xs mt-1">P2P</span>
-          </motion.button>
-        </div>
-      </div>
+      <BottomNav  handleTabChangeP={handleTabChange} activeTabP={activeTab}/>
+      
     </div>
   );
 };
