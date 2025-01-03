@@ -128,7 +128,7 @@ const FaceVerification = () => {
           <div className="flex items-center space-x-3">
             <ArrowLeft onClick={() => router.back()} className="h-6 w-6 cursor-pointer" />
             <h1 className="text-lg font-semibold">Face Verification</h1>
-          </div>
+          </div> 
         </div>
 
       <div className="flex-1 container max-w-3xl mx-auto p-6">
