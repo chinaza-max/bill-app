@@ -3,7 +3,7 @@
 
 import React, { useState,useEffect } from 'react';
 
-import { ArrowLeft, Package, User, ExternalLink, Clock, MapPin, ShoppingBag, Check } from 'lucide-react';
+import { ArrowLeft, Package, User, ExternalLink, Clock, MapPin, ShoppingBag, Check, X } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 
 const ClientEmptyState = ({router}) => (
@@ -165,14 +165,21 @@ const OrderCard = ({ order, userType, onAcknowledgeOrder, router }) => {
         </div>
 
         {userType === 'merchant' && !isAcknowledged && (
-          <button
-            onClick={handleAcknowledge}
-            className="w-full flex items-center justify-center space-x-2 px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors"
-          >
-            <Check className="h-4 w-4" />
-            <span className="text-sm font-medium">Acknowledge Order</span>
-          </button>
-        )}
+          <>
+            <button
+              onClick={handleAcknowledge}
+              className="w-full flex items-center justify-center space-x-2 px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors"
+            >
+              <Check className="h-4 w-4" />
+              <span className="text-sm font-medium">Acknowledge Order</span>
+            </button> <button
+              onClick={handleAcknowledge}
+              className="w-full flex items-center justify-center space-x-2 px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors"
+            >
+              <X className="h-4 w-4" />
+              <span className="text-sm font-medium">Reject Order</span>
+            </button>
+          </>)}
       </div>
     </div>
   );
