@@ -1,106 +1,155 @@
-'use client';
+"use client";
 
-
-import React, { useState, useEffect } from 'react';
-import { ArrowLeft, Check, PlayCircle, HelpCircle , Eye } from 'lucide-react';
+import React, { useState, useEffect } from "react";
+import { ArrowLeft, Check, PlayCircle, HelpCircle, Eye } from "lucide-react";
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { useRouter } from 'next/navigation';
+import { useRouter } from "next/navigation";
 
 const CreateAdsPage = () => {
-  const [minPrice, setMinPrice] = useState('');
-  const [maxPrice, setMaxPrice] = useState('');
+  const [minPrice, setMinPrice] = useState("");
+  const [maxPrice, setMaxPrice] = useState("");
   const [useDefaultSettings, setUseDefaultSettings] = useState(true);
-  const [selectedAmount, setSelectedAmount] = useState('');
-  const [selectedCharge, setSelectedCharge] = useState('');
+  const [selectedAmount, setSelectedAmount] = useState("");
+  const [selectedCharge, setSelectedCharge] = useState("");
   const [adsList, setAdsList] = useState([]);
   const [showHelpModal, setShowHelpModal] = useState(false);
+  const [maxAmountLimit, setMaxAmountLimit] = useState(20000); // Default value
+
   const router = useRouter();
+
+  useEffect(() => {
+    const fetchMaxAmount = async () => {
+      try {
+        const response = await fetch("/api/max-amount-limit"); // Replace with your actual API endpoint
+        const data = await response.json();
+        setMaxAmountLimit(data.maxAmount);
+      } catch (error) {
+        console.error("Error fetching max amount:", error);
+      }
+    };
+
+    fetchMaxAmount();
+  }, []);
 
   // All possible amounts and their charges
   const allAmounts = [
-    { value: '1000', label: '₦1,000' },
-    { value: '5000', label: '₦5,000' },
-    { value: '10000', label: '₦10,000' },
-    { value: '15000', label: '₦15,000' },
-    { value: '20000', label: '₦20,000' }
+    { value: "1000", label: "₦1,000" },
+    { value: "5000", label: "₦5,000" },
+    { value: "10000", label: "₦10,000" },
+    { value: "15000", label: "₦15,000" },
+    { value: "20000", label: "₦20,000" },
   ];
 
   const chargeRanges = {
-    '1000': [
-      { value: '100', label: '₦100' },
-      { value: '150', label: '₦150' },
-      { value: '200', label: '₦200' }
+    1000: [
+      { value: "100", label: "₦100" },
+      { value: "150", label: "₦150" },
+      { value: "200", label: "₦200" },
     ],
-    '5000': [
-      { value: '200', label: '₦200' },
-      { value: '250', label: '₦250' },
-      { value: '300', label: '₦300' }
+    5000: [
+      { value: "200", label: "₦200" },
+      { value: "250", label: "₦250" },
+      { value: "300", label: "₦300" },
     ],
-    '10000': [
-      { value: '300', label: '₦300' },
-      { value: '350', label: '₦350' },
-      { value: '400', label: '₦400' }
+    10000: [
+      { value: "300", label: "₦300" },
+      { value: "350", label: "₦350" },
+      { value: "400", label: "₦400" },
     ],
-    '15000': [
-      { value: '350', label: '₦350' },
-      { value: '400', label: '₦400' },
-      { value: '450', label: '₦450' }
+    15000: [
+      { value: "350", label: "₦350" },
+      { value: "400", label: "₦400" },
+      { value: "450", label: "₦450" },
     ],
-    '20000': [
-      { value: '400', label: '₦400' },
-      { value: '450', label: '₦450' },
-      { value: '500', label: '₦500' }
-    ]
+    20000: [
+      { value: "400", label: "₦400" },
+      { value: "450", label: "₦450" },
+      { value: "500", label: "₦500" },
+    ],
   };
 
   // Get default sample data
   const getDefaultSampleData = () => {
     return [
-      { amount: '1000', charge: '100' },
-      { amount: '5000', charge: '200' },  
-      { amount: '10000', charge: '300' },
-      { amount: '15000', charge: '350' }
+      { amount: "1000", charge: "100" },
+      { amount: "5000", charge: "200" },
+      { amount: "10000", charge: "300" },
+      { amount: "15000", charge: "350" },
     ];
-  };      
+  };
 
   // Get available amounts based on min and max price
   const getAvailableAmounts = () => {
     if (!minPrice || !maxPrice) return [];
-    
+
     // Get amounts from existing ads
-    const existingAmounts = adsList.map(ad => ({
+    const existingAmounts = adsList.map((ad) => ({
       value: ad.amount,
-      label: `₦${Number(ad.amount).toLocaleString()}`
+      label: `₦${Number(ad.amount).toLocaleString()}`,
     }));
 
     // Get amounts from allAmounts that fall within the range
-    const rangeAmounts = allAmounts.filter(amount => {
+    const rangeAmounts = allAmounts.filter((amount) => {
       const value = Number(amount.value);
       return value >= Number(minPrice) && value <= Number(maxPrice);
     });
 
     // Combine and deduplicate amounts
     const combinedAmounts = [...existingAmounts, ...rangeAmounts];
-    const uniqueAmounts = Array.from(new Map(
-      combinedAmounts.map(item => [item.value, item])
-    ).values());
+    const uniqueAmounts = Array.from(
+      new Map(combinedAmounts.map((item) => [item.value, item])).values()
+    );
 
     // Sort amounts numerically
     return uniqueAmounts.sort((a, b) => Number(a.value) - Number(b.value));
   };
 
+  const handleSubmitAds = async () => {
+    if (adsList.length === 0) {
+      alert("Please add at least one price setting");
+      return;
+    }
+
+    // Format data for API
+    const pricePerThousand = adsList.map((ad) => ({
+      amount: Number(ad.amount),
+      charge: Number(ad.charge),
+    }));
+
+    try {
+      const response = await fetch("/api/create-ads", {
+        // Replace with your actual API endpoint
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ pricePerThousand }),
+      });
+
+      if (response.ok) {
+        router.push("/userProfile/merchantProfile/merchantHome/viewAds");
+      } else {
+        alert("Error creating ads. Please try again.");
+      }
+    } catch (error) {
+      console.error("Error submitting ads:", error);
+      alert("Error creating ads. Please try again.");
+    }
+  };
+
   useEffect(() => {
     if (minPrice && maxPrice && useDefaultSettings) {
-      const samples = getDefaultSampleData().filter(sample => 
-        Number(sample.amount) >= Number(minPrice) && 
-        Number(sample.amount) <= Number(maxPrice)
+      const samples = getDefaultSampleData().filter(
+        (sample) =>
+          Number(sample.amount) >= Number(minPrice) &&
+          Number(sample.amount) <= Number(maxPrice)
       );
-      
+
       const defaultAds = samples.map((sample, index) => ({
         id: Date.now() + index,
         minPrice,
@@ -108,7 +157,7 @@ const CreateAdsPage = () => {
         amount: sample.amount,
         charge: sample.charge,
         useDefaultSettings: true,
-        isDefault: true
+        isDefault: true,
       }));
       setAdsList(defaultAds);
     }
@@ -117,23 +166,23 @@ const CreateAdsPage = () => {
   const handleMinPriceChange = (value) => {
     const numValue = Number(value);
     if (numValue < 1000) {
-      setMinPrice('1000');
+      setMinPrice("1000");
     } else {
       setMinPrice(value);
     }
-    setSelectedAmount('');
-    setSelectedCharge('');
+    setSelectedAmount("");
+    setSelectedCharge("");
   };
 
   const handleMaxPriceChange = (value) => {
     const numValue = Number(value);
     if (numValue > 20000) {
-      setMaxPrice('20000');
+      setMaxPrice("20000");
     } else {
       setMaxPrice(value);
     }
-    setSelectedAmount('');
-    setSelectedCharge('');
+    setSelectedAmount("");
+    setSelectedCharge("");
   };
 
   const handleAddAd = () => {
@@ -145,29 +194,55 @@ const CreateAdsPage = () => {
         amount: selectedAmount,
         charge: selectedCharge,
         useDefaultSettings: false,
-        isDefault: false
+        isDefault: false,
       };
-      
+
       const updatedList = adsList
-        .filter(ad => ad.isDefault || ad.amount !== selectedAmount)
+        .filter((ad) => ad.isDefault || ad.amount !== selectedAmount)
         .concat(newAd);
-      
+
       setAdsList(updatedList);
-      setSelectedAmount('');
-      setSelectedCharge('');
+      setSelectedAmount("");
+      setSelectedCharge("");
+    }
+  };
+
+  const handleToggleChange = (newValue) => {
+    setUseDefaultSettings(newValue);
+    if (newValue) {
+      // If turning on default settings, load default ads
+      const samples = getDefaultSampleData().filter(
+        (sample) =>
+          Number(sample.amount) >= Number(minPrice) &&
+          Number(sample.amount) <= Number(maxPrice)
+      );
+
+      const defaultAds = samples.map((sample, index) => ({
+        id: Date.now() + index,
+        minPrice,
+        maxPrice,
+        amount: sample.amount,
+        charge: sample.charge,
+        useDefaultSettings: true,
+        isDefault: true,
+      }));
+      setAdsList(defaultAds);
+    } else {
+      // If turning off default settings, clear all ads
+      setAdsList([]);
     }
   };
 
   const Switch = ({ enabled, onToggle }) => (
     <button
       className={`relative inline-flex h-6 w-11 items-center rounded-full ${
-        enabled ? 'bg-green-500' : 'bg-amber-200'
+        enabled ? "bg-green-500" : "bg-amber-200"
       }`}
       onClick={onToggle}
     >
       <span
         className={`inline-block h-4 w-4 transform rounded-full bg-white transition duration-200 ease-in-out ${
-          enabled ? 'translate-x-6' : 'translate-x-1'
+          enabled ? "translate-x-6" : "translate-x-1"
         }`}
       />
     </button>
@@ -203,20 +278,25 @@ const CreateAdsPage = () => {
 
   return (
     <div className="flex flex-col h-screen bg-amber-50">
-       <div className="sticky top-0 z-10 px-4 py-3 bg-gradient-to-r from-amber-600 to-amber-500 text-white flex items-center justify-between">
+      <div className="sticky top-0 z-10 px-4 py-3 bg-gradient-to-r from-amber-600 to-amber-500 text-white flex items-center justify-between">
         <div className="flex items-center">
-          <ArrowLeft className="h-6 w-6 mr-3" onClick={() => window.history.back()} />
+          <ArrowLeft
+            className="h-6 w-6 mr-3"
+            onClick={() => window.history.back()}
+          />
           <h1 className="text-lg font-semibold">Create Ads</h1>
         </div>
         <div className="flex items-center space-x-2">
-          <button 
-            onClick={() =>    router.push('/userProfile/merchantProfile/merchantHome/viewAds') }
+          <button
+            onClick={() =>
+              router.push("/userProfile/merchantProfile/merchantHome/viewAds")
+            }
             className="flex items-center space-x-1 bg-white/20 px-3 py-1 rounded-full"
           >
             <Eye className="w-4 h-4" />
             <span className="text-sm">View Ads</span>
           </button>
-          <button 
+          <button
             onClick={() => setShowHelpModal(true)}
             className="flex items-center space-x-1 bg-white/20 px-3 py-1 rounded-full"
           >
@@ -226,12 +306,14 @@ const CreateAdsPage = () => {
         </div>
       </div>
 
-      <div className="flex-1 overflow-auto p-4 space-y-6">
+      <div className="flex-1 overflow-auto p-4 space-y-6 mb-20">
         <div className="bg-white rounded-lg p-4 shadow-sm">
           <h2 className="text-amber-900 font-semibold mb-3">Set Price Range</h2>
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm text-amber-700 mb-1">Minimum (₦)</label>
+              <label className="block text-sm text-amber-700 mb-1">
+                Minimum (₦)
+              </label>
               <input
                 type="number"
                 value={minPrice}
@@ -243,7 +325,9 @@ const CreateAdsPage = () => {
               />
             </div>
             <div>
-              <label className="block text-sm text-amber-700 mb-1">Maximum (₦)</label>
+              <label className="block text-sm text-amber-700 mb-1">
+                Maximum (₦)
+              </label>
               <input
                 type="number"
                 value={maxPrice}
@@ -259,27 +343,34 @@ const CreateAdsPage = () => {
 
         {minPrice && maxPrice && (
           <div className="bg-white rounded-lg p-4 shadow-sm">
-            <h2 className="text-amber-900 font-semibold mb-3">Set Price Per Thousand</h2>
+            <h2 className="text-amber-900 font-semibold mb-3">
+              Set Price Per Thousand
+            </h2>
             <div className="space-y-4">
               <div className="flex items-center justify-between">
                 <span className="text-amber-700">Use Default Settings</span>
-                <Switch enabled={useDefaultSettings} onToggle={() => setUseDefaultSettings(!useDefaultSettings)} />
+                <Switch
+                  enabled={useDefaultSettings}
+                  onToggle={() => handleToggleChange(!useDefaultSettings)}
+                />
               </div>
 
               {!useDefaultSettings && (
                 <div className="space-y-4">
                   <div>
-                    <label className="block text-sm text-amber-700 mb-1">Amount</label>
+                    <label className="block text-sm text-amber-700 mb-1">
+                      Amount
+                    </label>
                     <select
                       value={selectedAmount}
                       onChange={(e) => {
                         setSelectedAmount(e.target.value);
-                        setSelectedCharge('');
+                        setSelectedCharge("");
                       }}
                       className="w-full p-2 border border-amber-200 rounded-lg focus:outline-none focus:border-amber-500"
                     >
                       <option value="">Select amount</option>
-                      {getAvailableAmounts().map(option => (
+                      {getAvailableAmounts().map((option) => (
                         <option key={option.value} value={option.value}>
                           {option.label}
                         </option>
@@ -287,7 +378,9 @@ const CreateAdsPage = () => {
                     </select>
                   </div>
                   <div>
-                    <label className="block text-sm text-amber-700 mb-1">Charge</label>
+                    <label className="block text-sm text-amber-700 mb-1">
+                      Charge
+                    </label>
                     <select
                       value={selectedCharge}
                       onChange={(e) => setSelectedCharge(e.target.value)}
@@ -295,14 +388,15 @@ const CreateAdsPage = () => {
                       disabled={!selectedAmount}
                     >
                       <option value="">Select charge</option>
-                      {selectedAmount && chargeRanges[selectedAmount].map(option => (
-                        <option key={option.value} value={option.value}>
-                          {option.label}
-                        </option>
-                      ))}
+                      {selectedAmount &&
+                        chargeRanges[selectedAmount].map((option) => (
+                          <option key={option.value} value={option.value}>
+                            {option.label}
+                          </option>
+                        ))}
                     </select>
                   </div>
-                  
+
                   <button
                     onClick={handleAddAd}
                     className="w-full bg-gradient-to-r from-amber-500 to-amber-600 text-white py-2 rounded-lg font-medium hover:from-amber-600 hover:to-amber-700 transition-colors"
@@ -319,12 +413,15 @@ const CreateAdsPage = () => {
         {adsList.length > 0 && (
           <div className="space-y-4">
             <div className="flex items-center justify-between">
-              <h2 className="text-lg font-semibold text-amber-900">Price Information</h2>
+              <h2 className="text-lg font-semibold text-amber-900">
+                Price Information
+              </h2>
               <span className="px-3 py-1 bg-gradient-to-r from-amber-500 to-amber-600 text-white rounded-full text-sm">
-                ₦{Number(minPrice).toLocaleString()} - ₦{Number(maxPrice).toLocaleString()}
+                ₦{Number(minPrice).toLocaleString()} - ₦
+                {Number(maxPrice).toLocaleString()}
               </span>
             </div>
-            {adsList.map(ad => (
+            {adsList.map((ad) => (
               <div
                 key={ad.id}
                 className="bg-gradient-to-r from-amber-50 to-green-50 rounded-lg p-4 shadow-sm border border-amber-100"
@@ -343,7 +440,8 @@ const CreateAdsPage = () => {
                     </div>
                     <div className="bg-white/60 rounded-lg p-3">
                       <p className="text-green-800">
-                        <span className="font-medium">Charge:</span> ₦{Number(ad.charge).toLocaleString()}
+                        <span className="font-medium">Charge:</span> ₦
+                        {Number(ad.charge).toLocaleString()}
                       </p>
                     </div>
                   </div>
@@ -352,8 +450,19 @@ const CreateAdsPage = () => {
             ))}
           </div>
         )}
+
+        {adsList.length > 0 && (
+          <div className="fixed bottom-0 left-0 right-0 p-4 bg-white border-t border-amber-100">
+            <button
+              onClick={handleSubmitAds}
+              className="w-full bg-gradient-to-r from-amber-500 to-amber-600 text-white py-3 rounded-lg font-medium hover:from-amber-600 hover:to-amber-700 transition-colors"
+            >
+              Submit Ads
+            </button>
+          </div>
+        )}
       </div>
-      
+
       <HelpModal />
     </div>
   );
