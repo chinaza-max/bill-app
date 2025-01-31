@@ -1,11 +1,12 @@
 "use client";
 
-import Image from "next/image";
 import React, { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { Volume2, VolumeX } from "lucide-react";
+import { ConstructionIcon, Volume2, VolumeX } from "lucide-react";
+
+const title = "Live Beyond Expectation. Order Smarter, Live Better";
 
 const introSlides = [
   {
@@ -13,18 +14,23 @@ const introSlides = [
     description:
       "Order money at your comfort zone without stress with fintread",
     image: "splash1.png",
+    audio:
+      "Welcome to Fintread. Live beyond expectation. Order smarter, live better.",
   },
   {
     title: "Unlock Convenience Order in tap, Enjoy in a Snap",
     description:
       "Order money at your comfort zone without stress with fintread",
     image: "splash2.png",
+    audio: "Unlock convenience. Order in a tap, enjoy in a snap.",
   },
   {
     title: "Turn Your Spare Time Into Money By Becoming a Merchant",
     description:
       "Order money at your comfort zone without stress with fintread",
     image: "splash3.png",
+    audio:
+      "Turn your spare time into money by becoming a merchant with Fintread.",
   },
 ];
 
@@ -34,7 +40,9 @@ export default function Home() {
   const [autoPlayEnabled, setAutoPlayEnabled] = useState(true);
   const [isOverlayVisible, setOverlayVisible] = useState(true);
   const [isOverlayVisible2, setOverlayVisible2] = useState(true);
-  const [isMuted, setIsMuted] = useState(false);
+  const [permissionGranted, setPermissionGranted] = useState(false);
+  const [permissionError, setPermissionError] = useState(null);
+  const [isMuted, setIsMuted] = useState(true);
   const synth = useRef(null);
   const utteranceRef = useRef(null);
 
@@ -77,24 +85,80 @@ export default function Home() {
   };
 
   useEffect(() => {
-    // Initialize speech synthesis
+    // Initialize speech synthesis with permission check
     if (typeof window !== "undefined") {
       synth.current = window.speechSynthesis;
+
+      // Check if the browser supports speech synthesis
+      if (!synth.current) {
+        setPermissionError("Speech synthesis is not supported in this browser");
+        setIsMuted(true);
+        return;
+      }
+
+      // Request permission for audio playback
+      const requestPermission = async () => {
+        try {
+          // Try to get audio permission
+          const result = await navigator.permissions.query({
+            name: "notifications",
+          });
+
+          if (result.state === "granted") {
+            setPermissionGranted(true);
+          } else if (result.state === "prompt") {
+            // We need to trigger speech on user interaction
+            setPermissionGranted(false);
+          } else {
+            setPermissionError("Permission denied for audio playback");
+            setIsMuted(true);
+          }
+        } catch (error) {
+          // Fall back to a user interaction requirement
+          console.log(
+            "Permission API not supported, will require user interaction"
+          );
+          setPermissionGranted(false);
+        }
+      };
+
+      requestPermission();
     }
   }, []);
 
   const playAudio = (text) => {
+    console.log(synth.current);
+    console.log(isMuted);
+
     if (synth.current && !isMuted) {
-      // Cancel any ongoing speech
-      synth.current.cancel();
+      try {
+        // Cancel any ongoing speech
+        //synth.current.cancel();
 
-      // Create new utterance
-      utteranceRef.current = new SpeechSynthesisUtterance(text);
-      utteranceRef.current.rate = 1.0;
-      utteranceRef.current.pitch = 1.0;
+        // Create new utterance
+        utteranceRef.current = new SpeechSynthesisUtterance(text);
+        utteranceRef.current.rate = 1.0;
+        utteranceRef.current.pitch = 1.0;
 
-      // Play the speech
-      synth.current.speak(utteranceRef.current);
+        // Add error handling
+        utteranceRef.current.onerror = (event) => {
+          console.error("Speech synthesis error:", event);
+
+          setPermissionError("Error playing audio. Please try again.");
+        };
+
+        // Handle the first user interaction
+        if (!permissionGranted) {
+          setPermissionGranted(true);
+        }
+
+        // Play the speech
+        synth.current.speak(utteranceRef.current);
+      } catch (error) {
+        console.error("Speech synthesis error:", error);
+        setPermissionError("Error initializing audio playback");
+        setIsMuted(true);
+      }
     }
   };
 
@@ -102,26 +166,32 @@ export default function Home() {
     setIsMuted((prev) => {
       if (!prev) {
         // If we're muting, cancel any ongoing speech
-        synth.current?.cancel();
-      } else {
-        // If we're unmuting, play current slide's audio
-        playAudio(introSlides[currentIndex].audio);
+        //synth.current?.cancel();
       }
       return !prev;
     });
   };
 
   useEffect(() => {
+    if (!isMuted) {
+      console.log("ddddddddddddddddddd");
+      playAudio(title);
+    }
+  }, [isMuted]);
+
+  /*
+  useEffect(() => {
     // Play audio when slide changes
-    if (!isOverlayVisible2 && !isMuted) {
+     if (!isOverlayVisible2 && !isMuted) {
       playAudio(introSlides[currentIndex].audio);
     }
   }, [currentIndex, isOverlayVisible2, isMuted]);
+*/
 
   useEffect(() => {
     return () => {
       if (synth.current) {
-        synth.current.cancel();
+        // synth.current.cancel();
       }
     };
   }, []);
@@ -291,6 +361,12 @@ export default function Home() {
               </div>
             </div>
           </div>
+        </div>
+      )}
+
+      {permissionError && (
+        <div className="absolute top-16 right-6 z-50 p-2 bg-red-100 text-red-600 rounded-md text-sm">
+          {permissionError}
         </div>
       )}
     </>
