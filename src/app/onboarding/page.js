@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { ConstructionIcon, Volume2, VolumeX } from "lucide-react";
 
-const title = "Live Beyond Expectation. Order Smarter, Live Better";
+const title = "Leave Beyond Expectation. Order Smarter, Live Better";
 
 const introSlides = [
   {
