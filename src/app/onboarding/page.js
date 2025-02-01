@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { ConstructionIcon, Volume2, VolumeX } from "lucide-react";
 
-const title = "Leave Beyond Expectation. Order Smarter, Live Better";
+const title = "Leave Beyond Expectation. Order Smarter, Leave Better";
 
 const introSlides = [
   {
@@ -42,7 +42,7 @@ export default function Home() {
   const [isOverlayVisible2, setOverlayVisible2] = useState(true);
   const [permissionGranted, setPermissionGranted] = useState(false);
   const [permissionError, setPermissionError] = useState(null);
-  const [isMuted, setIsMuted] = useState(true);
+  const [isMuted, setIsMuted] = useState(false);
   const [voices, setVoices] = useState([]);
   const [selectedVoice, setSelectedVoice] = useState(null);
 
