@@ -43,6 +43,9 @@ export default function Home() {
   const [permissionGranted, setPermissionGranted] = useState(false);
   const [permissionError, setPermissionError] = useState(null);
   const [isMuted, setIsMuted] = useState(true);
+  const [voices, setVoices] = useState([]);
+  const [selectedVoice, setSelectedVoice] = useState(null);
+
   const synth = useRef(null);
   const utteranceRef = useRef(null);
 
@@ -96,6 +99,22 @@ export default function Home() {
         return;
       }
 
+      const getVoices = () => {
+        const availableVoices = synth.current.getVoices();
+        console.log("Available voices:", availableVoices);
+        setVoices(availableVoices);
+        setSelectedVoice(
+          availableVoices.find((voice) => voice.default) || availableVoices[0]
+        );
+      };
+
+      // Ensure voices are loaded
+      if (synth.current.onvoiceschanged !== undefined) {
+        synth.current.onvoiceschanged = getVoices;
+      } else {
+        getVoices();
+      }
+
       // Request permission for audio playback
       const requestPermission = async () => {
         try {
@@ -134,11 +153,13 @@ export default function Home() {
       try {
         // Cancel any ongoing speech
         //synth.current.cancel();
+        console.log("test test ", selectedVoice);
 
         // Create new utterance
         utteranceRef.current = new SpeechSynthesisUtterance(text);
         utteranceRef.current.rate = 1.0;
         utteranceRef.current.pitch = 1.0;
+        utteranceRef.current.voice = selectedVoice;
 
         // Add error handling
         utteranceRef.current.onerror = (event) => {
@@ -174,7 +195,6 @@ export default function Home() {
 
   useEffect(() => {
     if (!isMuted) {
-      console.log("ddddddddddddddddddd");
       playAudio(title);
     }
   }, [isMuted]);
@@ -358,6 +378,21 @@ export default function Home() {
                     </Link>
                   )}
                 </div>
+
+                <select
+                  className="w-full mt-3 p-2 border rounded-md"
+                  onChange={(e) =>
+                    setSelectedVoice(
+                      voices.find((v) => v.name === e.target.value)
+                    )
+                  }
+                >
+                  {voices.map((voice, index) => (
+                    <option key={index} value={voice.name}>
+                      {voice.name} ({voice.lang})
+                    </option>
+                  ))}
+                </select>
               </div>
             </div>
           </div>
