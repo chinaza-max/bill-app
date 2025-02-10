@@ -10,7 +10,7 @@ const title = "Leave Beyond Expectation. Order Smarter, Leave Better";
 
 const introSlides = [
   {
-    title: "Live Beyond Expectation. Order Smarter, Live Better",
+    title: "Leave Beyond Expectation. Order Smarter, Leave Better",
     description:
       "Order money at your comfort zone without stress with fintread",
     image: "splash1.png",
@@ -146,6 +146,7 @@ export default function Home() {
   }, []);
 
   const playAudio = (text) => {
+    return;
     console.log(synth.current);
     console.log(isMuted);
 
@@ -194,24 +195,28 @@ export default function Home() {
   };
 
   useEffect(() => {
-    if (!isMuted) {
-      playAudio(title);
-    }
+    setTimeout(() => {
+      if (!isMuted) {
+        console.log("ddddddddddd");
+        ///playAudio(title);
+      }
+    }, 40000);
   }, [isMuted]);
 
-  /*
   useEffect(() => {
     // Play audio when slide changes
-     if (!isOverlayVisible2 && !isMuted) {
-      playAudio(introSlides[currentIndex].audio);
-    }
+
+    setTimeout(() => {
+      if (!isOverlayVisible2 && !isMuted) {
+        //playAudio(introSlides[currentIndex].audio);
+      }
+    }, 40000);
   }, [currentIndex, isOverlayVisible2, isMuted]);
-*/
 
   useEffect(() => {
     return () => {
       if (synth.current) {
-        // synth.current.cancel();
+        synth.current.cancel();
       }
     };
   }, []);
@@ -253,11 +258,11 @@ export default function Home() {
               animate={{ opacity: 1 }}
               transition={{ delay: 0.5 }}
             >
-              {isMuted ? (
+              {/*isMuted ? (
                 <VolumeX className="w-6 h-6 text-gray-600" />
               ) : (
                 <Volume2 className="w-6 h-6 text-gray-600" />
-              )}
+              )*/}
             </motion.button>
 
             <div className="h-[10%] w-full">
@@ -378,21 +383,6 @@ export default function Home() {
                     </Link>
                   )}
                 </div>
-
-                <select
-                  className="w-full mt-3 p-2 border rounded-md"
-                  onChange={(e) =>
-                    setSelectedVoice(
-                      voices.find((v) => v.name === e.target.value)
-                    )
-                  }
-                >
-                  {voices.map((voice, index) => (
-                    <option key={index} value={voice.name}>
-                      {voice.name} ({voice.lang})
-                    </option>
-                  ))}
-                </select>
               </div>
             </div>
           </div>

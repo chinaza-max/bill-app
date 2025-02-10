@@ -1,16 +1,12 @@
-
-
 import localFont from "next/font/local";
 import "./globals.css";
-
-
-
+import Providers from "./providers";
 
 const geistSans = localFont({
   src: "./fonts/GeistVF.woff",
   variable: "--font-geist-sans",
   weight: "100 900",
-}); 
+});
 const geistMono = localFont({
   src: "./fonts/GeistMonoVF.woff",
   variable: "--font-geist-mono",
@@ -28,13 +24,10 @@ export const viewport = {
   userScalable: false,
 }*/
 
-
-
 const APP_NAME = "Fintread";
 const APP_DEFAULT_TITLE = "My Awesome PWA App";
 const APP_TITLE_TEMPLATE = "%s - PWA App";
 const APP_DESCRIPTION = "Best PWA app in the world!";
-
 
 export const metadata = {
   applicationName: APP_NAME,
@@ -69,7 +62,7 @@ export const metadata = {
       template: APP_TITLE_TEMPLATE,
     },
     description: APP_DESCRIPTION,
-  },    
+  },
 };
 
 export const viewport = {
@@ -82,9 +75,7 @@ export default function RootLayout({ children }) {
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
-
-        {children}
-
+        <Providers>{children}</Providers>
       </body>
     </html>
   );
