@@ -1,52 +1,123 @@
-'use client';
+"use client";
 
-import React, { useState, useEffect } from 'react';
-import { X, Delete, ArrowRight } from 'lucide-react';
-import Image from 'next/image';
-import { useRouter } from 'next/navigation';
+import React, { useState, useEffect } from "react";
+import { X, Delete, ArrowRight } from "lucide-react";
+import Image from "next/image";
+import { useRouter } from "next/navigation";
+import { useEnterPassCode } from "@/hooks/useAuth";
+import { Doto } from "next/font/google";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { useDispatch } from "react-redux";
+import { setUser, setPasscodeStatus } from "@/store/slice";
+import { encryptUserData } from "../../utils/data-encryption";
 
-import { Doto } from 'next/font/google';
+import {
+  encryptData,
+  decryptData,
+  storeEncryptedData,
+  getEncryptedDataFromStorage,
+} from "../../utils/encryption";
+import getErrorMessage from "@/app/component/error";
 
 const Doto2 = Doto({
-    subsets: ['latin'],
-    weight: ['400', '600', '700'],
+  subsets: ["latin"],
+  weight: ["400", "600", "700"],
 });
 
 const SecureLogin = () => {
-  const [pin, setPin] = useState('');
+  const [pin, setPin] = useState("");
   const [numbers, setNumbers] = useState([]);
   const router = useRouter();
+  const dispatch = useDispatch();
+  const { mutate, isLoading, isError, error, isSuccess, reset } =
+    useEnterPassCode(async (data) => {
+      dispatch(
+        setUser({
+          user: data.data.data.modifiedUser,
+          accessToken: data.data.data.accessToken,
+          isAuthenticated: true,
+        })
+      );
 
+      dispatch(
+        setPasscodeStatus({
+          isPasscodeEntered: true,
+        })
+      );
+
+      const stateData = {
+        isPasscodeEntered: true,
+        isAuthenticated: true,
+        accessToken: data.data.data.accessToken,
+      };
+
+      const encryptedDatas = encryptUserData(stateData);
+
+      localStorage.setItem("userData", encryptedDatas);
+    });
+
+  useEffect(() => {
+    if (isSuccess) {
+      router.push(`/home`);
+    }
+  }, [isSuccess]);
   useEffect(() => {
     randomizeNumbers();
   }, []);
 
+  useEffect(() => {
+    setTimeout(() => {
+      reset();
+    }, 10000);
+  }, [error]);
+
   const randomizeNumbers = () => {
     const shuffled = [...Array(10).keys()]
-      .map(n => n.toString())
+      .map((n) => n.toString())
       .sort(() => Math.random() - 0.5);
     setNumbers(shuffled);
   };
 
   const handleNumberClick = (num) => {
-    if (pin.length < 4) { // Changed from 6 to 4
-      setPin(prev => prev + num);
+    if (pin.length < 4) {
+      setPin((prev) => prev + num);
     }
   };
 
   const handleDelete = () => {
-    setPin(prev => prev.slice(0, -1));
+    setPin((prev) => prev.slice(0, -1));
   };
 
   const handleClear = () => {
-    setPin('');
+    setPin("");
     randomizeNumbers();
   };
 
-  const handleSubmit = () => {
-    router.push('/home');
-    setPin('');
-    randomizeNumbers();
+  const handleSubmit = async () => {
+    //setPin("");
+
+    const storedData = getEncryptedDataFromStorage();
+    if (storedData) {
+      const decrypted = await decryptData(
+        storedData.encryptedData,
+        storedData.iv,
+        storedData.salt,
+        "password"
+      );
+
+      try {
+        mutate({
+          passCode: pin,
+          emailAddress: decrypted,
+        });
+      } catch (error) {
+        //setSubmitting(false);
+        //console.error("Submission error:", error);
+      } finally {
+      }
+      randomizeNumbers();
+      console.log(decrypted); // "sensitive data"
+    }
   };
 
   return (
@@ -69,12 +140,23 @@ const SecureLogin = () => {
       </div>
 
       {/* Main Container */}
-      <div className="bg-white rounded-lg shadow-sm border border-gray-100 p-6 w-full max-w-sm"
-        style={{ position: 'absolute', bottom: '50px' }}
+      <div
+        className="bg-white rounded-lg shadow-sm border border-gray-100 p-6 w-full max-w-sm"
+        style={{ position: "absolute", bottom: "50px" }}
       >
+        {isError && (
+          <Alert variant="destructive" className="mb-6 border-red-500">
+            <AlertTitle>Login Failed</AlertTitle>
+            <AlertDescription>
+              {getErrorMessage(error, router)}
+            </AlertDescription>
+          </Alert>
+        )}
         <div className="flex justify-between items-center mb-6">
-          <h2 className="text-lg font-medium text-gray-700">Enter 4-Digit PIN</h2>
-          <button 
+          <h2 className="text-lg font-medium text-gray-700">
+            Enter 4-Digit PIN
+          </h2>
+          <button
             onClick={handleClear}
             className="text-gray-400 hover:text-gray-600 transition-colors"
           >
@@ -89,8 +171,8 @@ const SecureLogin = () => {
               key={i}
               className={`w-4 h-4 rounded-full transition-all duration-200 ${
                 i < pin.length
-                  ? 'bg-emerald-600 scale-105'
-                  : 'border border-gray-300'
+                  ? "bg-emerald-600 scale-105"
+                  : "border border-gray-300"
               }`}
             />
           ))}

@@ -10,15 +10,16 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 
 const SignUpForm = () => {
   const [showPassword, setShowPassword] = useState(false);
+  const [email, setEmail] = useState("");
   const router = useRouter();
   const { mutate, isLoading, isError, error, isSuccess } = useRegister();
 
   useEffect(() => {
     if (isSuccess) {
-      router.push("/validation-email");
+      router.push(`/validation-email?email=${email}`);
     }
-  }, [isSuccess, router]);
-
+  }, [isSuccess]);
+  //[isSuccess, router]
   const initialValues = {
     firstName: "",
     lastName: "",
@@ -58,18 +59,22 @@ const SignUpForm = () => {
 
   const handleSubmit = async (values, { setSubmitting }) => {
     try {
-      // Simulate API call
-      console.log("initialValues");
-
       setSubmitting(true);
-      delete values.acceptTerms;
+      //delete values.acceptTerms;
 
-      mutate({ ...values, telCode: "+234" });
-
-      await new Promise((resolve) => setTimeout(resolve, 2000));
-      console.log(values);
+      mutate({
+        dateOfBirth: values.dateOfBirth,
+        emailAddress: values.emailAddress,
+        firstName: values.firstName,
+        lastName: values.lastName,
+        password: values.password,
+        tel: values.tel,
+        telCode: "+234",
+      });
+      setEmail(values.emailAddress);
       setSubmitting(false);
     } catch (error) {
+      setSubmitting(false);
       console.error("Submission error:", error);
     } finally {
       setSubmitting(false);
