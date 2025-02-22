@@ -15,14 +15,21 @@ const SignUpForm = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [email, setEmail] = useState("");
   const router = useRouter();
+  const [isformSub, setIsformSub] = useState(false);
+
   const { mutate, isLoading, isError, error, isSuccess } = useRegister();
   const dispatch = useDispatch();
 
   useEffect(() => {
+    setIsformSub(false);
+    localStorage.setItem("validationEmail", email);
+  }, [error, isSuccess]);
+  useEffect(() => {
     if (isSuccess) {
-      router.push(`/validation-email?email=${email}`);
+      router.push(`/validation-email`);
     }
   }, [isSuccess]);
+
   //[isSuccess, router]
   const initialValues = {
     firstName: "",
@@ -33,14 +40,6 @@ const SignUpForm = () => {
     dateOfBirth: "",
     acceptTerms: false,
   };
-
-  useEffect(() => {
-    dispatch(
-      setUserEmail({
-        email,
-      })
-    );
-  }, [error, isSuccess]);
 
   const validationSchema = Yup.object().shape({
     firstName: Yup.string()
@@ -72,6 +71,7 @@ const SignUpForm = () => {
   const handleSubmit = async (values, { setSubmitting }) => {
     try {
       setSubmitting(true);
+      setIsformSub(true);
       //delete values.acceptTerms;
 
       mutate({
@@ -339,10 +339,10 @@ const SignUpForm = () => {
                 <button
                   type="submit"
                   /* onClick={() => router.push("/validation-email")}*/
-                  disabled={isSubmitting || isLoading}
+                  disabled={isformSub}
                   className="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 disabled:opacity-50"
                 >
-                  {isSubmitting ? (
+                  {isformSub ? (
                     <div className="flex items-center">
                       <svg
                         className="animate-spin -ml-1 mr-3 h-5 w-5 text-white"

@@ -15,7 +15,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { useSelector } from "react-redux";
 
 const OTPValidation = () => {
   const [otp, setOtp] = useState(["", "", "", "", "", ""]);
@@ -23,9 +22,10 @@ const OTPValidation = () => {
   const [isResendDisabled, setIsResendDisabled] = useState(true);
   const [showResendModal, setShowResendModal] = useState(false);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [isformSub, setIsformSub] = useState(false);
 
   const [isActive, setIsActive] = useState(true);
-  const email = useSelector((state) => state.user.email);
+  const email = localStorage.getItem("validationEmail");
 
   let {
     mutate: validateEmailMutate,
@@ -84,7 +84,9 @@ const OTPValidation = () => {
       }
     };
   }, [timeLeft, isActive]);
-
+  useEffect(() => {
+    setIsformSub(false);
+  }, [validateEmailErrorMsg, validateEmailSuccess]);
   const resetTimer = () => {
     setTimeLeft(20);
     setIsResendDisabled(true);
@@ -116,26 +118,22 @@ const OTPValidation = () => {
 
   const handleSubmit = async (values, { setSubmitting }) => {
     try {
-      console.log({
-        emailAddress: email,
-        validateFor: "user",
-        verificationCode: Number(values),
-        type: "email",
-      });
-      setSubmitting(true);
+      setIsformSub(true);
+      //setSubmitting(true);
+
       validateEmailMutate({
         emailAddress: email,
         validateFor: "user",
         verificationCode: values.otp,
         type: "email",
       });
-      setSubmitting(false);
-      await new Promise((resolve) => setTimeout(resolve, 2000));
-      console.log("OTP submitted:", values.otp);
+      //setSubmitting(false);
+      //await new Promise((resolve) => setTimeout(resolve, 2000));
+      // console.log("OTP submitted:", values.otp);
     } catch (error) {
       console.error("Validation error:", error);
     } finally {
-      setSubmitting(false);
+      // setSubmitting(false);
     }
   };
 
@@ -419,11 +417,11 @@ const OTPValidation = () => {
 
                 <button
                   type="submit"
-                  onClick={() => router.push("/sign2-up")}
-                  disabled={isSubmitting || otp.join("").length !== 6}
+                  /*onClick={() => router.push("/sign2-up")}*/
+                  disabled={isformSub || otp.join("").length !== 6}
                   className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-amber-600 hover:bg-amber-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-amber-500 disabled:opacity-50"
                 >
-                  {isSubmitting ? (
+                  {isformSub ? (
                     <div className="flex items-center">
                       <svg
                         className="animate-spin -ml-1 mr-3 h-5 w-5 text-white"
