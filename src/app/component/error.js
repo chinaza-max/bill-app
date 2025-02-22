@@ -24,6 +24,10 @@ const getErrorMessage = (error, router, email, isPasscodeEntered) => {
     }
   }
 
+  if (error?.message === "Resource not found") {
+    return error?.details;
+  }
+
   if (error?.details === "Your email is not verified yet") {
     setTimeout(() => {
       router.push(`/validation-email`);

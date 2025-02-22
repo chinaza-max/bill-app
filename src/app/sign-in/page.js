@@ -20,6 +20,8 @@ import { setUser, setUserEmail } from "@/store/slice";
 
 const LoginForm = () => {
   const [showPassword, setShowPassword] = useState(false);
+  const [isformSub, setIsformSub] = useState(false);
+
   const [email, setEmail] = useState("");
   const dispatch = useDispatch();
   /*
@@ -94,7 +96,7 @@ const LoginForm = () => {
 */
   const handleSubmit = async (values, { setSubmitting }) => {
     try {
-      setSubmitting(true);
+      setIsformSub(true);
       mutate({
         emailAddress: values.email,
         password: values.password,
@@ -103,14 +105,15 @@ const LoginForm = () => {
 
       setEmail(values.email);
     } catch (error) {
-      setSubmitting(false);
+      //  setIsformSub(false);
       console.error("Login error:", error);
     } finally {
-      setSubmitting(false);
+      //setIsformSub(false);
     }
   };
 
   useEffect(() => {
+    setIsformSub(false);
     dispatch(
       setUserEmail({
         email,
@@ -266,11 +269,12 @@ const LoginForm = () => {
 
                 <button
                   type="submit"
-                  disabled={isSubmitting || isLoading}
+                  disabled={isformSub}
                   className="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md bg-amber-600 hover:bg-amber-700 text-white focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 disabled:opacity-50"
                 >
-                  {console.log(isSubmitting)}
-                  {isSubmitting || isLoading ? (
+                  {console.log(isformSub)}
+
+                  {isformSub ? (
                     <div className="flex items-center">
                       <svg
                         className="animate-spin -ml-1 mr-3 h-5 w-5 text-white"
