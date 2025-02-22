@@ -1,8 +1,22 @@
-import axiosInstance from "../axiosInstance";
+import axios from "axios";
+const axiosInstance = axios.create({
+  baseURL: "https://fidopoint.onrender.com/api/v1", // Base URL
+  headers: {
+    "Content-Type": "application/json", // Set default content-type for the API requests
+  },
+});
 
 export async function POST(req) {
   try {
     const { apiType, ...requestData } = await req.json();
+
+    console.log("sssssssssssssssssssssssssssssssss");
+    console.log("sssssssssssssssssssssssssssssssss");
+    console.log("sssssssssssssssssssssssssssssssss");
+    console.log(requestData);
+    console.log("sssssssssssssssssssssssssssssssss");
+    console.log("sssssssssssssssssssssssssssssssss");
+    console.log("sssssssssssssssssssssssssssssssss");
 
     // Validate required fields
     if (!apiType) {
@@ -72,6 +86,7 @@ export async function POST(req) {
       { status: 200 }
     );
   } catch (error) {
+    console.log(error);
     // Handle Axios errors
     if (error.isAxiosError) {
       const status = error.response?.status || 500;
