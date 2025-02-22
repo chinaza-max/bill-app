@@ -18,6 +18,12 @@ const getErrorMessage = (error, router, email, isPasscodeEntered) => {
     return error?.details;
   }
 
+  if (error?.message === "Internal server error") {
+    if (error?.details.includes("email")) {
+      return error?.details;
+    }
+  }
+
   if (error?.details === "Your email is not verified yet") {
     setTimeout(() => {
       router.push(`/validation-email`);
