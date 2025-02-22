@@ -17,11 +17,20 @@ const getErrorMessage = (error, router, email, isPasscodeEntered) => {
   if (error?.details === "Invalid pass code") {
     return error?.details;
   }
+
+  if (error?.details === "Your email is not verified yet") {
+    setTimeout(() => {
+      router.push(`/validation-email`);
+    }, 3000);
+    // Cleanup the timeout when the component unmounts
+    return error?.details + " you will be redirect to do so";
+  }
+
   // Handle axios error response structure
   if (error.response?.data?.message) {
     if (error.response?.data?.message === "Your email is not verified yet") {
       setTimeout(() => {
-        router.push(`/validation-email?email=${email}`);
+        router.push(`/validation-email`);
       }, 3000);
       // Cleanup the timeout when the component unmounts
       return error.response.data.message + " you will be redirect to do so";

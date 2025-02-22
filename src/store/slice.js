@@ -23,6 +23,9 @@ const userSlice = createSlice({
     setPasscodeStatus: (state, action) => {
       state.isPasscodeEntered = action.payload.isPasscodeEntered;
     },
+    setUserEmail: (state, action) => {
+      state.email = action.payload.email;
+    },
     clearSensitiveData: (state, action) => {
       state.accessToken = null;
       state.isPasscodeEntered = false;
@@ -41,8 +44,13 @@ const userSlice = createSlice({
   },
 });
 
-export const { setUser, logout, setPasscodeStatus, clearSensitiveData } =
-  userSlice.actions;
+export const {
+  setUser,
+  logout,
+  setPasscodeStatus,
+  clearSensitiveData,
+  setUserEmail,
+} = userSlice.actions;
 
 // Export the reducer to be used in the store
 export default userSlice.reducer;

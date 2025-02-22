@@ -6,11 +6,15 @@ import { useState, useEffect } from "react";
 import { decryptData } from "../../utils/data-encryption";
 import { useUserData } from "@/hooks/useUser";
 import { useDispatch } from "react-redux";
-import { setUser } from "@/store/slice";
+import { setUser, setPasscodeStatus } from "@/store/slice";
+import getErrorMessage from "@/app/component/error";
 
 const ProtectedLayout = ({ children }) => {
   const router = useRouter();
   const [accessToken, setAccessToken] = useState();
+  const [isPasscodeEntered2, setIsPasscodeEntered2] = useState();
+  const isAuthenticated2 = useSelector((state) => state.user.isAuthenticated);
+
   const dispatch = useDispatch();
 
   const { mutate, isLoading, isError, error, isSuccess } = useUserData(
@@ -22,6 +26,16 @@ const ProtectedLayout = ({ children }) => {
           isAuthenticated: true,
         })
       );
+
+      dispatch(
+        setPasscodeStatus({
+          isPasscodeEntered: isPasscodeEntered2,
+        })
+      );
+
+      if (!isPasscodeEntered2) {
+        router.push("/secureInput");
+      }
     }
   );
 
@@ -29,35 +43,22 @@ const ProtectedLayout = ({ children }) => {
     (state) => state.user
   );
 
-  /*
-  if (isAuthenticated) {
-    console.log(isAuthenticated);
-    console.log(isPasscodeEntered);
-    const userDataEn = localStorage.getItem("userData");
-    const userDataDe = decryptData(userDataEn);
-
-    console.log(userDataDe);
-  
-    try {
-      mutate({
-        accessToken: userDataDe.accessToken,
-      });
-    } catch (error) {
-     
-      console.error("Login error:", error);
-    } finally {
-    
-    }
-  }*/
-
   useEffect(() => {
-    if (isAuthenticated) {
+    if (!isAuthenticated) {
       const userDataEn = localStorage.getItem("userData");
       if (userDataEn) {
         const userDataDe = decryptData(userDataEn);
-        // Only trigger mutate when there's an access token available
+
+        if (!userDataDe.isAuthenticated) {
+          router.push("/sign-in");
+        }
+
+        const setIsPasscodeEntered2B =
+          userDataDe.isPasscodeEntered == true ? true : false;
+        setIsPasscodeEntered2(setIsPasscodeEntered2B);
 
         setAccessToken(userDataDe.accessToken);
+
         mutate({
           accessToken: userDataDe.accessToken,
         });
@@ -66,16 +67,14 @@ const ProtectedLayout = ({ children }) => {
   }, [isAuthenticated, mutate]);
 
   useEffect(() => {
-    // Redirect to sign-in if not authenticated
-    if (!isAuthenticated) {
-      router.push("/sign-in");
-    } else if (!isPasscodeEntered) {
-      router.push("/secureInput");
-    }
-  }, [isAuthenticated, isPasscodeEntered]);
+    const userDataEn = localStorage.getItem("userData");
+    if (userDataEn) {
+      const userDataDe = decryptData(userDataEn);
 
-  useEffect(() => {
-    console.log(error);
+      getErrorMessage(error, router, "", userDataDe.isAuthenticated);
+    } else {
+      getErrorMessage(error, router);
+    }
   }, [error]);
   // If not authenticated or passcode not entered, don't render children
   if (!isAuthenticated || !isPasscodeEntered) {

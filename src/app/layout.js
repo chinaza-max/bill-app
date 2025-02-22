@@ -71,6 +71,7 @@ export const viewport = {
 };
 
 export default function RootLayout({ children }) {
+  //useVisibility();
   return (
     <html lang="en">
       <body

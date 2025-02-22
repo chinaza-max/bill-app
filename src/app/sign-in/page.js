@@ -16,7 +16,7 @@ import {
   getEncryptedDataFromStorage,
 } from "../../utils/encryption";
 import { useDispatch } from "react-redux"; // Import useDispatch
-import { setUser } from "@/store/slice";
+import { setUser, setUserEmail } from "@/store/slice";
 
 const LoginForm = () => {
   const [showPassword, setShowPassword] = useState(false);
@@ -82,29 +82,7 @@ const LoginForm = () => {
     password: Yup.string().required("Password is required"),
   });
   /*
-  const getErrorMessage = () => {
-    if (!error) return null;
-
-    console.log(error);
-
-    // Handle axios error response structure
-    if (error.response?.data?.message) {
-      if (error.response?.data?.message === "Your email is not verified yet") {
-        setTimeout(() => {
-          router.push(`/validation-email?email=${email}`);
-        }, 3000);
-        // Cleanup the timeout when the component unmounts
-        return error.response.data.message + " you will be redirect to do so";
-      }
-      return error.response.data.message;
-    }
-    if (error?.response?.data) {
-      return error?.response?.data;
-    }
-
-    if (error.response?.data?.errors[0]?.message) {
-      return error.response?.data?.errors[0].message;
-    }
+ 
 
     // Handle other error formats your server might return
     if (error.message) {
@@ -130,6 +108,14 @@ const LoginForm = () => {
       setSubmitting(false);
     }
   };
+
+  useEffect(() => {
+    dispatch(
+      setUserEmail({
+        email,
+      })
+    );
+  }, [error, isSuccess]);
 
   return (
     <div className="min-h-screen bg-amber-50 flex flex-col items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
@@ -272,7 +258,7 @@ const LoginForm = () => {
                   <Alert variant="destructive" className="mb-6 border-red-500">
                     <AlertTitle>Login Failed</AlertTitle>
                     <AlertDescription>
-                      {getErrorMessage(error, router, email)}
+                      {getErrorMessage(error, router, "")}
                     </AlertDescription>
                   </Alert>
                 )}

@@ -18,9 +18,10 @@ import {
 } from "framer-motion";
 import ProtectedRoute from "../component/protect";
 
-import { useRouter } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation";
 import BottomNav from "../component/bottomNav";
 import { useSelector } from "react-redux";
+import useVisibility from "../component/useVisibility";
 
 const EnhancedCarousel = ({ items }) => {
   const [currentSlide, setCurrentSlide] = useState(0);
@@ -138,12 +139,26 @@ const MobileApp = () => {
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const { isAuthenticated } = useSelector((state) => state.user);
 
+  useVisibility();
   const [notifications, setNotifications] = useState([
     { id: 1, message: "New transaction received", read: false },
     { id: 2, message: "Promotion available", read: false },
     { id: 3, message: "Account update", read: true },
   ]);
   const router = useRouter();
+
+  const pathname = usePathname();
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      // Ensure localStorage is only used in the browser
+
+      if (pathname) {
+        localStorage.setItem("pathname", pathname);
+      }
+    }
+  }, []);
+
   //const recentTransactions = [];
 
   const recentTransactions = [

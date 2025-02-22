@@ -52,27 +52,6 @@ const OnboardingScreen = () => {
     }
   };
 
-  /*
-  const getErrorMessage = () => {
-    if (!error) return null;
-
-    // Handle axios error response structure
-    if (error.response?.data?.message) {
-      return error.response.data.message;
-    }
-
-    if (error.response?.data?.errors[0]?.message) {
-      return error.response?.data?.errors[0].message;
-    }
-
-    // Handle other error formats your server might return
-    if (error.message) {
-      return error.message;
-    }
-
-    return "An unexpected error occurred";
-  };*/
-
   const options = [
     {
       id: "enterprise",

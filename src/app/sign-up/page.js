@@ -7,12 +7,16 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useRegister } from "@/hooks/useAuth";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { setUserEmail } from "@/store/slice";
+import { useDispatch } from "react-redux"; // Import useDispatch
+import getErrorMessage from "@/app/component/error";
 
 const SignUpForm = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [email, setEmail] = useState("");
   const router = useRouter();
   const { mutate, isLoading, isError, error, isSuccess } = useRegister();
+  const dispatch = useDispatch();
 
   useEffect(() => {
     if (isSuccess) {
@@ -29,6 +33,14 @@ const SignUpForm = () => {
     dateOfBirth: "",
     acceptTerms: false,
   };
+
+  useEffect(() => {
+    dispatch(
+      setUserEmail({
+        email,
+      })
+    );
+  }, [error, isSuccess]);
 
   const validationSchema = Yup.object().shape({
     firstName: Yup.string()
@@ -79,26 +91,6 @@ const SignUpForm = () => {
     } finally {
       setSubmitting(false);
     }
-  };
-
-  const getErrorMessage = () => {
-    if (!error) return null;
-
-    // Handle axios error response structure
-    if (error.response?.data?.message) {
-      return error.response.data.message;
-    }
-
-    if (error.response?.data?.errors[0]?.message) {
-      return error.response?.data?.errors[0].message;
-    }
-
-    // Handle other error formats your server might return
-    if (error.message) {
-      return error.message;
-    }
-
-    return "An unexpected error occurred";
   };
 
   return (
@@ -328,7 +320,9 @@ const SignUpForm = () => {
                 {isError && (
                   <Alert variant="destructive" className="mb-6 border-red-500">
                     <AlertTitle>Registration Failed</AlertTitle>
-                    <AlertDescription>{getErrorMessage()}</AlertDescription>
+                    <AlertDescription>
+                      {getErrorMessage(error, router, "")}
+                    </AlertDescription>
                   </Alert>
                 )}
 

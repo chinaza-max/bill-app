@@ -7,7 +7,6 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useValidateEmail } from "@/hooks/useAuth";
 import { useResendEmailValCode } from "@/hooks/useAuth";
-import { useSearchParams } from "next/navigation";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import {
   Dialog,
@@ -16,6 +15,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { useSelector } from "react-redux";
 
 const OTPValidation = () => {
   const [otp, setOtp] = useState(["", "", "", "", "", ""]);
@@ -25,6 +25,7 @@ const OTPValidation = () => {
   const [showSuccessModal, setShowSuccessModal] = useState(false);
 
   const [isActive, setIsActive] = useState(true);
+  const email = useSelector((state) => state.user.email);
 
   let {
     mutate: validateEmailMutate,
@@ -43,9 +44,6 @@ const OTPValidation = () => {
     isSuccess: resendValidationSuccess,
     reset: resetResendValidation,
   } = useResendEmailValCode();
-
-  const searchParams = useSearchParams();
-  const email = searchParams.get("email");
 
   const inputRefs = [
     useRef(null),
