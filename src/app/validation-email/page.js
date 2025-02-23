@@ -23,9 +23,10 @@ const OTPValidation = () => {
   const [showResendModal, setShowResendModal] = useState(false);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [isformSub, setIsformSub] = useState(false);
+  const [email, setEmail] = useState(null);
 
   const [isActive, setIsActive] = useState(true);
-  const email = localStorage.getItem("validationEmail");
+  //const email = localStorage.getItem("validationEmail");
 
   let {
     mutate: validateEmailMutate,
@@ -62,6 +63,12 @@ const OTPValidation = () => {
     return `${minutes}:${remainingSeconds.toString().padStart(2, "0")}`;
   };
 
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const emailFromStorage = localStorage.getItem("validationEmail");
+      setEmail(emailFromStorage);
+    }
+  }, []);
   useEffect(() => {
     let intervalId;
 
