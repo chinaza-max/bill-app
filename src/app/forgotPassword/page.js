@@ -12,6 +12,7 @@ const PasswordReset = () => {
   const [isSubmitted, setIsSubmitted] = useState(false);
   const { mutate, isLoading, isError, error, isSuccess } =
     useGetPasswordResetLink();
+  const [isformSub, setIsformSub] = useState(false);
 
   const initialValues = {
     email: "",
@@ -45,19 +46,24 @@ const PasswordReset = () => {
 
   const handleSubmit = async (values, { setSubmitting }) => {
     try {
-      setSubmitting(true);
+      setIsformSub(true);
       mutate({
         emailOrPhone: values.email,
         type: "user",
       });
-      setSubmitting(false);
+      //setSubmitting(false);
     } catch (error) {
-      setSubmitting(false);
+      //setSubmitting(false);
       console.error("Password reset error:", error);
     } finally {
-      setSubmitting(false);
+      // setIsformSub(false);
+      //setSubmitting(false);
     }
   };
+
+  useEffect(() => {
+    setIsformSub(false);
+  }, [error, isSuccess]);
 
   useEffect(() => {
     if (isSuccess) {
@@ -152,10 +158,10 @@ const PasswordReset = () => {
 
                   <button
                     type="submit"
-                    disabled={isSubmitting || isLoading}
+                    disabled={isformSub || isLoading}
                     className="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md bg-amber-600 hover:bg-amber-700 text-white focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 disabled:opacity-50 transition-colors"
                   >
-                    {isSubmitting ? (
+                    {isformSub ? (
                       <div className="flex items-center">
                         <svg
                           className="animate-spin -ml-1 mr-3 h-5 w-5 text-white"

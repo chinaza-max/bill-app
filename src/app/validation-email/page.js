@@ -125,9 +125,11 @@ const OTPValidation = () => {
 
   const handleSubmit = async (values, { setSubmitting }) => {
     try {
+      console.log("ddddddddddddd");
+      console.log("ddddddddddddd");
       setIsformSub(true);
       //setSubmitting(true);
-
+      //return;
       validateEmailMutate({
         emailAddress: email,
         validateFor: "user",
@@ -210,7 +212,7 @@ const OTPValidation = () => {
 
   const getErrorMessage = () => {
     if (!validateEmailErrorMsg) return null;
-    console.log(validateEmailErrorMsg);
+
     if (validateEmailErrorMsg?.details) {
       return validateEmailErrorMsg.details;
     }
