@@ -153,10 +153,7 @@ export async function POST(req) {
             JSON.stringify({
               status: "error",
               message: "Internal server error",
-              details:
-                process.env.NODE_ENV === "development"
-                  ? errorMessage
-                  : "An unexpected error occurred",
+              details: errorMessage,
             }),
             { status: 500 }
           );
