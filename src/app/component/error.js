@@ -18,6 +18,10 @@ const getErrorMessage = (error, router, email, isPasscodeEntered) => {
     return error?.details;
   }
 
+  if (error?.details === "Invalid request") {
+    return error?.details;
+  }
+
   if (error?.message === "Internal server error") {
     if (error?.details.includes("email")) {
       return error?.details;

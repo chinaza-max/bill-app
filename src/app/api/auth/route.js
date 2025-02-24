@@ -10,14 +10,6 @@ export async function POST(req) {
   try {
     const { apiType, ...requestData } = await req.json();
 
-    console.log("sssssssssssssssssssssssssssssssss");
-    console.log("sssssssssssssssssssssssssssssssss");
-    console.log("sssssssssssssssssssssssssssssssss");
-    console.log(requestData);
-    console.log("sssssssssssssssssssssssssssssssss");
-    console.log("sssssssssssssssssssssssssssssssss");
-    console.log("sssssssssssssssssssssssssssssssss");
-
     // Validate required fields
     if (!apiType) {
       return new Response(

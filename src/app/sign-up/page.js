@@ -101,7 +101,7 @@ const SignUpForm = () => {
             Create Your Account
           </h1>
           <p className="text-sm text-amber-700 mb-8">
-            Fill in your information below or register with your social account
+            Fill in your information below
           </p>
         </div>
 
