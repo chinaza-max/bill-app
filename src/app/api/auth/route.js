@@ -144,6 +144,11 @@ export async function POST(req) {
             stack: error.stack,
           });
 
+          console.log("sssssssssss");
+          console.log(process.env.NODE_ENV);
+
+          console.log("sssssssssss");
+
           return new Response(
             JSON.stringify({
               status: "error",
