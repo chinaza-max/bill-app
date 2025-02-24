@@ -456,7 +456,9 @@ const Overlay = ({ isVisible }) => {
       }}
     >
       <motion.img
-        src={"fulllogo.png"}
+        src={
+          "https://res.cloudinary.com/dvznn9s4g/image/upload/v1740400115/official_vbhxec.jpg"
+        }
         alt={"logo"}
         className="w-48  h-18"
         variants={imageVariants}
