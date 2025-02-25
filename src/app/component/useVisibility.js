@@ -7,6 +7,7 @@ import { decryptData, encryptUserData } from "../../utils/data-encryption";
 const useVisibility = () => {
   const dispatch = useDispatch();
 
+  /*
   useEffect(() => {
     const handleVisibilityChange = () => {
       if (document.hidden) {
@@ -17,11 +18,13 @@ const useVisibility = () => {
           userDataDe.isPasscodeEntered = false;
           userDataDe.isAuthenticated = true;
           userDataDe.accessToken = "";
-          const encryptedDatas = encryptUserData(stateData);
+          const encryptedDatas = encryptUserData(userDataDe);
           localStorage.setItem("userData", encryptedDatas);
         }
 
         dispatch(clearSensitiveData({ keepAuthenticated: true }));
+
+        window.location.reload();
       }
     };
 
@@ -33,6 +36,7 @@ const useVisibility = () => {
       document.removeEventListener("visibilitychange", handleVisibilityChange);
     };
   }, [dispatch]);
+  */
 };
 
 export default useVisibility;

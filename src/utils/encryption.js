@@ -107,6 +107,7 @@ async function decryptData(encryptedData, iv, salt, password) {
 
     return new TextDecoder().decode(decryptedContent);
   } catch (error) {
+    console.log("Decryption failed:", error);
     console.error("Decryption failed:", error);
     throw error;
   }

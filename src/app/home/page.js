@@ -22,6 +22,20 @@ import { useRouter, usePathname } from "next/navigation";
 import BottomNav from "../component/bottomNav";
 import { useSelector } from "react-redux";
 import useVisibility from "../component/useVisibility";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import getErrorMessage from "@/app/component/error";
+
+const fetchTransaction = async (accessToken) => {
+  const queryParams = new URLSearchParams({
+    limit: 5,
+    token: accessToken,
+    apiType: "getTransactionHistory",
+  }).toString();
+  const response = await fetch(`/api/user?${queryParams}`);
+
+  if (!response.ok) throw new Error("Error fetching items");
+  return response.json();
+};
 
 const EnhancedCarousel = ({ items }) => {
   const [currentSlide, setCurrentSlide] = useState(0);
@@ -136,10 +150,31 @@ const EnhancedCarousel = ({ items }) => {
 const MobileApp = () => {
   const [userType, setUserType] = useState("Client");
   const [activeTab, setActiveTab] = useState("home");
+  const [fullName, setFullName] = useState();
+  const [imageUrl, setImageUrl] = useState();
+
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
-  const { isAuthenticated } = useSelector((state) => state.user);
+  const data2 = useSelector((state) => state.user);
+
+  const accessToken = useSelector((state) => state.user.accessToken);
+  const { data, isLoading, error } = useQuery({
+    queryKey: ["items"], // This is now a key in the query object
+    queryFn: () => fetchTransaction(accessToken), // Function to fetch data
+  });
+
+  useEffect(() => {
+    getErrorMessage(error, router);
+  }, [error]);
+
+  useEffect(() => {
+    if (data2?.user) {
+      setImageUrl(data2.user.user.imageUrl);
+      setFullName(data2.user.user.firstName + " " + data2.user.user.lastName);
+    }
+  }, [data2.user]);
 
   useVisibility();
+
   const [notifications, setNotifications] = useState([
     { id: 1, message: "New transaction received", read: false },
     { id: 2, message: "Promotion available", read: false },
@@ -159,8 +194,9 @@ const MobileApp = () => {
     }
   }, []);
 
-  //const recentTransactions = [];
+  const recentTransactions = [];
 
+  /*
   const recentTransactions = [
     {
       id: 1,
@@ -186,7 +222,7 @@ const MobileApp = () => {
       type: "outgoing",
       amount: "3500.00 ₦",
     },
-  ];
+  ];*/
 
   // Enhanced carousel data
   const carouselItems = [
@@ -230,9 +266,16 @@ const MobileApp = () => {
       <div className="w-16 h-16 mb-4 bg-amber-100 rounded-full flex items-center justify-center">
         <Package2 className="h-8 w-8 text-amber-600" />
       </div>
-      <h3 className="text-lg font-semibold text-amber-900 mb-2">
-        No Transactions Yet
-      </h3>
+
+      <div className="transaction-container p-4 rounded-md shadow-sm">
+        {isLoading ? (
+          "Loading transaction....."
+        ) : (
+          <h3 className="text-lg font-semibold text-amber-900 mb-2">
+            No Transactions Yet
+          </h3>
+        )}
+      </div>
       <p className="text-amber-600 text-center text-sm mb-6">
         Start your journey by making your first transaction. It is quick and
         easy!
@@ -245,7 +288,7 @@ const MobileApp = () => {
         }}
         className="px-6 py-2 bg-amber-100 text-amber-600 rounded-full font-medium text-sm"
       >
-        Start New Transaction
+        Fund wallet for easy ordering
       </motion.button>
     </motion.div>
   );
@@ -267,14 +310,14 @@ const MobileApp = () => {
                   onClick={() => {
                     handleTabChange("userProfile");
                   }}
-                  src={"avatar.jpg"}
+                  src={imageUrl}
                   alt={"avatar"}
                   className="w-full h-full object-cover rounded-full"
                 />
               </div>
               <div>
-                <p className="text-sm">Good Morning,</p>
-                <p className="font-semibold">John Doe</p>
+                <p className="text-sm">...</p>
+                <p className="font-semibold">{fullName}</p>
               </div>
             </div>
             <div className="flex items-center space-x-4">

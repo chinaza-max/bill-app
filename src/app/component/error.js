@@ -1,9 +1,27 @@
-const getErrorMessage = (error, router, email, isPasscodeEntered) => {
+const getErrorMessage = (
+  error,
+  router,
+  email,
+  isPasscodeEntered,
+  currentPath
+) => {
   if (!error) return null;
 
   console.log(error);
+  console.log(isPasscodeEntered);
 
   if (error?.details === "Invalid token.") {
+    if (isPasscodeEntered) {
+      router.push(`/secureInput`);
+    } else {
+      setTimeout(() => {
+        router.push(`/sign-in`);
+      }, 2000);
+      return error?.details;
+    }
+  }
+
+  if (error?.details.includes("No token")) {
     if (isPasscodeEntered) {
       router.push(`/secureInput`);
     } else {
@@ -19,6 +37,10 @@ const getErrorMessage = (error, router, email, isPasscodeEntered) => {
   }
 
   if (error?.details === "Invalid request") {
+    return error?.details;
+  }
+
+  if (error?.details === "Conflicts") {
     return error?.details;
   }
 

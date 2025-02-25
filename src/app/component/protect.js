@@ -13,7 +13,6 @@ const ProtectedLayout = ({ children }) => {
   const router = useRouter();
   const [accessToken, setAccessToken] = useState();
   const [isPasscodeEntered2, setIsPasscodeEntered2] = useState();
-  const isAuthenticated2 = useSelector((state) => state.user.isAuthenticated);
 
   const dispatch = useDispatch();
 

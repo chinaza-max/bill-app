@@ -1,9 +1,10 @@
 import axios from "axios";
 const axiosInstance = axios.create({
-  baseURL: "https://fidopoint.onrender.com/api/v1", // Base URL
+  baseURL: "http://localhost:5000/api/v1", // Base URL
   headers: {
     "Content-Type": "application/json", // Set default content-type for the API requests
   },
+  timeout: 600000,
 });
 
 export async function POST(req) {
@@ -44,6 +45,7 @@ export async function POST(req) {
             Authorization: `Bearer ${accessToken}`,
           },
         });
+
         break;
 
       // Add other API types here
@@ -217,6 +219,15 @@ export async function GET(req) {
         break;
       case "userData":
         response = await axiosInstance.get("/user/whoIAm", {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
+
+        break;
+
+      case "getTransactionHistory":
+        response = await axiosInstance.get("/user/getTransactionHistory", {
           headers: {
             Authorization: `Bearer ${token}`,
           },
