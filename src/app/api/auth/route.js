@@ -1,10 +1,10 @@
 import axios from "axios";
 const axiosInstance = axios.create({
-  baseURL: "http://localhost:5000/api/v1", // Base URL  http://localhost:5000  //https://fidopoint.onrender.com/api/v1
+  baseURL: "https://fidopoint.onrender.com/api/v1", // Base URL  http://localhost:5000  //https://fidopoint.onrender.com/api/v1
   headers: {
     "Content-Type": "application/json", // Set default content-type for the API requests
   },
-  //timeout: 600000,
+  timeout: 600000,
 });
 
 export async function POST(req) {
