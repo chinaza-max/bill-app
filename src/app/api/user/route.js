@@ -4,7 +4,6 @@ const axiosInstance = axios.create({
   headers: {
     "Content-Type": "application/json", // Set default content-type for the API requests
   },
-  timeout: 600000,
 });
 
 export async function POST(req) {
