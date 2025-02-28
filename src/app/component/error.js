@@ -36,9 +36,8 @@ const getErrorMessage = (
     return error?.details;
   }
 
-  if (error?.details === "Invalid request") {
-    return error?.message
-    ;
+  if (error?.message === "Invalid request") {
+    return error?.details;
   }
 
   if (error?.details === "Conflicts") {
