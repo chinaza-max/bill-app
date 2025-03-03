@@ -1,9 +1,10 @@
 import axios from "axios";
 const axiosInstance = axios.create({
-  baseURL: "https://fidopoint.onrender.com/api/v1", // Base URL  http://localhost:5000  //https://fidopoint.onrender.com/api/v1
+  baseURL: "http://localhost:5000/api/v1", // Base URL  http://localhost:5000  //https://fidopoint.onrender.com/api/v1
   headers: {
     "Content-Type": "application/json", // Set default content-type for the API requests
   },
+  timeout: 5000,
 });
 
 export async function POST(req) {
@@ -83,6 +84,15 @@ export async function POST(req) {
       const status = error.response?.status || 500;
       const errorMessage = error.response?.data?.message || error.message;
 
+      if (error.code === "ECONNABORTED") {
+        return new Response(
+          JSON.stringify({
+            status: "error",
+            message: "Request timeout, please try again later.",
+          }),
+          { status: 408 } // HTTP status for Request Timeout
+        );
+      }
       // Handle specific error status codes
       switch (status) {
         case 400:
@@ -270,6 +280,16 @@ export async function GET(req) {
     if (error.isAxiosError) {
       const status = error.response?.status || 500;
       const errorMessage = error.response?.data?.message || error.message;
+
+      if (error.code === "ECONNABORTED") {
+        return new Response(
+          JSON.stringify({
+            status: "error",
+            message: "Request timeout, please try again later.",
+          }),
+          { status: 408 } // HTTP status for Request Timeout
+        );
+      }
 
       switch (status) {
         case 401:

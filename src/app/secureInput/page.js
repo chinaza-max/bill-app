@@ -45,6 +45,17 @@ const SecureLogin = () => {
         })
       );
 
+      const details = {
+        emailAddress: data.data.data.modifiedUser.emailAddress,
+        firstName: data.data.data.modifiedUser.firstName,
+        lastName: data.data.data.modifiedUser.lastName,
+        phoneNumber: data.data.data.modifiedUser.phoneNumber,
+        imageUrl: data.data.data.modifiedUser.imageUrl,
+        merchantActivated: data.data.data.modifiedUser.merchantActivated,
+      };
+
+      localStorage.setItem("user", JSON.stringify(details));
+
       const stateData = {
         isPasscodeEntered: true,
         isAuthenticated: true,

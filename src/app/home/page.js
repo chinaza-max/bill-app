@@ -167,9 +167,15 @@ const MobileApp = () => {
   }, [error]);
 
   useEffect(() => {
-    if (data2?.user) {
+    if (data2?.user?.user) {
       setImageUrl(data2.user.user.imageUrl);
       setFullName(data2.user.user.firstName + " " + data2.user.user.lastName);
+    } else {
+      const user = localStorage.getItem("user");
+      const userObj = JSON.parse(user);
+      console.log(userObj);
+      setImageUrl(userObj.imageUrl);
+      setFullName(userObj.firstName + " " + userObj.lastName);
     }
   }, [data2.user]);
 
@@ -185,9 +191,12 @@ const MobileApp = () => {
   const pathname = usePathname();
 
   useEffect(() => {
+    console.log("Pathname: ", pathname);
+    if (pathname === "/home") {
+    }
     if (typeof window !== "undefined") {
       // Ensure localStorage is only used in the browser
-
+      console.log("Pathname: ", pathname);
       if (pathname) {
         localStorage.setItem("pathname", pathname);
       }
@@ -297,6 +306,11 @@ const MobileApp = () => {
     setActiveTab(tab);
     router.push(`/${tab}`);
   };
+
+  useEffect(() => {
+    // Prefetch the merchant route when component mounts
+    router.prefetch("p2p");
+  }, [router]);
 
   return (
     <ProtectedRoute>
