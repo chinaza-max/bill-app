@@ -1,6 +1,6 @@
 import axios from "axios";
 const axiosInstance = axios.create({
-  baseURL: "http://localhost:5000/api/v1", // Base URL
+  baseURL: "https://fidopoint.onrender.com/api/v1", // Base URL
   headers: {
     "Content-Type": "application/json", // Set default content-type for the API requests
   },
@@ -44,6 +44,19 @@ export async function POST(req) {
             Authorization: `Bearer ${accessToken}`,
           },
         });
+
+        break;
+
+      case "initiateNINVerify":
+        response = await axiosInstance.post(
+          "/user/initiateNINVerify",
+          requestData,
+          {
+            headers: {
+              Authorization: `Bearer ${accessToken}`,
+            },
+          }
+        );
 
         break;
 

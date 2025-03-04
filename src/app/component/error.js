@@ -21,7 +21,9 @@ const getErrorMessage = (
     }
   }
 
-  if (error?.details.includes("No token")) {
+  console.log(error);
+
+  if (error?.details?.includes("No token")) {
     if (isPasscodeEntered) {
       router.push(`/secureInput`);
     } else {

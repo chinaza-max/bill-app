@@ -307,9 +307,20 @@ const MobileApp = () => {
     router.push(`/${tab}`);
   };
 
+  const moveToMerchant = (path) => {
+    const user = localStorage.getItem("user");
+    const userObj = JSON.parse(user);
+    console.log(userObj);
+    if (userObj.merchantActivated === true) {
+      router.push(`/${path}`);
+    } else {
+      router.push(`/userProfile/merchantProfile`);
+    }
+  };
+
   useEffect(() => {
-    // Prefetch the merchant route when component mounts
-    router.prefetch("p2p");
+    router.prefetch("userProfile/merchantProfile/merchantHome");
+    router.prefetch("userProfile/merchantProfile");
   }, [router]);
 
   return (
@@ -364,7 +375,8 @@ const MobileApp = () => {
                       onClick={() => {
                         setUserType("Merchant");
                         setIsDropdownOpen(false);
-                        handleTabChange(
+
+                        moveToMerchant(
                           "userProfile/merchantProfile/merchantHome"
                         );
                       }}
