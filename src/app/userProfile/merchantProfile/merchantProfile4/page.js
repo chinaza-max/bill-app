@@ -6,6 +6,7 @@ import { ArrowLeft, Check, Loader2 } from "lucide-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useSelector } from "react-redux";
 import ProtectedRoute from "../../../component/protect";
+import getErrorMessage from "@/app/component/error";
 
 const MerchantAccountPage = () => {
   const router = useRouter();
@@ -27,16 +28,23 @@ const MerchantAccountPage = () => {
   const requestOtpMutation = useMutation({
     mutationFn: async (ninData) => {
       // Replace with your actual API endpoint
-      const response = await fetch("/api/nin/request-otp", {
+      const response = await fetch(`/api/user`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify(ninData),
+        body: JSON.stringify({
+          ...ninData,
+          apiType: "initiateNINVerify",
+          token: accessToken,
+        }),
       });
 
       if (!response.ok) {
-        throw new Error("Failed to request OTP");
+        const errorResponse = await response.json(); // Parse the error response body
+        console.log(errorResponse);
+        getErrorMessage(errorResponse, router);
+        throw new Error(errorResponse.message || "Failed to request OTP"); // Use the message from the response
       }
 
       return response.json();
@@ -45,6 +53,9 @@ const MerchantAccountPage = () => {
       setShowOtpField(true);
     },
     onError: (error) => {
+      // getErrorMessage(error, router);
+
+      console.log(error);
       setErrors((prev) => ({
         ...prev,
         nin: error.message || "Failed to request OTP",

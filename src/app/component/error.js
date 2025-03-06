@@ -22,6 +22,7 @@ const getErrorMessage = (
   }
 
   console.log(error);
+  //Authentication failed
 
   if (error?.details?.includes("No token")) {
     if (isPasscodeEntered) {

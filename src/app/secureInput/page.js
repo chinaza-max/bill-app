@@ -132,7 +132,7 @@ const SecureLogin = () => {
   };
 
   useEffect(() => {
-    router.prefetch("home");
+    router.prefetch("/home");
   }, [router]);
 
   return (

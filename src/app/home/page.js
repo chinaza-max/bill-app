@@ -157,10 +157,23 @@ const MobileApp = () => {
   const data2 = useSelector((state) => state.user);
 
   const accessToken = useSelector((state) => state.user.accessToken);
+  const myUserData = useSelector((state) => state.user.user);
+
+  console.log(accessToken);
   const { data, isLoading, error } = useQuery({
     queryKey: ["items"], // This is now a key in the query object
-    queryFn: () => fetchTransaction(accessToken), // Function to fetch data
+    queryFn: () => {
+      if (accessToken) {
+        return fetchTransaction(accessToken);
+      } else {
+        return "";
+      }
+    }, // Function to fetch data
   });
+
+  useEffect(() => {
+    getErrorMessage(error, router);
+  }, [error]);
 
   useEffect(() => {
     getErrorMessage(error, router);
@@ -311,9 +324,11 @@ const MobileApp = () => {
     const user = localStorage.getItem("user");
     const userObj = JSON.parse(user);
     console.log(userObj);
+    console.log(myUserData);
+
     if (userObj.merchantActivated === true) {
       router.push(`/${path}`);
-    } else {
+    } else if (!myUserData.isNinVerified) {
       router.push(`/userProfile/merchantProfile`);
     }
   };

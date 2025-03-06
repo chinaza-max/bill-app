@@ -8,7 +8,8 @@ const axiosInstance = axios.create({
 
 export async function POST(req) {
   try {
-    const { accessToken, apiType, ...requestData } = await req.json();
+    const { accessToken, verificationType, apiType, ...requestData } =
+      await req.json();
 
     // Validate required fields
     if (!apiType) {
