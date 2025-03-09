@@ -3,7 +3,7 @@ import { motion } from "framer-motion";
 import { Home, History, Users, ShoppingBag } from "lucide-react";
 import { useRouter } from "next/navigation";
 
-export default function bottomNav({ activeTabP, handleTabChangeP }) {
+export default function BottomNav({ activeTabP, handleTabChangeP }) {
   const router = useRouter();
 
   useEffect(() => {
