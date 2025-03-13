@@ -118,6 +118,13 @@ const LoginForm = () => {
     localStorage.setItem("validationEmail", email);
   }, [error, isSuccess]);
 
+  useEffect(() => {
+    router.prefetch("/sign2-up");
+    router.prefetch("/settingupSecurePin");
+    router.prefetch("/secureInput");
+    router.prefetch("/validation-email");
+  }, [router]);
+
   return (
     <div className="min-h-screen bg-amber-50 flex flex-col items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
       <div className="max-w-md w-full space-y-8">

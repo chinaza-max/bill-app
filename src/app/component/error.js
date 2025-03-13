@@ -8,7 +8,6 @@ const getErrorMessage = (
   if (!error) return null;
 
   console.log(error);
-  console.log(isPasscodeEntered);
 
   if (error?.details === "Invalid token.") {
     if (isPasscodeEntered) {
@@ -39,10 +38,6 @@ const getErrorMessage = (
     return error?.details;
   }
 
-  if (error?.message === "Invalid request") {
-    return error?.details;
-  }
-
   if (error?.details === "Conflicts") {
     return error?.details;
   }
@@ -57,12 +52,16 @@ const getErrorMessage = (
     return error?.details;
   }
 
-  if (error?.details === "Your email is not verified yet") {
-    setTimeout(() => {
-      router.push(`/validation-email`);
-    }, 3000);
-    // Cleanup the timeout when the component unmounts
-    return error?.details + " you will be redirect to do so";
+  if (error?.message === "Invalid request") {
+    if (error?.details === "Your email is not verified yet") {
+      setTimeout(() => {
+        router.push(`/validation-email`);
+      }, 3000);
+      // Cleanup the timeout when the component unmounts
+      return error?.details + " you will be redirect to do so";
+    } else {
+      return error?.details;
+    }
   }
 
   // Handle axios error response structure
