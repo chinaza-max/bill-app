@@ -61,6 +61,15 @@ export async function POST(req) {
 
         break;
 
+      case "verifyNIN":
+        response = await axiosInstance.post("/user/verifyNIN", requestData, {
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+          },
+        });
+
+        break;
+
       // Add other API types here
       default:
         return new Response(
@@ -136,6 +145,16 @@ export async function POST(req) {
               details: errorMessage,
             }),
             { status: 429 }
+          );
+
+        case 409:
+          return new Response(
+            JSON.stringify({
+              status: "error",
+              message: error.response.data.message,
+              details: errorMessage,
+            }),
+            { status: 409 }
           );
 
         default:

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { ArrowLeft, Check, Loader2 } from "lucide-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -27,7 +27,6 @@ const MerchantAccountPage = () => {
   // Mutation for requesting OTP
   const requestOtpMutation = useMutation({
     mutationFn: async (ninData) => {
-      // Replace with your actual API endpoint
       const response = await fetch(`/api/user`, {
         method: "POST",
         headers: {
@@ -43,6 +42,7 @@ const MerchantAccountPage = () => {
       if (!response.ok) {
         const errorResponse = await response.json(); // Parse the error response body
         console.log(errorResponse);
+
         //getErrorMessage(errorResponse, router);
         throw new Error(errorResponse.message || "Failed to request OTP"); // Use the message from the response
       }
@@ -72,55 +72,33 @@ const MerchantAccountPage = () => {
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ ...data, apiType: "initiateNINVerify" }),
+        body: JSON.stringify({
+          otpCode: data.otp,
+          apiType: "verifyNIN",
+          accessToken: accessToken,
+        }),
       });
 
       if (!response.ok) {
-        throw new Error("OTP verification failed");
+        const errorResponse = await response.json();
+        console.log(errorResponse);
+        throw new Error(errorResponse.message || "OTP verification failed");
       }
 
       return response.json();
     },
     onSuccess: () => {
       setIsVerified(true);
+
+      router.push(`/userProfile/merchantProfile/merchantProfile2`);
       // Notify server about successful verification
-      updateUserVerificationStatus();
     },
     onError: (error) => {
+      console.log(error);
       setErrors((prev) => ({
         ...prev,
         otp: error.message || "OTP verification failed",
       }));
-    },
-  });
-
-  // Mutation for updating user verification status
-  const updateVerificationMutation = useMutation({
-    mutationFn: async () => {
-      // Replace with your actual API endpoint
-      const response = await fetch("/api/user/update-verification-status", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          verificationType: formData.verificationType,
-          verificationId: formData.NIN,
-          isVerified: true,
-        }),
-      });
-
-      if (!response.ok) {
-        throw new Error("Failed to update verification status");
-      }
-
-      return response.json();
-    },
-    onSuccess: () => {
-      // Navigate to next page after successful update
-      setTimeout(() => {
-        router.push("/userProfile/merchantProfile/merchantProfile2");
-      }, 1000);
     },
   });
 
@@ -179,14 +157,11 @@ const MerchantAccountPage = () => {
     }
   };
 
-  const updateUserVerificationStatus = () => {
-    updateVerificationMutation.mutate();
-  };
+  useEffect(() => {
+    router.prefetch("userProfile/merchantProfile/merchantProfile2");
+  }, [router]);
 
-  const isLoading =
-    requestOtpMutation.isPending ||
-    verifyOtpMutation.isPending ||
-    updateVerificationMutation.isPending;
+  const isLoading = requestOtpMutation.isPending || verifyOtpMutation.isPending;
 
   return (
     <ProtectedRoute>
@@ -254,7 +229,7 @@ const MerchantAccountPage = () => {
                       OTP
                     </label>
                     <input
-                      type="text"
+                      type="number"
                       name="otp"
                       value={formData.otp}
                       onChange={handleInputChange}

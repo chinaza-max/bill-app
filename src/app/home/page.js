@@ -322,20 +322,25 @@ const MobileApp = () => {
 
   const moveToMerchant = (path) => {
     const user = localStorage.getItem("user");
-    const userObj = JSON.parse(user);
-    console.log(userObj);
+    //let userObj = JSON.parse(user);
+
+    console.log(myUserData.user.isNinVerified);
     console.log(myUserData);
 
-    if (userObj.merchantActivated === true) {
-      router.push(`/${path}`);
-    } else if (!myUserData.isNinVerified) {
+    if (myUserData.user.merchantActivated === true) {
+      router.push(`/userProfile/merchantProfile/merchantHome`);
+    } else if (myUserData.user.isNinVerified === false) {
+      console.log(!myUserData.isNinVerified);
       router.push(`/userProfile/merchantProfile`);
+    } else if (myUserData.user.isDisplayNameMerchantSet === false) {
+      router.push(`/userProfile/merchantProfile/merchantProfile2`);
     }
   };
 
   useEffect(() => {
     router.prefetch("userProfile/merchantProfile/merchantHome");
     router.prefetch("userProfile/merchantProfile");
+    router.prefetch("userProfile/merchantProfile/merchantProfile2");
   }, [router]);
 
   return (
