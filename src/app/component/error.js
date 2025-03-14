@@ -38,8 +38,8 @@ const getErrorMessage = (
     return error?.details;
   }
 
-  if (error?.details === "Conflicts") {
-    return error?.message;
+  if (error?.message === "Conflicts") {
+    return error?.details;
   }
 
   if (error?.message === "Internal server error") {
