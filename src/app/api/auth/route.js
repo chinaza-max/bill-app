@@ -229,25 +229,12 @@ export async function GET(req) {
       );
     }
 
-    /*if (!token) {
-      return new Response(
-        JSON.stringify({
-          status: "error",
-          message: "Token is required for refreshAccessToken",
-        }),
-        { status: 400 }
-      );
-    }*/
-
     let response;
 
     // Handle different API types
     switch (apiType) {
-      case "refreshAccessToken":
-        // Here, you'd typically send the token to your backend for refreshing
-        response = await axiosInstance.post("/auth/refreshAccessToken", {
-          token,
-        });
+      case "ping":
+        response = await axiosInstance.get("/auth/ping");
         break;
 
       default:

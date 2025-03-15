@@ -243,6 +243,13 @@ export default function Home() {
     };
   }, [currentIndex, autoPlayEnabled]);
 
+  useEffect(() => {
+    fetch("api/auth?apiType=ping");
+    setTimeout(() => {
+      fetch("api/auth?apiType=ping");
+    }, 3000);
+  }, [router]);
+
   return (
     <>
       {isOverlayVisible2 ? (

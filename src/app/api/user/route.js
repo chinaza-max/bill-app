@@ -1,6 +1,6 @@
 import axios from "axios";
 const axiosInstance = axios.create({
-  baseURL: "https://fidopoint.onrender.com/api/v1", // Base URL
+  baseURL: "https://fidopoint.onrender.com/api/v1",
   headers: {
     "Content-Type": "application/json", // Set default content-type for the API requests
   },
@@ -229,26 +229,16 @@ export async function GET(req) {
       );
     }
 
-    /*if (!token) {
-      return new Response(
-        JSON.stringify({
-          status: "error",
-          message: "Token is required for refreshAccessToken",
-        }),
-        { status: 400 }
-      );
-    }*/
-
     let response;
 
     // Handle different API types
     switch (apiType) {
-      case "refreshAccessToken":
+      /*case "refreshAccessToken":
         // Here, you'd typically send the token to your backend for refreshing
         response = await axiosInstance.post("/auth/refreshAccessToken", {
           token,
         });
-        break;
+        break;*/
       case "userData":
         response = await axiosInstance.get("/user/whoIAm", {
           headers: {

@@ -119,6 +119,11 @@ const LoginForm = () => {
   }, [error, isSuccess]);
 
   useEffect(() => {
+    fetch("api/auth?apiType=ping");
+    setTimeout(() => {
+      fetch("api/auth?apiType=ping");
+    }, 3000);
+
     router.prefetch("/sign2-up");
     router.prefetch("/settingupSecurePin");
     router.prefetch("/secureInput");
