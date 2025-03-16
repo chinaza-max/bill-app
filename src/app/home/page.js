@@ -334,6 +334,14 @@ const MobileApp = () => {
       router.push(`/userProfile/merchantProfile`);
     } else if (myUserData.user.isDisplayNameMerchantSet === false) {
       router.push(`/userProfile/merchantProfile/merchantProfile2`);
+    } else if (myUserData.user.isFaceVerified === false) {
+      router.push(`/userProfile/merchantProfile/merchantProfile3`);
+    } else if (myUserData.user.MerchantProfile.accountStatus === "processing") {
+      router.push(`/userProfile/merchantProfile/merchantProfile4`);
+    } else if (myUserData.user.MerchantProfile.accountStatus === "rejected") {
+      router.push(`/userProfile/merchantProfile/merchantProfile5`);
+    } else {
+      router.push(`/userProfile/merchantProfile/merchantHome`);
     }
   };
 
@@ -341,6 +349,9 @@ const MobileApp = () => {
     router.prefetch("userProfile/merchantProfile/merchantHome");
     router.prefetch("userProfile/merchantProfile");
     router.prefetch("userProfile/merchantProfile/merchantProfile2");
+    router.prefetch("userProfile/merchantProfile/merchantProfile3");
+    router.prefetch("userProfile/merchantProfile/merchantProfile4");
+    router.prefetch("userProfile/merchantProfile/merchantProfile5");
   }, [router]);
 
   return (

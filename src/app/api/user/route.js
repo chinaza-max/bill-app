@@ -1,16 +1,53 @@
 import axios from "axios";
+import { writeFile } from "fs/promises";
+import { join } from "path";
 const axiosInstance = axios.create({
-  baseURL: "https://fidopoint.onrender.com/api/v1",
+  baseURL: "http://localhost:5000/api/v1",
   headers: {
     "Content-Type": "application/json", // Set default content-type for the API requests
   },
 });
-
+//https://chatgpt.com/c/67d576fe-025c-8009-869b-d6463722826f
 export async function POST(req) {
   try {
-    const { accessToken, verificationType, apiType, ...requestData } =
+    /* const { accessToken, apiType, ...requestData } =
       await req.json();
+*/
 
+    let apiType, accessToken, requestData;
+    let formData;
+    let externalFormData = new FormData();
+
+    // Check if the request contains multipart form data
+    const contentType = req.headers.get("content-type");
+    if (contentType && contentType.includes("multipart/form-data")) {
+      formData = await req.formData();
+      externalFormData = new FormData();
+
+      apiType = formData.get("apiType");
+      accessToken = formData.get("accessToken");
+
+      // Copy all fields from the received formData
+      for (const [key, value] of formData.entries()) {
+        if (key !== "apiType" && key !== "accessToken") {
+          // Don't include apiType in the external request
+          externalFormData.append(key, value);
+        }
+      }
+    } else {
+      // Handle JSON request
+      const jsonData = await req.json();
+      apiType = jsonData.apiType;
+      accessToken = jsonData.accessToken;
+
+      // Destructure to exclude specific fields
+      const { accessToken: _, apiType: __, ...rest } = jsonData;
+      requestData = rest;
+    }
+
+    console.log("requestData");
+    console.log(externalFormData);
+    console.log("requestData");
     // Validate required fields
     if (!apiType) {
       return new Response(
@@ -67,6 +104,32 @@ export async function POST(req) {
             Authorization: `Bearer ${accessToken}`,
           },
         });
+
+        break;
+
+      case "updateMerchantProfile":
+        response = await axiosInstance.post(
+          "/user/updateMerchantProfile",
+          requestData,
+          {
+            headers: {
+              Authorization: `Bearer ${accessToken}`,
+            },
+          }
+        );
+
+        break;
+
+      case "updateMerchantProfileWithImage":
+        const config = {
+          headers: { Authorization: `Bearer ${accessToken}` },
+        };
+        config.headers["Content-Type"] = "multipart/form-data";
+        response = await axiosInstance.post(
+          "/user/updateMerchantProfile",
+          externalFormData,
+          config
+        );
 
         break;
 

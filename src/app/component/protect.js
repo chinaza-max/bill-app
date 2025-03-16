@@ -3,6 +3,97 @@ import { useRouter } from "next/navigation";
 import { useSelector, useDispatch } from "react-redux";
 import { useState, useEffect } from "react";
 import { decryptData } from "../../utils/data-encryption";
+import { setUser } from "@/store/slice";
+import getErrorMessage from "@/app/component/error";
+
+const ProtectedLayout = ({ children }) => {
+  const router = useRouter();
+  const dispatch = useDispatch();
+  const { isAuthenticated, accessToken } = useSelector((state) => state.user);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchUserData = async () => {
+      const userDataEn = localStorage.getItem("userData");
+
+      if (!userDataEn) {
+        router.push("/sign-in");
+        return;
+      }
+
+      const userDataDe = decryptData(userDataEn);
+
+      try {
+        const response = await fetch(
+          `/api/user?apiType=userData&token=${userDataDe.accessToken}`
+        );
+
+        if (!response.ok) {
+          const data = await response.json();
+          getErrorMessage(data, router, "", userDataDe?.isAuthenticated);
+          throw new Error(data.message || "Unexpected error");
+        }
+
+        const userData = await response.json();
+
+        dispatch(
+          setUser({
+            user: userData.data.data,
+            accessToken: userDataDe.accessToken,
+            isAuthenticated: true,
+          })
+        );
+
+        if (!userDataDe?.isPasscodeEntered) {
+          router.push("/secureInput");
+        }
+      } catch (error) {
+        console.error("Fetch error:", error);
+        router.push("/sign-in");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    if (!accessToken) {
+      fetchUserData();
+    } else {
+      setLoading(false);
+    }
+  }, [dispatch, router]);
+
+  // ⏳ **Show loading state until user data is ready**
+  if (loading)
+    return (
+      <div className="flex flex-col items-center justify-center min-h-screen bg-amber-50">
+        <div className="flex flex-col items-center space-y-4">
+          {/* Emoji and loading spinner */}
+          <div className="flex flex-col items-center">
+            <span className="text-4xl mb-2">✨</span>
+            <div className="w-12 h-12 border-4 border-amber-200 rounded-full animate-spin border-t-amber-600"></div>
+          </div>
+
+          {/* Loading message with amber accent */}
+          <p className="text-amber-800 text-xl font-medium">
+            Setting up your account...
+          </p>
+          <p className="text-amber-600 text-sm">
+            Please wait while we prepare your experience
+          </p>
+        </div>
+      </div>
+    );
+
+  return <>{children}</>;
+};
+
+export default ProtectedLayout;
+
+/*"use client";
+import { useRouter } from "next/navigation";
+import { useSelector, useDispatch } from "react-redux";
+import { useState, useEffect } from "react";
+import { decryptData } from "../../utils/data-encryption";
 import { setUser, setPasscodeStatus } from "@/store/slice";
 import getErrorMessage from "@/app/component/error";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -40,7 +131,7 @@ const ProtectedLayout = ({ children }) => {
         if (!response.ok) {
           const data = await response.json();
 
-          console.log(userDataDe?.isAuthenticated);
+          //console.log(userDataDe?.isAuthenticated);
           getErrorMessage(data, router, "", userDataDe?.isAuthenticated);
 
           throw {
@@ -53,6 +144,7 @@ const ProtectedLayout = ({ children }) => {
         const userData = await response.json();
 
         console.log(userData);
+        console.log(userDataDe.accessToken);
         dispatch(
           setUser({
             user: userData.data.data,
@@ -76,88 +168,8 @@ const ProtectedLayout = ({ children }) => {
     }
   }, [isAuthenticated, router]);
 
-  /*
-  // Fetch user data query function
-  const fetchUserData = async () => {
-    console.log(localUserData.accessToken);
-    const response = await fetch(
-      `/api/user?apiType=userData&token=${localUserData.accessToken}`,
-      {
-        method: "GET",
-        headers: {
-          "Content-Type": "application/json",
-        },
-      }
-    );
-
-    if (!response.ok) {
-      const data = await response.json();
-      throw {
-        status: response.status,
-        message: data.message || "An unexpected error occurred",
-        details: data.details,
-      };
-    }
-
-    return response.json();
-  };
-
-  // Use React Query to fetch user data
-  const {
-    data: userData,
-    isLoading,
-    isError,
-    error,
-  } = useQuery({
-    queryKey: ["userData", localUserData?.accessToken],
-    queryFn: fetchUserData,
-    enabled: !!localUserData?.accessToken && !isAuthenticated,
-    staleTime: 5 * 60 * 1000, // Consider data fresh for 5 minutes
-    retry: 1, // Only retry once on failure
-  });
-*/
-  /*
-  // Update Redux state when user data is fetched
-  useEffect(() => {
-    console.log(userData);
-    console.log(localUserData);
-    if (userData) {
-      dispatch(
-        setUser({
-          user: userData.data.data,
-          accessToken: localUserData?.accessToken,
-          isAuthenticated: true,
-        })
-      );
-
-      /* dispatch(
-        setPasscodeStatus({
-          isPasscodeEntered: localUserData?.isPasscodeEntered === true,
-        })
-      );
-
-      if (localUserData?.isPasscodeEntered !== true) {
-        router.push("/secureInput");
-      }
-    }
-  }, [userData, localUserData, dispatch, router]);
-*/
-  // Handle errors
-  /*
-  useEffect(() => {
-    if (isError && error) {
-      getErrorMessage(error, router, "", localUserData?.isAuthenticated);
-    }
-  }, [isError, error, router, localUserData]);
-*/
-  // Show loading or redirect if not authenticated
-  /*if (isLoading) {
-    return <div>Loading...</div>; // Add a proper loading component
-  }*/
-
-  // If not authenticated or passcode not entered, don't render children
-
   return <>{children}</>;
 };
 
 export default ProtectedLayout;
+*/
