@@ -76,8 +76,9 @@ export default function MerchantReviewPage() {
           </div>
 
           <p className="text-gray-600">
-            We'll notify you via email once your application has been processed.
-            If you have any questions, please contact our support team.
+            We will notify you via email once your application has been
+            processed. If you have any questions, please contact our support
+            team.
           </p>
         </div>
       </div>
