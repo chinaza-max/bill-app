@@ -40,6 +40,7 @@ const LoginForm = () => {
 
       storeEncryptedData(encrypted.encryptedData, encrypted.iv, encrypted.salt);
 
+      console.log(data.data.data.user);
       dispatch(
         setUser({
           user: data.data.data.user,

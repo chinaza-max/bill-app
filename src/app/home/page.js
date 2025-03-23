@@ -159,7 +159,6 @@ const MobileApp = () => {
   const accessToken = useSelector((state) => state.user.accessToken);
   const myUserData = useSelector((state) => state.user.user);
 
-  console.log(accessToken);
   const { data, isLoading, error } = useQuery({
     queryKey: ["items"], // This is now a key in the query object
     queryFn: () => {
@@ -170,10 +169,6 @@ const MobileApp = () => {
       }
     }, // Function to fetch data
   });
-
-  useEffect(() => {
-    getErrorMessage(error, router);
-  }, [error]);
 
   useEffect(() => {
     getErrorMessage(error, router);
@@ -327,19 +322,27 @@ const MobileApp = () => {
     console.log(myUserData.user.isNinVerified);
     console.log(myUserData);
 
-    if (myUserData.user.merchantActivated === true) {
+    if (myUserData?.user?.merchantActivated === true) {
       router.push(`/userProfile/merchantProfile/merchantHome`);
-    } else if (myUserData.user.isNinVerified === false) {
+    } else if (myUserData?.user?.isNinVerified === false) {
       console.log(!myUserData.isNinVerified);
       router.push(`/userProfile/merchantProfile`);
-    } else if (myUserData.user.isDisplayNameMerchantSet === false) {
+    } else if (myUserData?.user?.isDisplayNameMerchantSet === false) {
       router.push(`/userProfile/merchantProfile/merchantProfile2`);
-    } else if (myUserData.user.isFaceVerified === false) {
+    } else if (myUserData?.user?.isFaceVerified === false) {
       router.push(`/userProfile/merchantProfile/merchantProfile3`);
-    } else if (myUserData.user.MerchantProfile.accountStatus === "processing") {
+    } else if (
+      myUserData?.user?.MerchantProfile?.accountStatus === "processing"
+    ) {
       router.push(`/userProfile/merchantProfile/merchantProfile4`);
-    } else if (myUserData.user.MerchantProfile.accountStatus === "rejected") {
+    } else if (
+      myUserData?.user?.MerchantProfile?.accountStatus === "rejected"
+    ) {
       router.push(`/userProfile/merchantProfile/merchantProfile5`);
+    } else if (
+      myUserData?.user?.MerchantProfile?.accountStatus === "suspended"
+    ) {
+      router.push(`/userProfile/merchantProfile/merchantProfile6`);
     } else {
       router.push(`/userProfile/merchantProfile/merchantHome`);
     }
@@ -352,6 +355,7 @@ const MobileApp = () => {
     router.prefetch("userProfile/merchantProfile/merchantProfile3");
     router.prefetch("userProfile/merchantProfile/merchantProfile4");
     router.prefetch("userProfile/merchantProfile/merchantProfile5");
+    router.prefetch("userProfile/merchantProfile/merchantProfile6");
   }, [router]);
 
   return (

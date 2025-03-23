@@ -320,6 +320,15 @@ export async function GET(req) {
 
         break;
 
+      case "getOrderStatistic":
+        response = await axiosInstance.get("/user/getOrderStatistic", {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
+
+        break;
+
       default:
         return new Response(
           JSON.stringify({
