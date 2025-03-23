@@ -55,9 +55,9 @@ export default function MerchantSuspendedPage() {
           </h1>
 
           <p className="text-gray-600 mb-8">
-            We've temporarily suspended your account privileges due to activity
-            that may not align with our platform's policies. This suspension is
-            in place while we review your account.
+            We have temporarily suspended your account privileges due to
+            activity that may not align with our platforms policies. This
+            suspension is in place while we review your account.
           </p>
 
           <div className="flex items-center justify-between mb-10">
