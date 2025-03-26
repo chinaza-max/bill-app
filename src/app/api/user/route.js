@@ -86,6 +86,7 @@ export async function POST(req) {
         break;
 
       case "initiateNINVerify":
+        let { verificationType, ...requestData } = requestData;
         response = await axiosInstance.post(
           "/user/initiateNINVerify",
           requestData,

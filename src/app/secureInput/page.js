@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { X, Delete, ArrowRight } from "lucide-react";
+import { X, Delete, ArrowRight, Loader2 } from "lucide-react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useEnterPassCode } from "@/hooks/useAuth";
@@ -72,6 +72,7 @@ const SecureLogin = () => {
       router.push(`/home`);
     }
   }, [isSuccess]);
+
   useEffect(() => {
     randomizeNumbers();
   }, []);
@@ -105,35 +106,39 @@ const SecureLogin = () => {
   };
 
   const handleSubmit = async () => {
-    //setPin("");
+    // Prevent submission if PIN is empty or less than 4 digits
+    if (pin.length !== 4) {
+      return;
+    }
 
     const storedData = getEncryptedDataFromStorage();
     if (storedData) {
-      const decrypted = await decryptData(
-        storedData.encryptedData,
-        storedData.iv,
-        storedData.salt,
-        "password"
-      );
-
       try {
+        const decrypted = await decryptData(
+          storedData.encryptedData,
+          storedData.iv,
+          storedData.salt,
+          "password"
+        );
+
         mutate({
           passCode: pin,
           emailAddress: decrypted,
         });
       } catch (error) {
-        //setSubmitting(false);
-        //console.error("Submission error:", error);
+        console.error("Decryption or submission error:", error);
       } finally {
+        randomizeNumbers();
       }
-      randomizeNumbers();
-      console.log(decrypted); // "sensitive data"
     }
   };
 
   useEffect(() => {
     router.prefetch("/home");
   }, [router]);
+
+  // Determine if submit button should be disabled
+  const isSubmitDisabled = pin.length !== 4 || isLoading;
 
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col items-center px-4 py-6 relative">
@@ -221,14 +226,25 @@ const SecureLogin = () => {
           </button>
           <button
             onClick={handleSubmit}
-            className="bg-emerald-600 text-white rounded-md py-3
-                     hover:bg-emerald-700
-                     active:bg-emerald-800
-                     transition-all duration-150
-                     focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-opacity-50
-                     flex items-center justify-center"
+            disabled={isSubmitDisabled}
+            className={`
+              ${
+                isSubmitDisabled
+                  ? "bg-emerald-400 cursor-not-allowed"
+                  : "bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800"
+              }
+              text-white rounded-md py-3
+              transition-all duration-150
+              focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-opacity-50
+              flex items-center justify-center
+              relative
+            `}
           >
-            <ArrowRight size={18} />
+            {isLoading ? (
+              <Loader2 size={18} className="animate-spin" />
+            ) : (
+              <ArrowRight size={18} />
+            )}
           </button>
         </div>
 

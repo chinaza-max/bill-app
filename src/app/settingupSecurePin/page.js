@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { AlertCircle, Check } from "lucide-react";
+import { AlertCircle, Check, Loader2 } from "lucide-react";
 import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
 import { useRouter } from "next/navigation";
 import { useUpdatePin } from "@/hooks/useUser";
@@ -25,6 +25,11 @@ const SecureKeypad = () => {
     error: updateError,
     isSuccess: updateSuccess,
   } = useUpdatePin();
+
+  // Prefetch the secure input page
+  useEffect(() => {
+    router.prefetch("/secureInput");
+  }, [router]);
 
   // Randomize keypad on mount and when switching between stages
   useEffect(() => {
@@ -80,7 +85,7 @@ const SecureKeypad = () => {
         router.push(`/secureInput`);
       }, 2000);
     }
-  }, [updateSuccess]);
+  }, [updateSuccess, router]);
 
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center p-4">
@@ -132,31 +137,38 @@ const SecureKeypad = () => {
             <button
               key={number}
               onClick={() => handleNumberClick(number)}
-              className="p-4 text-xl font-semibold bg-white border border-gray-200 rounded-lg hover:bg-gray-50 active:bg-gray-100 transition-colors"
+              disabled={isUpdating}
+              className="p-4 text-xl font-semibold bg-white border border-gray-200 rounded-lg hover:bg-gray-50 active:bg-gray-100 transition-colors disabled:opacity-50"
             >
               {number}
             </button>
           ))}
           <button
             onClick={handleDelete}
-            className="p-4 text-base font-medium bg-white border border-gray-200 rounded-lg hover:bg-gray-50 active:bg-gray-100"
+            disabled={isUpdating}
+            className="p-4 text-base font-medium bg-white border border-gray-200 rounded-lg hover:bg-gray-50 active:bg-gray-100 disabled:opacity-50"
           >
             Delete
           </button>
           <button
             onClick={handleContinue}
             disabled={
+              isUpdating ||
               (stage === "first" && firstPasscode.length !== 4) ||
               (stage === "confirm" && confirmPasscode.length !== 4)
             }
-            className={`p-4 text-base font-medium rounded-lg ${
+            className={`p-4 text-base font-medium rounded-lg flex items-center justify-center ${
               (stage === "first" && firstPasscode.length === 4) ||
               (stage === "confirm" && confirmPasscode.length === 4)
                 ? "bg-green-600 text-white hover:bg-green-700"
                 : "bg-gray-100 text-gray-400 cursor-not-allowed"
             }`}
           >
-            Continue
+            {isUpdating ? (
+              <Loader2 className="h-5 w-5 animate-spin" />
+            ) : (
+              "Continue"
+            )}
           </button>
         </div>
 
