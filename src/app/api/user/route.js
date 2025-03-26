@@ -86,10 +86,11 @@ export async function POST(req) {
         break;
 
       case "initiateNINVerify":
-        let { verificationType, ...requestData } = requestData;
+        const { verificationType, ...updatedRequestData } = requestData;
+
         response = await axiosInstance.post(
           "/user/initiateNINVerify",
-          requestData,
+          updatedRequestData,
           {
             headers: {
               Authorization: `Bearer ${accessToken}`,
