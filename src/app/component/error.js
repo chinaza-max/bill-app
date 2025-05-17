@@ -42,6 +42,7 @@ const getErrorMessage = (
       return error?.details;
     } else {
       if (currentPath !== `/sign-in`) {
+        console.log("=======currentPath======", currentPath);
         router.push(`/sign-in`);
       }
     }

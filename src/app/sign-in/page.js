@@ -24,16 +24,8 @@ const LoginForm = () => {
   const pathname = usePathname();
   const [email, setEmail] = useState("");
   const dispatch = useDispatch();
+  const router = useRouter();
 
-  /*
-  const {
-    mutate: refreshAccessTokenMutate,
-    isLoading: refreshAccessTokenLoading,
-    isError: refreshAccessTokenError,
-    error: refreshAccessTokenErrorMsg,
-    isSuccess: refreshAccessTokenSuccess,
-  } = useRefreshAccessToken();
-*/
   const { mutate, isLoading, isError, error, isSuccess } = useLogin(
     async (data) => {
       const myEmail = data.data.data.user.emailAddress;
@@ -57,23 +49,8 @@ const LoginForm = () => {
       } else {
         router.push(`/secureInput`);
       }
-
-      /*
-      const storedData = getEncryptedDataFromStorage();
-      if (storedData) {
-        const decrypted = await decryptData(
-          storedData.encryptedData,
-          storedData.iv,
-          storedData.salt,
-          "password"
-        );
-        console.log(decrypted); // "sensitive data"
-      }
-      */
     }
   );
-
-  const router = useRouter();
 
   const initialValues = {
     email: "",
@@ -86,17 +63,7 @@ const LoginForm = () => {
       .required("Email is required"),
     password: Yup.string().required("Password is required"),
   });
-  /*
- 
 
-    // Handle other error formats your server might return
-    if (error.message) {
-      return error.message;
-    }
-
-    return "An unexpected error occurred";
-  };
-*/
   const handleSubmit = async (values, { setSubmitting }) => {
     try {
       setIsformSub(true);
