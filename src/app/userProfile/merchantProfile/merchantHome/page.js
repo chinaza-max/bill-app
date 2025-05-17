@@ -234,6 +234,17 @@ const MerchantApp = () => {
     </div>
   );
 
+  //const router = useRouter()
+  useEffect(() => {
+    router.prefetch("/userProfile/merchantProfile/merchantHome/createAds");
+
+    router.prefetch("/userProfile/merchantProfile/merchantHome/viewAds");
+    router.prefetch("/userProfile/merchantProfile/merchantHome/settings");
+    router.prefetch("/home/notification");
+    router.prefetch("/home/orders");
+    router.prefetch("/home/ads");
+  }, [router]);
+
   return (
     <ProtectedRoute>
       <div className="flex flex-col h-screen bg-emerald-50">
@@ -479,13 +490,15 @@ const MerchantApp = () => {
 
             <motion.button
               whileTap={{ scale: 0.95 }}
-              onClick={() => handleTabChange("p2p")}
+              onClick={() =>
+                router.push("/userProfile/merchantProfile/merchantHome/viewAds")
+              }
               className={`flex flex-col items-center p-2 ${
                 activeTab === "p2p" ? "text-emerald-600" : "text-emerald-400"
               }`}
             >
-              <Users className="h-6 w-6" />
-              <span className="text-xs mt-1">P2P</span>
+              <Package2 className="h-6 w-6" />
+              <span className="text-xs mt-1">View Ads</span>
             </motion.button>
           </div>
         </div>

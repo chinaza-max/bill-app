@@ -30,8 +30,9 @@ const ProtectedLayout = ({ children }) => {
 
         if (!response.ok) {
           const data = await response.json();
+
           getErrorMessage(data, router, "", userDataDe?.isAuthenticated);
-          throw new Error(data.message || "Unexpected error");
+          //throw new Error(data.message || "Unexpected error");
         }
 
         const userData = await response.json();
@@ -48,8 +49,8 @@ const ProtectedLayout = ({ children }) => {
           router.push("/secureInput");
         }
       } catch (error) {
-        console.error("Fetch error:", error);
-        router.push("/sign-in");
+        // console.error("Fetch error:", error);
+        //router.push("/sign-in");
       } finally {
         setLoading(false);
       }

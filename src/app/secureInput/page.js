@@ -5,7 +5,8 @@ import { X, Delete, ArrowRight, Loader2 } from "lucide-react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useEnterPassCode } from "@/hooks/useAuth";
-import { Doto } from "next/font/google";
+import { Dosis } from "next/font/google";
+
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { useDispatch } from "react-redux";
 import { setUser, setPasscodeStatus } from "@/store/slice";
@@ -16,13 +17,11 @@ import {
   decryptData,
   storeEncryptedData,
   getEncryptedDataFromStorage,
+  getDecryptedData,
 } from "../../utils/encryption";
 import getErrorMessage from "@/app/component/error";
 
-const Doto2 = Doto({
-  subsets: ["latin"],
-  weight: ["400", "600", "700"],
-});
+const dosis = Dosis({ subsets: ["latin"], weight: ["400", "600", "700"] });
 
 const SecureLogin = () => {
   const [pin, setPin] = useState("");
@@ -111,25 +110,21 @@ const SecureLogin = () => {
       return;
     }
 
-    const storedData = getEncryptedDataFromStorage();
-    if (storedData) {
+    const storedEmail = getDecryptedData("emailEncrypt");
+    if (storedEmail) {
       try {
-        const decrypted = await decryptData(
-          storedData.encryptedData,
-          storedData.iv,
-          storedData.salt,
-          "password"
-        );
-
         mutate({
           passCode: pin,
-          emailAddress: decrypted,
+          emailAddress: storedEmail,
         });
       } catch (error) {
         console.error("Decryption or submission error:", error);
       } finally {
         randomizeNumbers();
       }
+    } else if (!storedData) {
+      console.warn("No encrypted email found in storage");
+      return null;
     }
   };
 
@@ -155,7 +150,7 @@ const SecureLogin = () => {
           />
         </div>
       </div>
-      <div className={`${Doto2.className} text-2xl text-gray-800`}>
+      <div className={`${dosis.className} text-2xl text-gray-800`}>
         Unlocking Convenience
       </div>
 

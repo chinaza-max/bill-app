@@ -4,7 +4,7 @@ import React, { useState, useEffect } from "react";
 import { Formik, Form, Field, ErrorMessage } from "formik";
 import * as Yup from "yup";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation";
 import { useLogin, useRefreshAccessToken } from "@/hooks/useAuth";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import getErrorMessage from "@/app/component/error";
@@ -21,9 +21,10 @@ import { setUser, setUserEmail } from "@/store/slice";
 const LoginForm = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [isformSub, setIsformSub] = useState(false);
-
+  const pathname = usePathname();
   const [email, setEmail] = useState("");
   const dispatch = useDispatch();
+
   /*
   const {
     mutate: refreshAccessTokenMutate,
@@ -36,9 +37,10 @@ const LoginForm = () => {
   const { mutate, isLoading, isError, error, isSuccess } = useLogin(
     async (data) => {
       const myEmail = data.data.data.user.emailAddress;
-      const encrypted = await encryptData(myEmail, "password");
+      const encrypted = await encryptData(myEmail);
 
-      storeEncryptedData(encrypted.encryptedData, encrypted.iv, encrypted.salt);
+      console.log("Encrypted data:", encrypted);
+      storeEncryptedData("emailEncrypt", encrypted);
 
       console.log(data.data.data.user);
       dispatch(
@@ -272,7 +274,7 @@ const LoginForm = () => {
                   <Alert variant="destructive" className="mb-6 border-red-500">
                     <AlertTitle>Login Failed</AlertTitle>
                     <AlertDescription>
-                      {getErrorMessage(error, router, "")}
+                      {getErrorMessage(error, router, "", "", pathname)}
                     </AlertDescription>
                   </Alert>
                 )}

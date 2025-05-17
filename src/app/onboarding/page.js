@@ -73,6 +73,14 @@ export default function Home() {
     return Math.abs(offset) * velocity;
   };
 
+  useEffect(() => {
+    fetch("api/auth?apiType=ping");
+
+    setTimeout(() => {
+      fetch("api/auth?apiType=ping");
+    }, 3000);
+  });
+
   const paginate = (newDirection) => {
     let newIndex = currentIndex + newDirection;
 

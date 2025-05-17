@@ -1,13 +1,7 @@
-// SHA-256 Hashing Function (using Web Crypto API)
-async function sha256(message) {
-  const msgBuffer = new TextEncoder().encode(message);
-  const hashBuffer = await window.crypto.subtle.digest("SHA-256", msgBuffer);
-  const hashArray = Array.from(new Uint8Array(hashBuffer));
-  return hashArray.map((byte) => byte.toString(16).padStart(2, "0")).join("");
-}
+import CryptoJS from "crypto-js";
 
 // Generate a unique device ID based on browser info
-async function generateDeviceId() {
+function generateDeviceInfo() {
   const deviceInfo = [
     navigator.userAgent,
     navigator.platform,
@@ -17,119 +11,124 @@ async function generateDeviceId() {
     window.screen.height,
     window.screen.colorDepth,
     window.screen.pixelDepth,
-    navigator.deviceMemory, // Available memory in GB
     navigator.maxTouchPoints,
   ].join("-");
 
-  return await sha256(deviceInfo);
+  return deviceInfo;
 }
 
-// Retrieve or generate device ID
-async function getDeviceId() {
-  let deviceId = await generateDeviceId();
+// Create a secure key using device info and app secret
+function generateSecureKey() {
+  const deviceInfo = generateDeviceInfo();
+  const SECRET_KEY =
+    process.env.NEXT_PUBLIC_CRYPTO_KEY || "default-fallback-key";
 
-  return deviceId;
+  // Combine device info with app secret for better security
+  return CryptoJS.SHA256(deviceInfo + SECRET_KEY).toString();
 }
 
-// Generate encryption key from password and device ID
-async function generateKey(password, salt) {
-  const deviceId = await getDeviceId();
-  const keyMaterial = await window.crypto.subtle.importKey(
-    "raw",
-    new TextEncoder().encode(password + deviceId),
-    { name: "PBKDF2" },
-    false,
-    ["deriveBits", "deriveKey"]
-  );
+/**
+ * Encrypts data using AES with device-specific key
+ * @param {Object|string} data - Data to encrypt
+ * @returns {string} - Encrypted string
+ */
+export const encryptData = (data) => {
+  // Convert to string if object
+  const dataString =
+    typeof data === "object" ? JSON.stringify(data) : String(data);
 
-  return window.crypto.subtle.deriveKey(
-    {
-      name: "PBKDF2",
-      salt: salt,
-      iterations: 100000,
-      hash: "SHA-256",
-    },
-    keyMaterial,
-    { name: "AES-GCM", length: 256 },
-    false,
-    ["encrypt", "decrypt"]
-  );
-}
+  // Get device-specific secure key
+  const secureKey = generateSecureKey();
 
-// Encrypt data using AES-GCM algorithm
-async function encryptData(data, password) {
+  console.log("Secure Key: ", secureKey);
+  // Encrypt with AES
+  const encrypted = CryptoJS.AES.encrypt(dataString, secureKey).toString();
+
+  return encrypted;
+};
+
+/**
+ * Decrypts previously encrypted data
+ * @param {string} encryptedData - Encrypted string to decrypt
+ * @returns {Object|string|null} - Decrypted data, parsed as JSON if possible
+ */
+export const decryptData = (encryptedData) => {
   try {
-    const encoder = new TextEncoder();
-    const encodedData = encoder.encode(data);
+    if (!encryptedData) return null;
 
-    // Generate a random salt and IV
-    const salt = window.crypto.getRandomValues(new Uint8Array(16));
-    const iv = window.crypto.getRandomValues(new Uint8Array(12));
+    // Get device-specific secure key (should be same as during encryption)
+    const secureKey = generateSecureKey();
 
-    const key = await generateKey(password, salt);
+    // Decrypt the data
+    const bytes = CryptoJS.AES.decrypt(encryptedData, secureKey);
+    const decryptedString = bytes.toString(CryptoJS.enc.Utf8);
 
-    const encryptedContent = await window.crypto.subtle.encrypt(
-      { name: "AES-GCM", iv: iv },
-      key,
-      encodedData
-    );
+    if (!decryptedString) return null;
 
-    // Convert ArrayBuffer to Uint8Array for storage
-    const encryptedData = new Uint8Array(encryptedContent);
-
-    // Return everything needed for decryption
-    return {
-      encryptedData: Array.from(encryptedData), // Convert to regular array for JSON storage
-      iv: Array.from(iv),
-      salt: Array.from(salt),
-    };
+    // Try to parse as JSON, return as string if not valid JSON
+    try {
+      return JSON.parse(decryptedString);
+    } catch (e) {
+      return decryptedString;
+    }
   } catch (error) {
-    console.error("Encryption failed:", error);
-    throw error;
-  }
-}
-
-// Decrypt the encrypted data
-async function decryptData(encryptedData, iv, salt, password) {
-  try {
-    // Convert arrays back to Uint8Array
-    const encryptedArray = new Uint8Array(encryptedData);
-    const ivArray = new Uint8Array(iv);
-    const saltArray = new Uint8Array(salt);
-
-    const key = await generateKey(password, saltArray);
-
-    const decryptedContent = await window.crypto.subtle.decrypt(
-      { name: "AES-GCM", iv: ivArray },
-      key,
-      encryptedArray
-    );
-
-    return new TextDecoder().decode(decryptedContent);
-  } catch (error) {
-    console.log("Decryption failed:", error);
     console.error("Decryption failed:", error);
-    throw error;
+    return null;
   }
-}
+};
 
-// Store encrypted data in localStorage
-function storeEncryptedData(encryptedData, iv, salt) {
-  localStorage.setItem(
-    "encryptedData",
-    JSON.stringify({ encryptedData, iv, salt })
-  );
-}
+/**
+ * Stores encrypted data in localStorage
+ * @param {string} key - Storage key
+ * @param {Object|string} data - Data to encrypt and store
+ */
+export const storeEncryptedData = (key, data) => {
+  //const encrypted = encryptData(data);
+  localStorage.setItem(key, data);
+};
 
-// Retrieve encrypted data from localStorage
-function getEncryptedDataFromStorage() {
-  const storedData = localStorage.getItem("encryptedData");
-  return storedData ? JSON.parse(storedData) : null;
-}
+/**
+ * Retrieves and decrypts data from localStorage
+ * @param {string} key - Storage key
+ * @returns {Object|string|null} - Decrypted data
+ */
+export const getDecryptedData = (key) => {
+  const encryptedData = localStorage.getItem(key);
+  return encryptedData ? decryptData(encryptedData) : null;
+};
 
-export {
-  encryptData,
-  decryptData,
-  storeEncryptedData,
-  getEncryptedDataFromStorage,
+/**
+ * Stores encrypted data in sessionStorage
+ * @param {string} key - Storage key
+ * @param {Object|string} data - Data to encrypt and store
+ */
+export const storeEncryptedDataInSession = (key, data) => {
+  const encrypted = encryptData(data);
+  sessionStorage.setItem(key, encrypted);
+};
+
+/**
+ * Retrieves and decrypts data from sessionStorage
+ * @param {string} key - Storage key
+ * @returns {Object|string|null} - Decrypted data
+ */
+export const getDecryptedDataFromSession = (key) => {
+  const encryptedData = sessionStorage.getItem(key);
+  return encryptedData ? decryptData(encryptedData) : null;
+};
+
+/**
+ * Removes a specific key from localStorage
+ * @param {string} key - Storage key to remove
+ */
+export const removeEncryptedData = (key) => {
+  localStorage.removeItem(key);
+};
+
+/**
+ * Removes a specific key from sessionStorage
+ * @param {string} key - Storage key to remove
+ */
+export const removeEncryptedDataFromSession = (key) => {
+  sessionStorage.removeItem(key);
 };

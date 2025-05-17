@@ -57,7 +57,13 @@ const MerchantInfoPage = () => {
     const newErrors = {};
     if (!formData.displayName.trim()) {
       newErrors.displayName = "Display name is required";
+    } else if (formData.displayName.toLowerCase().includes("fido")) {
+      newErrors.displayName =
+        "The word 'fido' is not allowed in the display name.";
+    } else if (formData.displayName.length > 12) {
+      newErrors.displayName = "Display name cannot exceed 11 characters";
     }
+
     if (!formData.tel.trim()) {
       newErrors.tel = "Phone number is required";
     } else if (!/^\d{11}$/.test(formData.tel)) {
@@ -106,7 +112,7 @@ const MerchantInfoPage = () => {
               <div className="space-y-4">
                 <div>
                   <label className="block text-sm font-medium text-amber-900 mb-1">
-                    Display Name
+                    Display Name (max 11 characters)
                   </label>
                   <div className="relative">
                     <User className="absolute left-3 top-2.5 h-5 w-5 text-amber-400" />
@@ -121,6 +127,7 @@ const MerchantInfoPage = () => {
                           : "border-amber-200"
                       } focus:outline-none focus:border-amber-500`}
                       placeholder="Enter business/merchant name"
+                      maxLength={11}
                     />
                   </div>
                   {errors.displayName && (

@@ -7,25 +7,20 @@ const getErrorMessage = (
 ) => {
   if (!error) return null;
 
-  console.log(error);
-
   if (error?.details === "Invalid token.") {
     if (isPasscodeEntered) {
-      router.push(`/secureInput`);
+      return router.push(`/secureInput`);
     } else {
       setTimeout(() => {
-        router.push(`/sign-in`);
+        return router.push(`/sign-in`);
       }, 2000);
       return error?.details;
     }
   }
 
-  console.log(error);
-  //Authentication failed
-
   if (error?.details?.includes("No token")) {
     if (isPasscodeEntered) {
-      router.push(`/secureInput`);
+      return router.push(`/secureInput`);
     } else {
       setTimeout(() => {
         router.push(`/sign-in`);
@@ -45,6 +40,10 @@ const getErrorMessage = (
   if (error?.message === "Internal server error") {
     if (error?.details.includes("email")) {
       return error?.details;
+    } else {
+      if (currentPath !== `/sign-in`) {
+        router.push(`/sign-in`);
+      }
     }
   }
 
