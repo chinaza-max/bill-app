@@ -339,17 +339,26 @@ const MobileApp = () => {
   useEffect(() => {
     if (data2?.user?.user) {
       try {
-        setImageUrl(data2.user.user.imageUrl);
-        setFullName(data2.user.user.firstName + " " + data2.user.user.lastName);
+        const user = data2.user.user;
+        console.log(user);
+        setImageUrl(user.imageUrl);
+        setFullName(`${user.firstName} ${user.lastName}`);
 
-        // Extract wallet balance
-        if (data2.user.user.walletBalance) {
-          const walletData = JSON.parse(data2.user.user.walletBalance);
-          // Use current balance if available, otherwise use previous
-          setWalletBalance(walletData?.current || walletData?.previous || 0);
+        // Safely parse walletBalance
+        let walletData = { current: 0, previous: 0 };
+        const rawBalance = user.walletBalance;
+
+        if (typeof rawBalance === "string") {
+          walletData = JSON.parse(rawBalance);
+        } else if (typeof rawBalance === "object" && rawBalance !== null) {
+          walletData = rawBalance;
         }
+
+        const balance = walletData.current ?? walletData.previous ?? 0;
+        setWalletBalance(balance);
       } catch (e) {
-        console.error("Error parsing wallet balance", e);
+        console.error("Error handling user data in useEffect", e);
+        setWalletBalance(0);
       }
     }
   }, [data2.user]);
