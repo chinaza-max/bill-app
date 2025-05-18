@@ -1,11 +1,11 @@
 {
-  "name": "Fintread",
-  "short_name": "Fintread",
+  "name": "Fidopoint",
+  "short_name": "Fidopoint",
   "theme_color": "#7a8a00",
   "background_color": "#36b300",
   "display": "standalone",
   "orientation": "portrait",
-  "id":"8",
+  "id": "8",
   "scope": "/",
   "start_url": "/onboarding",
   "icons": [
@@ -62,11 +62,6 @@
       "sizes": "1280x720",
       "type": "image/png",
       "form_factor": "narrow"
-  
     }
   ]
 }
-
-
-
-

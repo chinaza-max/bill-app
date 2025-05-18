@@ -30,7 +30,7 @@ const fetchMerchant = async (accessToken, router) => {
   }
 
   const queryParams = new URLSearchParams({
-    limit: 5,
+    //limit: 5,
     token: accessToken,
     apiType: "getMatchMerchant",
   }).toString();

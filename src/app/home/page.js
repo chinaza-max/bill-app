@@ -340,7 +340,7 @@ const MobileApp = () => {
     if (data2?.user?.user) {
       try {
         const user = data2.user.user;
-        console.log(user);
+
         setImageUrl(user.imageUrl);
         setFullName(`${user.firstName} ${user.lastName}`);
 
