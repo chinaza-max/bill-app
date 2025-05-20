@@ -258,6 +258,11 @@ export default function Home() {
     }, 3000);
   }, [router]);
 
+  useEffect(() => {
+    // Prefetch routes for better performance
+    router.prefetch("sign-up");
+  });
+
   return (
     <>
       {isOverlayVisible2 ? (
