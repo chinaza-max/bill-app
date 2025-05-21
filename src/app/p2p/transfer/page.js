@@ -102,6 +102,45 @@ const fetchChargeSummary = async (accessToken, amount, router) => {
   }
 };
 
+// Function to make order payment
+const makeOrderPayment = async (
+  accessToken,
+  userId,
+  userId2,
+  amount,
+  amountOrder
+) => {
+  try {
+    const response = await fetch(`/api/user`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        accessToken,
+        apiType: "makeOrderPayment",
+        userId,
+        userId2,
+        amount,
+        amountOrder,
+      }),
+    });
+
+    if (!response.ok) {
+      const errorResponse = await response.json();
+      console.error("Error response:", errorResponse);
+      throw new Error(`Error making payment: ${response.status}`);
+    }
+
+    const data = await response.json();
+    console.log("Payment response:", data);
+    return data;
+  } catch (error) {
+    console.error("Error making payment:", error);
+    throw error;
+  }
+};
+
 const TransferPage = () => {
   const [amount, setAmount] = useState("");
   const [transferType, setTransferType] = useState("");
@@ -111,6 +150,9 @@ const TransferPage = () => {
   const [showCopySuccess, setShowCopySuccess] = useState(false);
   const [chargeData, setChargeData] = useState(null);
   const [showFeeBreakdown, setShowFeeBreakdown] = useState(false);
+  const [walletBalance, setWalletBalance] = useState(0);
+  const [isProcessingPayment, setIsProcessingPayment] = useState(false);
+  const [paymentError, setPaymentError] = useState(null);
   const contentRef = useRef(null);
   const sliderControls = useAnimation();
   const SLIDER_THRESHOLD = 0.5;
@@ -121,6 +163,24 @@ const TransferPage = () => {
   const isAuthenticated = useSelector((state) => state.user.isAuthenticated);
   const myUserData = useSelector((state) => state.user.user);
 
+  // Extract wallet balance from myUserData
+  useEffect(() => {
+    if (myUserData?.user?.walletBalance) {
+      try {
+        const balanceData = JSON.parse(myUserData.user.walletBalance);
+        setWalletBalance(balanceData.current || 0);
+        console.log("Wallet balance extracted:", balanceData.current);
+      } catch (error) {
+        console.error("Error parsing wallet balance:", error);
+        setWalletBalance(0);
+      }
+    }
+  }, [myUserData]);
+
+  useEffect(() => {
+    // Prefetch routes for better performance
+    router.prefetch("orders/order");
+  });
   // Fetch merchant information
   const {
     data: merchantData,
@@ -188,17 +248,15 @@ const TransferPage = () => {
     }
   }, [chargeSummaryData]);
 
-  useEffect(() => {
-    if (myUserData) {
-      console.log("myUserData");
-      console.log(myUserData.user);
-      console.log("myUserData");
-    }
-  }, [myUserData]);
-
   const isValidAmount = (value) => {
     const numValue = parseFloat(value);
     return numValue >= range.min && numValue <= range.max;
+  };
+
+  // Check if wallet has sufficient balance
+  const hasSufficientBalance = () => {
+    if (!chargeData || !walletBalance) return false;
+    return walletBalance >= chargeData.totalAmount;
   };
 
   const handleTabChange = (tab) => {
@@ -210,6 +268,7 @@ const TransferPage = () => {
     setAmount(value);
     setChargeData(null); // Reset charge data when amount changes
     setShowFeeBreakdown(false); // Reset fee breakdown when amount changes
+    setPaymentError(null); // Reset payment error when amount changes
   };
 
   // Fetch charge summary when amount is valid
@@ -244,17 +303,74 @@ const TransferPage = () => {
     sliderControls.set({ x: info.offset.x });
   };
 
-  const handleDragEnd = (_, info) => {
+  const handlePaymentProcess = async () => {
+    if (transferType === "wallet" && chargeData) {
+      // Check if user has sufficient balance
+      if (!hasSufficientBalance()) {
+        setPaymentError(
+          `Insufficient wallet balance. You need ₦${chargeData.totalAmount.toLocaleString()} but only have ₦${walletBalance.toLocaleString()}`
+        );
+        return false;
+      }
+
+      setIsProcessingPayment(true);
+      setPaymentError(null);
+
+      try {
+        const selectedMerchantId = localStorage.getItem("selectedMerchantId");
+        const userId = myUserData?.user?.id || myUserData?.user?.userId;
+
+        const paymentResponse = await makeOrderPayment(
+          accessToken,
+          userId,
+          selectedMerchantId,
+          chargeData.totalAmount, // Total amount including charges
+          Number(amount) // Ordered amount
+        );
+
+        if (paymentResponse?.success || paymentResponse?.data) {
+          console.log("Payment successful:", paymentResponse);
+          return true;
+        } else {
+          setPaymentError("Payment failed. Please try again.");
+          return false;
+        }
+      } catch (error) {
+        console.error("Payment error:", error);
+        setPaymentError("Payment failed. Please try again.");
+        return false;
+      } finally {
+        setIsProcessingPayment(false);
+      }
+    }
+
+    // For direct transfer, just return true (no payment processing needed)
+    return true;
+  };
+
+  const handleDragEnd = async (_, info) => {
     setIsDragging(false);
     const progress = info.offset.x / SLIDER_WIDTH;
 
     if (progress >= SLIDER_THRESHOLD) {
-      sliderControls.start({
-        x: SLIDER_WIDTH,
-        transition: { duration: 0.2, ease: "easeOut" },
-      });
-      setSliderPosition("end");
-      setShowSuccessModal(true);
+      // Process payment if it's a wallet transfer
+      const paymentSuccess = await handlePaymentProcess();
+
+      if (paymentSuccess) {
+        sliderControls.start({
+          x: SLIDER_WIDTH,
+          transition: { duration: 0.2, ease: "easeOut" },
+        });
+        setSliderPosition("end");
+        setShowSuccessModal(true);
+      } else {
+        // Reset slider if payment failed
+        sliderControls.start({
+          x: 0,
+          transition: { duration: 0.2, ease: "easeOut" },
+        });
+        setSliderPosition("start");
+      }
     } else {
       sliderControls.start({
         x: 0,
@@ -320,6 +436,18 @@ const TransferPage = () => {
             <div className="bg-white rounded-lg p-4 shadow-sm">
               <div className="text-red-600 text-center">
                 Error loading merchant information. Please try again.
+              </div>
+            </div>
+          )}
+
+          {/* Wallet Balance Display */}
+          {!isMerchantLoading && walletBalance > 0 && (
+            <div className="bg-white rounded-lg p-4 shadow-sm">
+              <div className="text-sm text-amber-600 mb-2">
+                Your Wallet Balance
+              </div>
+              <div className="text-xl font-bold text-green-600">
+                ₦{walletBalance.toLocaleString()}
               </div>
             </div>
           )}
@@ -465,15 +593,30 @@ const TransferPage = () => {
                     transferType === "wallet"
                       ? "border-amber-500 bg-amber-50"
                       : "border-amber-200 bg-white"
-                  } flex flex-col items-center space-y-2`}
+                  } flex flex-col items-center space-y-2 ${
+                    !hasSufficientBalance() && chargeData ? "opacity-50" : ""
+                  }`}
+                  disabled={!hasSufficientBalance() && chargeData}
                 >
                   <Wallet className="h-6 w-6 text-amber-600" />
                   <span className="text-sm font-medium text-amber-900">
                     Wallet Transfer
                   </span>
+                  {chargeData && !hasSufficientBalance() && (
+                    <span className="text-xs text-red-500">
+                      Insufficient balance
+                    </span>
+                  )}
                 </button>
               </div>
             </motion.div>
+          )}
+
+          {/* Payment Error Display */}
+          {paymentError && (
+            <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+              <div className="text-red-600 text-sm">{paymentError}</div>
+            </div>
           )}
 
           {/* Transfer Details */}
@@ -538,16 +681,45 @@ const TransferPage = () => {
                 animate={{ opacity: 1, y: 0 }}
                 className="bg-white rounded-lg p-4 shadow-sm"
               >
-                <Alert className="bg-green-50 border-green-200">
-                  <Check className="h-5 w-5 text-green-500" />
+                <Alert
+                  className={`${
+                    hasSufficientBalance()
+                      ? "bg-green-50 border-green-200"
+                      : "bg-red-50 border-red-200"
+                  }`}
+                >
+                  <Check
+                    className={`h-5 w-5 ${
+                      hasSufficientBalance() ? "text-green-500" : "text-red-500"
+                    }`}
+                  />
                   <AlertDescription>
                     <div className="ml-2">
-                      <span className="text-green-800 font-medium">
-                        Wallet Balance Available
+                      <span
+                        className={`font-medium ${
+                          hasSufficientBalance()
+                            ? "text-green-800"
+                            : "text-red-800"
+                        }`}
+                      >
+                        {hasSufficientBalance()
+                          ? "Wallet Balance Available"
+                          : "Insufficient Wallet Balance"}
                       </span>
-                      <div className="text-green-600 text-sm">
-                        ₦{walletBalance.toLocaleString()}
+                      <div
+                        className={`text-sm ${
+                          hasSufficientBalance()
+                            ? "text-green-600"
+                            : "text-red-600"
+                        }`}
+                      >
+                        Balance: ₦{walletBalance.toLocaleString()}
                       </div>
+                      {!hasSufficientBalance() && (
+                        <div className="text-red-600 text-sm">
+                          Required: ₦{chargeData.totalAmount.toLocaleString()}
+                        </div>
+                      )}
                     </div>
                   </AlertDescription>
                 </Alert>
@@ -580,8 +752,12 @@ const TransferPage = () => {
             ) : (
               <div className="h-14 bg-amber-100 rounded-full relative">
                 <motion.div
-                  className="absolute left-0 top-0 h-full aspect-square rounded-full bg-amber-500 flex items-center justify-center touch-none cursor-grab active:cursor-grabbing"
-                  drag="x"
+                  className={`absolute left-0 top-0 h-full aspect-square rounded-full bg-amber-500 flex items-center justify-center touch-none ${
+                    isProcessingPayment
+                      ? "cursor-wait"
+                      : "cursor-grab active:cursor-grabbing"
+                  }`}
+                  drag={!isProcessingPayment ? "x" : false}
                   dragConstraints={{ left: 0, right: SLIDER_WIDTH }}
                   dragElastic={0.1}
                   dragMomentum={false}
@@ -590,11 +766,18 @@ const TransferPage = () => {
                   onDragEnd={handleDragEnd}
                   whileTap={{ scale: 1.1 }}
                 >
-                  <ChevronRight className="h-6 w-6 text-white" />
+                  {isProcessingPayment ? (
+                    <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-white"></div>
+                  ) : (
+                    <ChevronRight className="h-6 w-6 text-white" />
+                  )}
                 </motion.div>
                 <div className="absolute inset-0 flex items-center justify-center text-amber-600 font-medium pointer-events-none">
-                  Slide to{" "}
-                  {transferType === "direct" ? "confirm paid" : "transfer"}
+                  {isProcessingPayment
+                    ? "Processing..."
+                    : `Slide to ${
+                        transferType === "direct" ? "confirm paid" : "transfer"
+                      }`}
                 </div>
               </div>
             )}
@@ -623,7 +806,7 @@ const TransferPage = () => {
                   Transaction Complete!
                 </h3>
                 <p className="text-gray-600 mb-6">
-                  Your transfer of ₦
+                  Your {transferType === "wallet" ? "payment" : "transfer"} of ₦
                   {chargeData.totalAmount?.toLocaleString() || "0"} has been
                   processed successfully.
                 </p>

@@ -1,6 +1,6 @@
 import axios from "axios";
 const axiosInstance = axios.create({
-  baseURL: "https://fidopoint.onrender.com/api/v1",
+  baseURL: "http://localhost:5000/api/v1",
   headers: {
     "Content-Type": "application/json", // Set default content-type for the API requests
   },
@@ -96,6 +96,19 @@ export async function POST(req) {
       case "getMerchantInformation":
         response = await axiosInstance.post(
           "/user/getMerchantInformation",
+          requestData,
+          {
+            headers: {
+              Authorization: `Bearer ${accessToken}`,
+            },
+          }
+        );
+
+        break;
+
+      case "makeOrderPayment":
+        response = await axiosInstance.post(
+          "/user/makeOrderPayment",
           requestData,
           {
             headers: {

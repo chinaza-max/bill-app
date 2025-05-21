@@ -8,6 +8,7 @@ import {
   Copy,
   Check,
   Clock,
+  Loader2,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import ProtectedRoute from "@/app/component/protect";
@@ -76,6 +77,7 @@ const FundWalletPage = () => {
         countDown: 60,
       });
       setCountdown(60);
+      setErrorMessage(""); // Clear any previous errors
     },
     onError: (error) => {
       setErrorMessage(getErrorMessage(error));
@@ -95,10 +97,17 @@ const FundWalletPage = () => {
   };
 
   const handleGenerateAccount = () => {
+    // Prevent multiple clicks if already loading
+    if (generateAccountMutation.isLoading) {
+      return;
+    }
+
     if (amount < 1000) {
       setErrorMessage("Minimum amount to fund is ₦1,000");
       return;
     }
+
+    setErrorMessage(""); // Clear any previous errors
     generateAccountMutation.mutate(amount);
   };
 
@@ -132,17 +141,6 @@ const FundWalletPage = () => {
       setSwipePosition(newPosition);
     }
   };
-
-  // Loading state
-  if (generateAccountMutation.isLoading) {
-    return (
-      <div className="flex flex-col h-screen bg-amber-50 items-center justify-center">
-        <div className="text-amber-600 text-lg">
-          Generating virtual account...
-        </div>
-      </div>
-    );
-  }
 
   return (
     <ProtectedRoute>
@@ -182,7 +180,8 @@ const FundWalletPage = () => {
                           value={amount}
                           onChange={handleAmountChange}
                           placeholder="Minimum ₦1,000"
-                          className="w-full border border-amber-200 rounded-lg pl-10 pr-3 py-3 text-amber-900 focus:outline-none focus:ring-2 focus:ring-amber-500"
+                          disabled={generateAccountMutation.isLoading}
+                          className="w-full border border-amber-200 rounded-lg pl-10 pr-3 py-3 text-amber-900 focus:outline-none focus:ring-2 focus:ring-amber-500 disabled:bg-amber-50 disabled:text-amber-500"
                         />
                       </div>
                     </div>
@@ -205,6 +204,21 @@ const FundWalletPage = () => {
                       making your payment.
                     </div>
                   </div>
+
+                  {/* Loading State when generating account */}
+                  {generateAccountMutation.isLoading && (
+                    <div className="bg-blue-50 rounded-lg p-4 mb-4">
+                      <div className="flex items-center justify-center space-x-3">
+                        <Loader2 className="h-6 w-6 text-blue-600 animate-spin" />
+                        <div className="text-blue-700 font-medium">
+                          Generating virtual account...
+                        </div>
+                      </div>
+                      <div className="text-center text-blue-600 text-sm mt-2">
+                        Please wait, this may take a few seconds
+                      </div>
+                    </div>
+                  )}
                 </div>
               </>
             ) : (
@@ -383,7 +397,8 @@ const FundWalletPage = () => {
               onClick={() =>
                 accountDetails ? setAccountDetails(null) : router.back()
               }
-              className="flex-1 flex items-center justify-center space-x-2 py-3 bg-amber-100 text-amber-700 rounded-lg font-medium transition-colors hover:bg-amber-200"
+              disabled={generateAccountMutation.isLoading}
+              className="flex-1 flex items-center justify-center space-x-2 py-3 bg-amber-100 text-amber-700 rounded-lg font-medium transition-colors hover:bg-amber-200 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <ArrowLeft className="h-5 w-5" />
               <span>{accountDetails ? "Enter New Amount" : "Go Back"}</span>
@@ -392,15 +407,20 @@ const FundWalletPage = () => {
               <button
                 onClick={handleGenerateAccount}
                 disabled={amount < 1000 || generateAccountMutation.isLoading}
-                className={`flex-1 py-3 rounded-lg font-medium transition-colors ${
+                className={`flex-1 py-3 rounded-lg font-medium transition-colors flex items-center justify-center space-x-2 ${
                   amount >= 1000 && !generateAccountMutation.isLoading
                     ? "bg-amber-500 text-white hover:bg-amber-600"
                     : "bg-amber-200 text-amber-500 cursor-not-allowed"
                 }`}
               >
-                {generateAccountMutation.isLoading
-                  ? "Processing..."
-                  : "Generate Account"}
+                {generateAccountMutation.isLoading ? (
+                  <>
+                    <Loader2 className="h-5 w-5 animate-spin" />
+                    <span>Generating...</span>
+                  </>
+                ) : (
+                  <span>Generate Account</span>
+                )}
               </button>
             )}
           </div>
