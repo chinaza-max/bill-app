@@ -26,6 +26,7 @@ const FundWalletPage = () => {
   const [countdown, setCountdown] = useState(60);
   const [swipePosition, setSwipePosition] = useState(0);
   const [transferCompleted, setTransferCompleted] = useState(false);
+  const [isGenerating, setIsGenerating] = useState(false); // Local loading state
 
   useEffect(() => {
     let timer;
@@ -67,6 +68,10 @@ const FundWalletPage = () => {
 
       return response.json();
     },
+    onMutate: () => {
+      // Set loading state immediately when mutation starts
+      setIsGenerating(true);
+    },
     onSuccess: (data) => {
       console.log("Account generated:", data);
       setAccountDetails({
@@ -78,10 +83,16 @@ const FundWalletPage = () => {
       });
       setCountdown(60);
       setErrorMessage(""); // Clear any previous errors
+      setIsGenerating(false); // Reset loading state
     },
     onError: (error) => {
       setErrorMessage(getErrorMessage(error));
       console.error("Error generating account:", getErrorMessage(error));
+      setIsGenerating(false); // Reset loading state on error
+    },
+    onSettled: () => {
+      // Ensure loading state is reset regardless of success or error
+      setIsGenerating(false);
     },
   });
 
@@ -97,8 +108,8 @@ const FundWalletPage = () => {
   };
 
   const handleGenerateAccount = () => {
-    // Prevent multiple clicks if already loading
-    if (generateAccountMutation.isLoading) {
+    // Immediately disable button to prevent double clicks
+    if (isGenerating || generateAccountMutation.isLoading) {
       return;
     }
 
@@ -108,6 +119,7 @@ const FundWalletPage = () => {
     }
 
     setErrorMessage(""); // Clear any previous errors
+    setIsGenerating(true); // Set loading state immediately
     generateAccountMutation.mutate(amount);
   };
 
@@ -141,6 +153,19 @@ const FundWalletPage = () => {
       setSwipePosition(newPosition);
     }
   };
+
+  const handleGoBack = () => {
+    if (accountDetails) {
+      setAccountDetails(null);
+      setIsGenerating(false); // Reset loading state when going back
+      setErrorMessage(""); // Clear any errors
+    } else {
+      router.back();
+    }
+  };
+
+  // Check if we should show loading state
+  const isLoading = isGenerating || generateAccountMutation.isLoading;
 
   return (
     <ProtectedRoute>
@@ -180,8 +205,8 @@ const FundWalletPage = () => {
                           value={amount}
                           onChange={handleAmountChange}
                           placeholder="Minimum ₦1,000"
-                          disabled={generateAccountMutation.isLoading}
-                          className="w-full border border-amber-200 rounded-lg pl-10 pr-3 py-3 text-amber-900 focus:outline-none focus:ring-2 focus:ring-amber-500 disabled:bg-amber-50 disabled:text-amber-500"
+                          disabled={isLoading}
+                          className="w-full border border-amber-200 rounded-lg pl-10 pr-3 py-3 text-amber-900 focus:outline-none focus:ring-2 focus:ring-amber-500 disabled:bg-amber-50 disabled:text-amber-500 disabled:cursor-not-allowed"
                         />
                       </div>
                     </div>
@@ -206,8 +231,8 @@ const FundWalletPage = () => {
                   </div>
 
                   {/* Loading State when generating account */}
-                  {generateAccountMutation.isLoading && (
-                    <div className="bg-blue-50 rounded-lg p-4 mb-4">
+                  {isLoading && (
+                    <div className="bg-blue-50 rounded-lg p-4 mb-4 border border-blue-200">
                       <div className="flex items-center justify-center space-x-3">
                         <Loader2 className="h-6 w-6 text-blue-600 animate-spin" />
                         <div className="text-blue-700 font-medium">
@@ -216,6 +241,9 @@ const FundWalletPage = () => {
                       </div>
                       <div className="text-center text-blue-600 text-sm mt-2">
                         Please wait, this may take a few seconds
+                      </div>
+                      <div className="text-center text-blue-500 text-xs mt-1">
+                        Do not refresh or close this page
                       </div>
                     </div>
                   )}
@@ -257,7 +285,7 @@ const FundWalletPage = () => {
                       </div>
                       <button
                         onClick={() => copyToClipboard(accountDetails.bankName)}
-                        className="text-amber-500 hover:text-amber-600"
+                        className="text-amber-500 hover:text-amber-600 transition-colors"
                       >
                         {copied ? (
                           <Check className="h-5 w-5" />
@@ -281,7 +309,7 @@ const FundWalletPage = () => {
                         onClick={() =>
                           copyToClipboard(accountDetails.accountNumber)
                         }
-                        className="text-amber-500 hover:text-amber-600"
+                        className="text-amber-500 hover:text-amber-600 transition-colors"
                       >
                         {copied ? (
                           <Check className="h-5 w-5" />
@@ -305,7 +333,7 @@ const FundWalletPage = () => {
                         onClick={() =>
                           copyToClipboard(accountDetails.accountName)
                         }
-                        className="text-amber-500 hover:text-amber-600"
+                        className="text-amber-500 hover:text-amber-600 transition-colors"
                       >
                         {copied ? (
                           <Check className="h-5 w-5" />
@@ -327,7 +355,7 @@ const FundWalletPage = () => {
                         onClick={() =>
                           copyToClipboard(accountDetails.amount.toString())
                         }
-                        className="text-amber-500 hover:text-amber-600"
+                        className="text-amber-500 hover:text-amber-600 transition-colors"
                       >
                         {copied ? (
                           <Check className="h-5 w-5" />
@@ -346,7 +374,7 @@ const FundWalletPage = () => {
                       onTouchEnd={handleSwipe}
                     >
                       <div
-                        className="absolute top-0 left-0 h-full bg-amber-300 rounded-lg"
+                        className="absolute top-0 left-0 h-full bg-amber-300 rounded-lg transition-all duration-150"
                         style={{
                           width: `${
                             (swipePosition / (window.innerWidth - 70 - 32)) *
@@ -355,7 +383,7 @@ const FundWalletPage = () => {
                         }}
                       />
                       <div
-                        className="absolute top-1 left-1 bg-amber-500 text-white p-2 rounded-lg flex items-center justify-center shadow-md"
+                        className="absolute top-1 left-1 bg-amber-500 text-white p-2 rounded-lg flex items-center justify-center shadow-md transition-transform duration-150"
                         style={{
                           transform: `translateX(${swipePosition}px)`,
                           width: "60px",
@@ -369,7 +397,7 @@ const FundWalletPage = () => {
                       </div>
                     </div>
                   ) : (
-                    <div className="bg-green-100 rounded-lg p-3 mb-4 text-center">
+                    <div className="bg-green-100 rounded-lg p-3 mb-4 text-center border border-green-200">
                       <div className="text-green-700 font-medium">
                         Transfer confirmation sent!
                       </div>
@@ -391,13 +419,11 @@ const FundWalletPage = () => {
         </div>
 
         {/* Fixed Footer with Generate Account Button */}
-        <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-amber-100 p-4">
+        <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-amber-100 p-4 shadow-lg">
           <div className="flex space-x-4">
             <button
-              onClick={() =>
-                accountDetails ? setAccountDetails(null) : router.back()
-              }
-              disabled={generateAccountMutation.isLoading}
+              onClick={handleGoBack}
+              disabled={isLoading && !accountDetails}
               className="flex-1 flex items-center justify-center space-x-2 py-3 bg-amber-100 text-amber-700 rounded-lg font-medium transition-colors hover:bg-amber-200 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <ArrowLeft className="h-5 w-5" />
@@ -406,14 +432,14 @@ const FundWalletPage = () => {
             {!accountDetails && (
               <button
                 onClick={handleGenerateAccount}
-                disabled={amount < 1000 || generateAccountMutation.isLoading}
-                className={`flex-1 py-3 rounded-lg font-medium transition-colors flex items-center justify-center space-x-2 ${
-                  amount >= 1000 && !generateAccountMutation.isLoading
-                    ? "bg-amber-500 text-white hover:bg-amber-600"
-                    : "bg-amber-200 text-amber-500 cursor-not-allowed"
+                disabled={amount < 1000 || isLoading}
+                className={`flex-1 py-3 rounded-lg font-medium transition-all duration-200 flex items-center justify-center space-x-2 ${
+                  amount >= 1000 && !isLoading
+                    ? "bg-amber-500 text-white hover:bg-amber-600 active:bg-amber-700 transform hover:scale-105 active:scale-95"
+                    : "bg-amber-200 text-amber-500 cursor-not-allowed opacity-60"
                 }`}
               >
-                {generateAccountMutation.isLoading ? (
+                {isLoading ? (
                   <>
                     <Loader2 className="h-5 w-5 animate-spin" />
                     <span>Generating...</span>
