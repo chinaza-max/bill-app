@@ -99,7 +99,9 @@ const SignUpForm = () => {
     setTimeout(() => {
       fetch("api/auth?apiType=ping");
     }, 3000);
-    router.prefetch("/validation-email");
+    router.prefetch("validation-email");
+
+    router.prefetch("sign-in");
   }, [router]);
 
   return (

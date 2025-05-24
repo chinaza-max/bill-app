@@ -94,10 +94,10 @@ const LoginForm = () => {
       fetch("api/auth?apiType=ping");
     }, 3000);
 
-    router.prefetch("/sign2-up");
-    router.prefetch("/settingupSecurePin");
-    router.prefetch("/secureInput");
-    router.prefetch("/validation-email");
+    router.prefetch("sign2-up");
+    router.prefetch("settingupSecurePin");
+    router.prefetch("secureInput");
+    router.prefetch("validation-email");
   }, [router]);
 
   return (
