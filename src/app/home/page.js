@@ -490,6 +490,7 @@ const MobileApp = () => {
     router.prefetch("userProfile/fundwallet");
     router.prefetch("history");
     router.prefetch("p2p");
+    router.prefetch("userProfile");
   }, [router]);
 
   // Function to manually refresh transactions

@@ -10,7 +10,7 @@ import {
   Clock,
   Loader2,
 } from "lucide-react";
-import { useRouter } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation";
 import ProtectedRoute from "@/app/component/protect";
 import { useSelector } from "react-redux";
 import { useMutation } from "@tanstack/react-query";
@@ -27,6 +27,8 @@ const FundWalletPage = () => {
   const [swipePosition, setSwipePosition] = useState(0);
   const [transferCompleted, setTransferCompleted] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false); // Local loading state
+  const isAuthenticated = useSelector((state) => state.user.isAuthenticated);
+  const pathname = usePathname();
 
   useEffect(() => {
     let timer;
@@ -87,6 +89,7 @@ const FundWalletPage = () => {
     },
     onError: (error) => {
       setErrorMessage(getErrorMessage(error));
+      getErrorMessage(error, router, "", isPasscodeEntered, pathname);
       console.error("Error generating account:", getErrorMessage(error));
       setIsGenerating(false); // Reset loading state on error
     },

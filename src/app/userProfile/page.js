@@ -58,9 +58,10 @@ const ProfilePage = () => {
   };
 
   useEffect(() => {
-    router.prefetch("/userProfile/ProfileInformation");
-    router.prefetch("/userProfile/merchantProfile");
-    router.prefetch("/userProfile/fundwallet");
+    router.prefetch("userProfile/ProfileInformation");
+    router.prefetch("userProfile/merchantProfile");
+    router.prefetch("userProfile/fundwallet");
+    router.prefetch("sign-in");
   }, [router]);
 
   const moveToMerchant = () => {
