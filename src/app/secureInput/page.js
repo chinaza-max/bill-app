@@ -26,6 +26,7 @@ const dosis = Dosis({ subsets: ["latin"], weight: ["400", "600", "700"] });
 const SecureLogin = () => {
   const [pin, setPin] = useState("");
   const [numbers, setNumbers] = useState([]);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const router = useRouter();
   const dispatch = useDispatch();
   const { mutate, isLoading, isError, error, isSuccess, reset } =
@@ -79,8 +80,16 @@ const SecureLogin = () => {
   useEffect(() => {
     setTimeout(() => {
       reset();
+      setIsSubmitting(false);
     }, 10000);
   }, [error]);
+
+  // Auto-submit when PIN is complete
+  useEffect(() => {
+    if (pin.length === 4 && !isSubmitting && !isLoading) {
+      handleSubmit();
+    }
+  }, [pin, isSubmitting, isLoading]);
 
   const randomizeNumbers = () => {
     const shuffled = [...Array(10).keys()]
@@ -90,25 +99,31 @@ const SecureLogin = () => {
   };
 
   const handleNumberClick = (num) => {
-    if (pin.length < 4) {
+    if (pin.length < 4 && !isSubmitting && !isLoading) {
       setPin((prev) => prev + num);
     }
   };
 
   const handleDelete = () => {
-    setPin((prev) => prev.slice(0, -1));
+    if (!isSubmitting && !isLoading) {
+      setPin((prev) => prev.slice(0, -1));
+    }
   };
 
   const handleClear = () => {
-    setPin("");
-    randomizeNumbers();
+    if (!isSubmitting && !isLoading) {
+      setPin("");
+      randomizeNumbers();
+    }
   };
 
   const handleSubmit = async () => {
     // Prevent submission if PIN is empty or less than 4 digits
-    if (pin.length !== 4) {
+    if (pin.length !== 4 || isSubmitting || isLoading) {
       return;
     }
+
+    setIsSubmitting(true);
 
     const storedEmail = getDecryptedData("emailEncrypt");
     if (storedEmail) {
@@ -119,24 +134,51 @@ const SecureLogin = () => {
         });
       } catch (error) {
         console.error("Decryption or submission error:", error);
+        setIsSubmitting(false);
       } finally {
-        randomizeNumbers();
+        // Don't randomize numbers immediately, wait for response
+        setTimeout(() => {
+          if (!isSuccess) {
+            randomizeNumbers();
+            setPin("");
+          }
+        }, 1000);
       }
-    } else if (!storedData) {
+    } else {
       console.warn("No encrypted email found in storage");
+      setIsSubmitting(false);
       return null;
     }
   };
 
   useEffect(() => {
-    router.prefetch("/home");
+    router.prefetch("home");
   }, [router]);
 
-  // Determine if submit button should be disabled
-  const isSubmitDisabled = pin.length !== 4 || isLoading;
+  // Reset submitting state when there's an error
+  useEffect(() => {
+    if (isError) {
+      setIsSubmitting(false);
+      setPin("");
+    }
+  }, [isError]);
+
+  // Determine if inputs should be disabled
+  const isInputDisabled = isSubmitting || isLoading;
+  const showLoading = isSubmitting || isLoading;
 
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col items-center px-4 py-6 relative">
+      {/* Loading Overlay */}
+      {showLoading && (
+        <div className="fixed inset-0 bg-black bg-opacity-30 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 flex flex-col items-center space-y-4">
+            <Loader2 size={32} className="animate-spin text-emerald-600" />
+            <p className="text-gray-600 font-medium">Verifying PIN...</p>
+          </div>
+        </div>
+      )}
+
       {/* Logo Section */}
       <div className="mt-4 relative">
         <div className="w-20 h-20 relative">
@@ -173,20 +215,27 @@ const SecureLogin = () => {
           </h2>
           <button
             onClick={handleClear}
-            className="text-gray-400 hover:text-gray-600 transition-colors"
+            disabled={isInputDisabled}
+            className={`transition-colors ${
+              isInputDisabled
+                ? "text-gray-300 cursor-not-allowed"
+                : "text-gray-400 hover:text-gray-600"
+            }`}
           >
             <X size={16} />
           </button>
         </div>
 
-        {/* PIN Display - Changed to 4 dots */}
+        {/* PIN Display */}
         <div className="flex justify-center space-x-4 mb-8">
           {[...Array(4)].map((_, i) => (
             <div
               key={i}
               className={`w-4 h-4 rounded-full transition-all duration-200 ${
                 i < pin.length
-                  ? "bg-emerald-600 scale-105"
+                  ? showLoading
+                    ? "bg-emerald-400 animate-pulse"
+                    : "bg-emerald-600 scale-105"
                   : "border border-gray-300"
               }`}
             />
@@ -199,52 +248,41 @@ const SecureLogin = () => {
             <button
               key={num}
               onClick={() => handleNumberClick(num)}
-              className="bg-white border border-gray-200 text-gray-700 rounded-md py-3 text-lg font-medium 
-                         hover:border-emerald-600 hover:text-emerald-600 
-                         active:bg-emerald-50 
+              disabled={isInputDisabled}
+              className={`border border-gray-200 text-gray-700 rounded-md py-3 text-lg font-medium 
                          transition-all duration-150
-                         focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-opacity-50"
+                         focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-opacity-50 ${
+                           isInputDisabled
+                             ? "bg-gray-100 text-gray-400 cursor-not-allowed"
+                             : "bg-white hover:border-emerald-600 hover:text-emerald-600 active:bg-emerald-50"
+                         }`}
             >
               {num}
             </button>
           ))}
           <button
             onClick={handleDelete}
-            className="bg-white border border-gray-200 text-gray-600 rounded-md py-3
-                     hover:border-emerald-600 hover:text-emerald-600
-                     active:bg-emerald-50
+            disabled={isInputDisabled}
+            className={`border border-gray-200 rounded-md py-3
                      transition-all duration-150
                      focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-opacity-50
-                     flex items-center justify-center"
+                     flex items-center justify-center ${
+                       isInputDisabled
+                         ? "bg-gray-100 text-gray-400 cursor-not-allowed"
+                         : "bg-white text-gray-600 hover:border-emerald-600 hover:text-emerald-600 active:bg-emerald-50"
+                     }`}
           >
             <Delete size={18} />
           </button>
-          <button
-            onClick={handleSubmit}
-            disabled={isSubmitDisabled}
-            className={`
-              ${
-                isSubmitDisabled
-                  ? "bg-emerald-400 cursor-not-allowed"
-                  : "bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800"
-              }
-              text-white rounded-md py-3
-              transition-all duration-150
-              focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-opacity-50
-              flex items-center justify-center
-              relative
-            `}
-          >
-            {isLoading ? (
-              <Loader2 size={18} className="animate-spin" />
-            ) : (
-              <ArrowRight size={18} />
-            )}
-          </button>
+          <div className="bg-gray-100 rounded-md py-3 flex items-center justify-center">
+            <span className="text-gray-400 text-sm">Auto Submit</span>
+          </div>
         </div>
 
         <p className="text-xs text-gray-400 text-center">
-          Enhanced security: Keypad layout changes automatically
+          {showLoading
+            ? "Verifying your PIN..."
+            : "Enhanced security: Keypad layout changes automatically"}
         </p>
       </div>
     </div>
