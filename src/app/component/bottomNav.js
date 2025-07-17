@@ -3,7 +3,7 @@ import { motion } from "framer-motion";
 import { Home, History, Users, ShoppingBag } from "lucide-react";
 import { useRouter } from "next/navigation";
 
-export default function BottomNav({ activeTabP, handleTabChangeP }) {
+export default function BottomNav({ activeTabP, handleTabChangeP, pendingP }) {
   const router = useRouter();
 
   useEffect(() => {
@@ -32,7 +32,14 @@ export default function BottomNav({ activeTabP, handleTabChangeP }) {
             activeTabP === "order" ? "text-amber-600" : "text-amber-400"
           }`}
         >
-          <ShoppingBag className="h-6 w-6" />
+          <div className="relative">
+            <ShoppingBag className="h-6 w-6" />
+            {pendingP > 0 && (
+              <span className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full text-xs w-5 h-5 flex items-center justify-center font-bold">
+                {pendingP}
+              </span>
+            )}
+          </div>
           <span className="text-xs mt-1">Orders</span>
         </motion.button>
 

@@ -6,6 +6,7 @@ import ProtectedRoute from "@/app/component/protect";
 import getErrorMessage from "@/app/component/error";
 import { useSelector } from "react-redux";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import Image from "next/image";
 
 import {
   ArrowLeft,
@@ -36,7 +37,6 @@ const ProfilePage = () => {
   const myUserData = useSelector((state) => state.user.user);
 
   useEffect(() => {
-    console.log("myUserData Data:", myUserData);
     if (myUserData) {
       setName(myUserData.user.firstName + " " + myUserData.user.lastName);
       setEmail(myUserData.user.emailAddress);
@@ -162,7 +162,7 @@ const ProfilePage = () => {
         <div className="bg-gradient-to-b from-amber-500 to-amber-600 text-white p-6">
           <div className="flex items-center space-x-4">
             <div className="w-16 h-16 rounded-full bg-emerald-400/20 flex items-center justify-center border-2 border-emerald-400/30">
-              <img
+              <Image
                 src={imageUrl}
                 alt="Profile"
                 className="w-full h-full object-cover rounded-full"

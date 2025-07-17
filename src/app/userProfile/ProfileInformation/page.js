@@ -13,6 +13,7 @@ import { motion } from "framer-motion";
 import { useRouter } from "next/navigation";
 import ProtectedRoute from "@/app/component/protect";
 import { useSelector } from "react-redux";
+import Image from "next/image";
 
 const UserProfilePage = () => {
   const [userProfile, setUserProfile] = useState({
@@ -128,7 +129,7 @@ const UserProfilePage = () => {
             </h2>
             <div className="flex flex-col items-center space-y-4">
               <div className="relative">
-                <img
+                <Image
                   src={userProfile.profilePicture}
                   alt="Profile"
                   className="w-32 h-32 rounded-full object-cover border-4 border-amber-200"

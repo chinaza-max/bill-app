@@ -1,6 +1,6 @@
 import axios from "axios";
 const axiosInstance = axios.create({
-  baseURL: "https://fidopoint.onrender.com/api/v1",
+  baseURL: "http://localhost:5000/api/v1",
   headers: {
     "Content-Type": "application/json", // Set default content-type for the API requests
   },
@@ -73,6 +73,28 @@ export async function POST(req) {
 
       case "updatePin":
         response = await axiosInstance.post("/user/setPin", requestData, {
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+          },
+        });
+
+        break;
+
+      case "orderAcceptOrCancel":
+        response = await axiosInstance.post(
+          "/user/orderAcceptOrCancel",
+          requestData,
+          {
+            headers: {
+              Authorization: `Bearer ${accessToken}`,
+            },
+          }
+        );
+
+        break;
+
+      case "updateToken":
+        response = await axiosInstance.post("/user/updateToken", requestData, {
           headers: {
             Authorization: `Bearer ${accessToken}`,
           },
@@ -172,6 +194,19 @@ export async function POST(req) {
       case "createMerchantAds":
         response = await axiosInstance.post(
           "/user/createMerchantAds",
+          requestData,
+          {
+            headers: {
+              Authorization: `Bearer ${accessToken}`,
+            },
+          }
+        );
+
+        break;
+
+      case "verifyCompleteOrder":
+        response = await axiosInstance.post(
+          "/user/verifyCompleteOrder",
           requestData,
           {
             headers: {
@@ -397,8 +432,43 @@ export async function GET(req) {
         });
         break;
 
+      case "getTransactionHistoryOrder":
+        response = await axiosInstance.get("/user/getTransactionHistoryOrder", {
+          headers,
+          params: additionalParams,
+        });
+        break;
+
+      case "getChatHistory":
+        response = await axiosInstance.get("/user/getChatHistory", {
+          headers,
+          params: additionalParams,
+        });
+        break;
+
+      case "getMyOrderDetails":
+        response = await axiosInstance.get("/user/getMyOrderDetails", {
+          headers,
+          params: additionalParams,
+        });
+        break;
+
       case "getGeneralTransaction":
         response = await axiosInstance.get("/user/getGeneralTransaction", {
+          headers,
+          params: additionalParams,
+        });
+        break;
+
+      case "getGeneralTransaction":
+        response = await axiosInstance.get("/user/getGeneralTransaction", {
+          headers,
+          params: additionalParams,
+        });
+        break;
+
+      case "getMyOrders":
+        response = await axiosInstance.get("/user/getMyOrders", {
           headers,
           params: additionalParams,
         });

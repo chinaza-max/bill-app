@@ -11,7 +11,6 @@ import {
   Copy,
   ChevronDown,
   ChevronUp,
-  RefreshCw,
 } from "lucide-react";
 import { motion, AnimatePresence, useAnimation } from "framer-motion";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -19,7 +18,6 @@ import { useRouter } from "next/navigation";
 import ProtectedRoute from "@/app/component/protect";
 import { useSelector } from "react-redux";
 import { useQuery } from "@tanstack/react-query";
-import useRequest from "@/hooks/useRequest"; // Import the custom hook
 
 // Function to fetch merchant information
 const fetchMerchantInformation = async (accessToken, router) => {
@@ -132,6 +130,7 @@ const makeOrderPayment = async (
       const errorResponse = await response.json();
       console.error("Error response:", errorResponse);
       return errorResponse;
+      //throw new Error(`Error making payment: ${response.status}`);
     }
 
     const data = await response.json();
@@ -155,22 +154,11 @@ const TransferPage = () => {
   const [walletBalance, setWalletBalance] = useState(0);
   const [isProcessingPayment, setIsProcessingPayment] = useState(false);
   const [paymentError, setPaymentError] = useState(null);
-  const [virtualAccount, setVirtualAccount] = useState(null);
-  const [isGeneratingAccount, setIsGeneratingAccount] = useState(false);
   const contentRef = useRef(null);
   const sliderControls = useAnimation();
   const SLIDER_THRESHOLD = 0.5;
   const SLIDER_WIDTH = 300;
   const router = useRouter();
-
-  // Initialize the custom hook
-  const {
-    data: accountData,
-    error: accountError,
-    loading: accountLoading,
-    request: generateAccount,
-    errorDetail: accountErrorDetail,
-  } = useRequest();
 
   const accessToken = useSelector((state) => state.user.accessToken);
   const isAuthenticated = useSelector((state) => state.user.isAuthenticated);
@@ -191,9 +179,9 @@ const TransferPage = () => {
   }, [myUserData]);
 
   useEffect(() => {
+    // Prefetch routes for better performance
     router.prefetch("orders");
   });
-
   // Fetch merchant information
   const {
     data: merchantData,
@@ -209,12 +197,15 @@ const TransferPage = () => {
     retry: 3,
     retryDelay: 1000,
     refetchOnWindowFocus: false,
-    staleTime: 60000,
-    cacheTime: 300000,
+    staleTime: 60000, // 1 minute
+    cacheTime: 300000, // 5 minutes
   });
 
+  // Correctly extract merchant info from the API response
+  // The structure is merchantData.data.data
   const merchantInfo = merchantData?.data?.data || null;
 
+  // Extract range from merchant info
   const range = merchantInfo
     ? {
         min: merchantInfo.minAmount || 1000,
@@ -222,9 +213,21 @@ const TransferPage = () => {
       }
     : { min: 0, max: 0 };
 
+  // Extract merchant name
   const merchant = merchantInfo
     ? merchantInfo.displayName || "Unknown"
     : "Loading...";
+
+  // Create bank details object
+  // Note: In the provided data, there are no bank details, so we'd need to add this
+  // Assuming the bank details would be properties of the merchantInfo object
+  const bankDetails = merchantInfo
+    ? {
+        bankName: merchantInfo.bankName || "N/A",
+        accountNumber: merchantInfo.accountNumber || "N/A",
+        accountName: merchantInfo.accountName || "N/A",
+      }
+    : { bankName: "N/A", accountNumber: "N/A", accountName: "N/A" };
 
   // Fetch charge summary when amount is valid
   const {
@@ -234,7 +237,7 @@ const TransferPage = () => {
   } = useQuery({
     queryKey: ["chargeSummary", accessToken, amount],
     queryFn: () => fetchChargeSummary(accessToken, amount, router),
-    enabled: false,
+    enabled: false, // We'll manually trigger this
     retry: 3,
     retryDelay: 1000,
     refetchOnWindowFocus: false,
@@ -242,51 +245,19 @@ const TransferPage = () => {
 
   useEffect(() => {
     if (chargeSummaryData?.data?.data) {
-      console.log("Charge summary data received:", chargeSummaryData.data.data);
       setChargeData(chargeSummaryData.data.data);
     }
   }, [chargeSummaryData]);
-
-  // Handle account generation response
-  useEffect(() => {
-    if (accountData?.data) {
-      console.log(accountData?.data.data);
-      setVirtualAccount(accountData.data.data);
-      setIsGeneratingAccount(false);
-    }
-  }, [accountData]);
-
-  // Handle account generation error
-  useEffect(() => {
-    if (accountError) {
-      setIsGeneratingAccount(false);
-      setPaymentError(accountErrorDetail || accountError);
-    }
-  }, [accountError, accountErrorDetail]);
 
   const isValidAmount = (value) => {
     const numValue = parseFloat(value);
     return numValue >= range.min && numValue <= range.max;
   };
 
-  // Calculate the amount to pay based on transfer type
-  const getAmountToPay = () => {
-    if (!chargeData) return 0;
-
-    if (transferType === "wallet") {
-      // For wallet transfer: exclude gateway fee
-      return chargeData.totalAmount - (chargeData.gatewayCharge || 0);
-    } else {
-      // For direct transfer: include all fees
-      return chargeData.totalAmount;
-    }
-  };
-
   // Check if wallet has sufficient balance
   const hasSufficientBalance = () => {
     if (!chargeData || !walletBalance) return false;
-    const amountNeeded = getAmountToPay();
-    return walletBalance >= amountNeeded;
+    return walletBalance >= chargeData.totalAmount;
   };
 
   const handleTabChange = (tab) => {
@@ -296,10 +267,9 @@ const TransferPage = () => {
   const handleAmountChange = (e) => {
     const value = e.target.value.replace(/[^0-9]/g, "");
     setAmount(value);
-    setChargeData(null);
-    setShowFeeBreakdown(false);
-    setPaymentError(null);
-    setVirtualAccount(null); // Reset virtual account when amount changes
+    setChargeData(null); // Reset charge data when amount changes
+    setShowFeeBreakdown(false); // Reset fee breakdown when amount changes
+    setPaymentError(null); // Reset payment error when amount changes
   };
 
   // Fetch charge summary when amount is valid
@@ -313,37 +283,13 @@ const TransferPage = () => {
     router.push("/orders");
   };
 
-  const handleCopyAccountNumber = async (accountNumber) => {
+  const handleCopyAccountNumber = async () => {
     try {
-      await navigator.clipboard.writeText(accountNumber);
+      await navigator.clipboard.writeText(bankDetails.accountNumber);
       setShowCopySuccess(true);
       setTimeout(() => setShowCopySuccess(false), 2000);
     } catch (err) {
       console.error("Failed to copy account number:", err);
-    }
-  };
-
-  // Generate virtual account for direct transfer
-  const handleGenerateAccount = async () => {
-    if (!accessToken || !amount || !chargeData) return;
-
-    setIsGeneratingAccount(true);
-    setPaymentError(null);
-
-    const selectedMerchantId = localStorage.getItem("selectedMerchantId");
-
-    try {
-      await generateAccount("/api/user", "POST", {
-        accessToken,
-        apiType: "generateAccountVirtual",
-        type: "order",
-        userId2: selectedMerchantId,
-        amount: getAmountToPay(),
-      });
-    } catch (error) {
-      console.error("Error generating account:", error);
-      setIsGeneratingAccount(false);
-      setPaymentError("Failed to generate account. Please try again.");
     }
   };
 
@@ -360,10 +306,10 @@ const TransferPage = () => {
 
   const handlePaymentProcess = async () => {
     if (transferType === "wallet" && chargeData) {
+      // Check if user has sufficient balance
       if (!hasSufficientBalance()) {
-        const amountNeeded = getAmountToPay();
         setPaymentError(
-          `Insufficient wallet balance. You need ₦${amountNeeded.toLocaleString()} but only have ₦${walletBalance.toLocaleString()}`
+          `Insufficient wallet balance. You need ₦${chargeData.totalAmount.toLocaleString()} but only have ₦${walletBalance.toLocaleString()}`
         );
         return false;
       }
@@ -379,7 +325,7 @@ const TransferPage = () => {
           accessToken,
           userId,
           selectedMerchantId,
-          getAmountToPay(), // Amount to deduct from wallet (excluding gateway fee)
+          chargeData.totalAmount, // Total amount including charges
           Number(amount) // Ordered amount
         );
 
@@ -387,9 +333,9 @@ const TransferPage = () => {
           console.log("Payment successful:", paymentResponse);
           return true;
         } else {
-          setPaymentError(
-            paymentResponse.details || "Payment failed. Please try again."
-          );
+          setPaymentError(paymentResponse.details);
+
+          //setPaymentError("Payment failed. Please try again.");
           return false;
         }
       } catch (error) {
@@ -401,6 +347,7 @@ const TransferPage = () => {
       }
     }
 
+    // For direct transfer, just return true (no payment processing needed)
     return true;
   };
 
@@ -409,6 +356,7 @@ const TransferPage = () => {
     const progress = info.offset.x / SLIDER_WIDTH;
 
     if (progress >= SLIDER_THRESHOLD) {
+      // Process payment if it's a wallet transfer
       const paymentSuccess = await handlePaymentProcess();
 
       if (paymentSuccess) {
@@ -419,6 +367,7 @@ const TransferPage = () => {
         setSliderPosition("end");
         setShowSuccessModal(true);
       } else {
+        // Reset slider if payment failed
         sliderControls.start({
           x: 0,
           transition: { duration: 0.2, ease: "easeOut" },
@@ -438,6 +387,27 @@ const TransferPage = () => {
     sliderControls.start({ x: 0 });
     setSliderPosition("start");
   }, [transferType, sliderControls]);
+
+  // Calculate price per thousand based on the amount
+  const getPricePerThousand = (amount) => {
+    if (!merchantInfo || !merchantInfo.pricePerThousand) return 0;
+
+    try {
+      const priceRanges = JSON.parse(merchantInfo.pricePerThousand);
+
+      // Find applicable price range
+      for (let i = priceRanges.length - 1; i >= 0; i--) {
+        if (amount >= priceRanges[i].amount) {
+          return priceRanges[i].charge;
+        }
+      }
+
+      return priceRanges[0]?.charge || 0;
+    } catch (error) {
+      console.error("Error parsing pricePerThousand:", error);
+      return 0;
+    }
+  };
 
   return (
     <ProtectedRoute>
@@ -521,17 +491,15 @@ const TransferPage = () => {
                 </div>
               )}
 
-              {/* Enhanced Charge Display with Transfer Type Awareness */}
+              {/* Simplified Charge Display */}
               {chargeData && (
                 <div className="mt-3 space-y-2">
                   <div className="flex justify-between items-center">
                     <div className="text-amber-800 text-base font-semibold">
-                      {transferType === "wallet"
-                        ? "Wallet deduction:"
-                        : "You will pay:"}
+                      You will pay:
                     </div>
                     <div className="text-amber-800 text-base font-semibold">
-                      ₦{getAmountToPay().toLocaleString()}
+                      ₦{chargeData.totalAmount?.toLocaleString() || "0"}
                     </div>
                   </div>
 
@@ -542,38 +510,48 @@ const TransferPage = () => {
 
                   <div className="flex justify-between items-center text-sm text-amber-600">
                     <div className="flex items-center">
-                      <span>Service fee:</span>
+                      <span>Fee:</span>
+                      <button
+                        className="ml-1 text-amber-500 text-xs underline flex items-center"
+                        onClick={() => setShowFeeBreakdown(!showFeeBreakdown)}
+                      >
+                        <span>
+                          {showFeeBreakdown ? "Hide details" : "See details"}
+                        </span>
+                        {showFeeBreakdown ? (
+                          <ChevronUp className="h-3 w-3 ml-1" />
+                        ) : (
+                          <ChevronDown className="h-3 w-3 ml-1" />
+                        )}
+                      </button>
                     </div>
                     <div>
-                      ₦{chargeData.serviceCharge?.toLocaleString() || "0"}
+                      ₦
+                      {(
+                        chargeData.totalAmount - Number(amount)
+                      ).toLocaleString()}
                     </div>
                   </div>
 
-                  <div className="flex justify-between items-center text-sm text-amber-600">
-                    <div>Merchant fee:</div>
-                    <div>
-                      ₦{chargeData.merchantCharge?.toLocaleString() || "0"}
-                    </div>
-                  </div>
-
-                  {transferType === "direct" && (
-                    <div className="flex justify-between items-center text-sm text-amber-600">
-                      <div>Gateway fee:</div>
-                      <div>
-                        ₦{chargeData.gatewayCharge?.toLocaleString() || "0"}
+                  {showFeeBreakdown && (
+                    <div className="pl-4 pt-1 border-l-2 border-amber-200 space-y-1 mt-1 text-xs">
+                      <div className="flex justify-between text-amber-600">
+                        <span>Service charge:</span>
+                        <span>
+                          ₦{chargeData.serviceCharge?.toLocaleString() || "0"}
+                        </span>
                       </div>
-                    </div>
-                  )}
-
-                  {transferType === "wallet" && (
-                    <div className="bg-green-50 border border-green-200 rounded-lg p-3 mt-2">
-                      <div className="text-xs text-green-700 font-medium mb-1">
-                        💡 Wallet Transfer Benefit
+                      <div className="flex justify-between text-amber-600">
+                        <span>Merchant fee:</span>
+                        <span>
+                          ₦{chargeData.merchantCharge?.toLocaleString() || "0"}
+                        </span>
                       </div>
-                      <div className="text-xs text-green-600">
-                        Gateway fee (₦
-                        {chargeData.gatewayCharge?.toLocaleString() || "0"}) is
-                        waived for wallet transfers!
+                      <div className="flex justify-between text-amber-600">
+                        <span>Gateway fee:</span>
+                        <span>
+                          ₦{chargeData.gatewayCharge?.toLocaleString() || "0"}
+                        </span>
                       </div>
                     </div>
                   )}
@@ -610,9 +588,6 @@ const TransferPage = () => {
                   <span className="text-sm font-medium text-amber-900">
                     Direct Transfer
                   </span>
-                  <span className="text-xs text-amber-600 text-center">
-                    Pay ₦{chargeData.totalAmount.toLocaleString()}
-                  </span>
                 </button>
 
                 <button
@@ -629,10 +604,6 @@ const TransferPage = () => {
                   <Wallet className="h-6 w-6 text-amber-600" />
                   <span className="text-sm font-medium text-amber-900">
                     Wallet Transfer
-                  </span>
-                  <span className="text-xs text-green-600 text-center">
-                    Pay ₦{getAmountToPay().toLocaleString()} (Gateway fee
-                    waived!)
                   </span>
                   {chargeData && !hasSufficientBalance() && (
                     <span className="text-xs text-red-500">
@@ -659,28 +630,8 @@ const TransferPage = () => {
                 animate={{ opacity: 1, y: 0 }}
                 className="bg-white rounded-lg p-4 shadow-sm space-y-4"
               >
-                <div className="flex justify-between items-center">
+                <div className="space-y-2">
                   <div className="text-sm text-amber-600">Account Details</div>
-                  <button
-                    onClick={handleGenerateAccount}
-                    disabled={isGeneratingAccount}
-                    className="flex items-center space-x-2 px-3 py-1 bg-amber-500 text-white rounded-lg text-sm hover:bg-amber-600 transition-colors disabled:opacity-50"
-                  >
-                    {isGeneratingAccount ? (
-                      <>
-                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-                        <span>Generating...</span>
-                      </>
-                    ) : (
-                      <>
-                        <RefreshCw className="h-4 w-4" />
-                        <span>Generate Account</span>
-                      </>
-                    )}
-                  </button>
-                </div>
-
-                {virtualAccount && (
                   <div className="p-4 bg-amber-50 rounded-lg">
                     <div className="space-y-2">
                       <div>
@@ -688,7 +639,7 @@ const TransferPage = () => {
                           Bank Name:
                         </span>
                         <span className="ml-2 text-amber-900 font-medium">
-                          {virtualAccount.bankName || "N/A"}
+                          {bankDetails.bankName}
                         </span>
                       </div>
                       <div className="flex items-center justify-between">
@@ -697,15 +648,11 @@ const TransferPage = () => {
                             Account Number:
                           </span>
                           <span className="ml-2 text-amber-900 font-medium">
-                            {virtualAccount.accountNumber || "N/A"}
+                            {bankDetails.accountNumber}
                           </span>
                         </div>
                         <button
-                          onClick={() =>
-                            handleCopyAccountNumber(
-                              virtualAccount.accountNumber
-                            )
-                          }
+                          onClick={handleCopyAccountNumber}
                           className="p-2 hover:bg-amber-100 rounded-full transition-colors"
                           title="Copy account number"
                         >
@@ -722,30 +669,12 @@ const TransferPage = () => {
                           Account Name:
                         </span>
                         <span className="ml-2 text-amber-900 font-medium">
-                          {virtualAccount.accountName || "N/A"}
+                          {bankDetails.accountName}
                         </span>
                       </div>
-                      <div className="mt-3 p-3 bg-blue-50 border border-blue-200 rounded-lg">
-                        <div className="text-sm text-blue-700 font-medium">
-                          💡 Important: Transfer exactly ₦
-                          {getAmountToPay().toLocaleString()}
-                        </div>
-                        <div className="text-xs text-blue-600 mt-1">
-                          This account is valid for 30 minutes. Any other amount
-                          will be sent to wallet.
-                        </div>
-                      </div>
                     </div>
                   </div>
-                )}
-
-                {!virtualAccount && !isGeneratingAccount && (
-                  <div className="p-4 bg-gray-50 rounded-lg text-center">
-                    <div className="text-gray-600 text-sm">
-                      Click Generate Account to get transfer details
-                    </div>
-                  </div>
-                )}
+                </div>
               </motion.div>
             )}
 
@@ -791,7 +720,7 @@ const TransferPage = () => {
                       </div>
                       {!hasSufficientBalance() && (
                         <div className="text-red-600 text-sm">
-                          Required: ₦{getAmountToPay().toLocaleString()}
+                          Required: ₦{chargeData.totalAmount.toLocaleString()}
                         </div>
                       )}
                     </div>
@@ -881,8 +810,8 @@ const TransferPage = () => {
                 </h3>
                 <p className="text-gray-600 mb-6">
                   Your {transferType === "wallet" ? "payment" : "transfer"} of ₦
-                  {getAmountToPay()?.toLocaleString() || "0"} has been processed
-                  successfully.
+                  {chargeData.totalAmount?.toLocaleString() || "0"} has been
+                  processed successfully.
                 </p>
                 <button
                   onClick={() => setShowSuccessModal(false)}

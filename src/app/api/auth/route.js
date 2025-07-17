@@ -1,15 +1,44 @@
 import axios from "axios";
 const axiosInstance = axios.create({
-  baseURL: "https://fidopoint.onrender.com/api/v1", // Base URL  http://localhost:5000  //https://fidopoint.onrender.com/api/v1
+  baseURL: "http://localhost:5000/api/v1", // Base URL  http://localhost:5000  //https://fidopoint.onrender.com/api/v1
   headers: {
     "Content-Type": "application/json", // Set default content-type for the API requests
   },
-  timeout: 5000,
+  timeout: 25000,
 });
 
 export async function POST(req) {
   try {
-    const { apiType, ...requestData } = await req.json();
+    //const { apiType, ...requestData } = await req.json();
+
+    let apiType, requestData;
+    let formData;
+    let externalFormData = new FormData();
+
+    const contentType = req.headers.get("content-type");
+    if (contentType && contentType.includes("multipart/form-data")) {
+      formData = await req.formData();
+      externalFormData = new FormData();
+
+      apiType = formData.get("apiType");
+
+      // Copy all fields from the received formData
+      for (const [key, value] of formData.entries()) {
+        if (key !== "apiType" && key !== "accessToken") {
+          // Don't include apiType in the external request
+          externalFormData.append(key, value);
+        }
+      }
+    } else {
+      console.log("sssssssssssssssssssssssssssssssss");
+      // Handle JSON request
+      const jsonData = await req.json();
+      apiType = jsonData.apiType;
+
+      // Destructure to exclude specific fields
+      const { apiType: __, ...rest } = jsonData;
+      requestData = rest;
+    }
 
     if (!apiType) {
       return new Response(
@@ -57,6 +86,19 @@ export async function POST(req) {
 
       case "enterPassCode":
         response = await axiosInstance.post("/auth/enterPassCode", requestData);
+        break;
+
+      case "uploadImageGoogleDrive":
+        const config = {
+          headers: {},
+        };
+        config.headers["Content-Type"] = "multipart/form-data";
+        response = await axiosInstance.post(
+          "/auth/uploadImageGoogleDrive",
+          externalFormData,
+          config
+        );
+
         break;
       // Add other API types here
       default:

@@ -2,6 +2,7 @@ import localFont from "next/font/local";
 import "./globals.css";
 import Providers from "./providers";
 import ProvidersRedux from "./providers-redux";
+import { Toaster } from "sonner";
 
 const geistSans = localFont({
   src: "./fonts/GeistVF.woff",
@@ -25,10 +26,10 @@ export const viewport = {
   userScalable: false,
 }*/
 
-const APP_NAME = "Fintread";
+const APP_NAME = "Fidopoint";
 const APP_DEFAULT_TITLE = "My Awesome PWA App";
 const APP_TITLE_TEMPLATE = "%s - PWA App";
-const APP_DESCRIPTION = "Best PWA app in the world!";
+const APP_DESCRIPTION = "Best p2p app";
 
 export const metadata = {
   applicationName: APP_NAME,
@@ -77,6 +78,7 @@ export default function RootLayout({ children }) {
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
+        <Toaster position="top-right" richColors />
         <ProvidersRedux>
           <Providers>{children}</Providers>
         </ProvidersRedux>

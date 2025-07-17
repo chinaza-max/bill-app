@@ -4,6 +4,7 @@
 import React from "react";
 import Image from "next/image";
 import { ArrowUpRight, ArrowDown } from "lucide-react";
+import PWAInstaller from "../components/PWAInstaller";
 
 const PWAInstallGuide = () => {
   return (
@@ -54,6 +55,8 @@ const PWAInstallGuide = () => {
           </div>
         </div>
       </div>
+
+      <PWAInstaller />
     </div>
   );
 };

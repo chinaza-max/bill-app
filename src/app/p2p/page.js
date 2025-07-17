@@ -235,6 +235,10 @@ const P2PPage = () => {
 
     const formattedRanges = formatRanges(offer.priceRanges);
 
+    useEffect(() => {
+      router.prefetch("p2p/transfer");
+    });
+
     return (
       <div className="bg-white rounded-lg shadow-lg p-4">
         <div className="flex items-center justify-between mb-4">

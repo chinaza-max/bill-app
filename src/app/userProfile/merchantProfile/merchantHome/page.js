@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState, useRef, useEffect, useCallback } from "react";
 import {
   Bell,
   ChevronDown,
@@ -18,18 +18,23 @@ import {
   Loader,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
-//import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useSelector } from "react-redux";
 import { useRouter } from "next/navigation";
 import ProtectedRoute from "@/app/component/protect";
+import useRequest from "@/hooks/useRequest";
+import Image from "next/image";
 
 const MerchantApp = () => {
+  const {
+    data: orderStats,
+    loading: loadingStats,
+    request: getOrderStatistic,
+  } = useRequest();
+
   // Initialize isBalanceVisible from localStorage or default to false
   const [isBalanceVisible, setIsBalanceVisible] = useState(() => {
-    // Check if we're in a browser environment
     if (typeof window !== "undefined") {
       const savedState = localStorage.getItem("isBalanceVisible");
-      // Parse the value from localStorage or default to false
       return savedState ? JSON.parse(savedState) : false;
     }
     return false;
@@ -50,59 +55,47 @@ const MerchantApp = () => {
   const intervalRef = useRef(null);
   const myUserData = useSelector((state) => state.user.user);
   const accessToken = useSelector((state) => state.user.accessToken);
-  //const queryClient = useQueryClient();
 
   // Default merchant data (fallback when API data is not available)
   const defaultMerchantData = {
     Balance: 0,
     EscrowBalance: 0,
-    SuccessFullCount: 0,
+    CompletedCount: 0,
     PendingCount: 0,
     CancellCount: 0,
-    FailedCount: 0,
+    InProgressCount: 0,
   };
 
   const [merchantData, setMerchantData] = useState(defaultMerchantData);
-  const [isLoadingStats, setIsLoadingStats] = useState(false);
 
-  const getOrderStatistic = async (token) => {
-    console.log("Fetching order statistics with token:", token);
-    const queryParams = new URLSearchParams({
-      token: token,
-      apiType: "getOrderStatistic",
-    }).toString();
-    const response = await fetch(`/api/user?${queryParams}`);
+  // Memoize the fetchOrderStatistics function to prevent unnecessary re-renders
+  const fetchOrderStatistics = useCallback(async () => {
+    if (accessToken) {
+      try {
+        const queryParams = new URLSearchParams({
+          token: accessToken,
+          apiType: "getOrderStatistic",
+        }).toString();
 
-    if (!response.ok) throw new Error("Error fetching items");
-    return response.json();
-  };
+        const result = await getOrderStatistic("/api/user?" + queryParams);
+        const data = result?.data?.data;
+        if (data) {
+          let updatedMerchantData = {
+            ...data,
+            InProgressCount: data.InProgressCount || 0,
+          };
+          setMerchantData(updatedMerchantData);
+        }
+      } catch (error) {
+        console.error("Error fetching order statistics:", error);
+      }
+    }
+  }, [accessToken, getOrderStatistic]);
 
   // Use useEffect to trigger the API call when accessToken becomes available
   useEffect(() => {
-    const fetchOrderStatistics = async () => {
-      if (accessToken) {
-        try {
-          setIsLoadingStats(true);
-          const result = await getOrderStatistic(accessToken);
-          const data = result?.data?.data;
-          if (data) {
-            let defaultMerchantData2 = {
-              ...data,
-              FailedCount: 0,
-            };
-
-            setMerchantData(defaultMerchantData2);
-          }
-        } catch (error) {
-          console.error("Error fetching order statistics:", error);
-        } finally {
-          setIsLoadingStats(false);
-        }
-      }
-    };
-
     fetchOrderStatistics();
-  }, [accessToken]);
+  }, [fetchOrderStatistics]);
 
   // Minimum swipe distance (in px)
   const minSwipeDistance = 50;
@@ -125,7 +118,6 @@ const MerchantApp = () => {
   const toggleBalanceVisibility = () => {
     const newState = !isBalanceVisible;
     setIsBalanceVisible(newState);
-    // Save the new state to localStorage
     localStorage.setItem("isBalanceVisible", JSON.stringify(newState));
   };
 
@@ -161,31 +153,31 @@ const MerchantApp = () => {
     }
   };
 
-  // Carousel control functions
-  const startInterval = () => {
+  // Carousel control functions - memoized to prevent recreating on every render
+  const startInterval = useCallback(() => {
     if (!intervalRef.current) {
       intervalRef.current = setInterval(() => {
-        nextSlide();
+        setCurrentSlide((prev) => (prev + 1) % balanceItems.length);
       }, 6000);
     }
-  };
+  }, [balanceItems.length]);
 
-  const stopInterval = () => {
+  const stopInterval = useCallback(() => {
     if (intervalRef.current) {
       clearInterval(intervalRef.current);
       intervalRef.current = null;
     }
-  };
+  }, []);
 
-  const nextSlide = () => {
+  const nextSlide = useCallback(() => {
     setCurrentSlide((prev) => (prev + 1) % balanceItems.length);
-  };
+  }, [balanceItems.length]);
 
-  const prevSlide = () => {
+  const prevSlide = useCallback(() => {
     setCurrentSlide(
       (prev) => (prev - 1 + balanceItems.length) % balanceItems.length
     );
-  };
+  }, [balanceItems.length]);
 
   const handleTabChange = (tab) => {
     setActiveTab(tab);
@@ -196,23 +188,35 @@ const MerchantApp = () => {
     router.push(`/${tab}`);
   };
 
+  // Handle order card clicks
+  const handleOrderCardClick = (orderType) => {
+    // Store the selected order type in localStorage
+    console.log("Selected order type:", orderType);
+    console.log("Selected order type:", orderType);
+    console.log("Selected order type:", orderType);
+
+    localStorage.setItem("selectedOrderTab", orderType);
+    router.push("/orders/merchantOrders");
+  };
+
   useEffect(() => {
     localStorage.setItem("who", "merchant");
-
     startInterval();
     return () => stopInterval();
-  }, []);
+  }, [startInterval, stopInterval]);
 
-  //myUserData
   useEffect(() => {
     console.log("User data updated:", myUserData);
   }, [myUserData]);
 
-  const StatCard = ({ title, value, icon: Icon, color }) => (
+  const StatCard = ({ title, value, icon: Icon, color, onClick }) => (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
-      className="bg-white p-4 rounded-lg shadow-sm flex flex-col items-center justify-center"
+      className="bg-white p-4 rounded-lg shadow-sm flex flex-col items-center justify-center cursor-pointer hover:shadow-md transition-shadow"
+      onClick={onClick}
+      whileHover={{ scale: 1.02 }}
+      whileTap={{ scale: 0.98 }}
     >
       <Icon className={`h-8 w-8 ${color} mb-2`} />
       <span className="text-2xl font-bold text-gray-800">{value}</span>
@@ -234,15 +238,15 @@ const MerchantApp = () => {
     </div>
   );
 
-  //const router = useRouter()
   useEffect(() => {
-    router.prefetch("/userProfile/merchantProfile/merchantHome/createAds");
-
-    router.prefetch("/userProfile/merchantProfile/merchantHome/viewAds");
-    router.prefetch("/userProfile/merchantProfile/merchantHome/settings");
-    router.prefetch("/home/notification");
-    router.prefetch("/home/orders");
-    router.prefetch("/home/ads");
+    router.prefetch("userProfile/merchantProfile/merchantHome/createAds");
+    router.prefetch("userProfile/merchantProfile/merchantHome/viewAds");
+    router.prefetch("userProfile/merchantProfile/merchantHome/settings");
+    router.prefetch("home/notification");
+    router.prefetch("home/orders");
+    router.prefetch("home/ads");
+    router.prefetch("orders");
+    router.prefetch("orders/merchantOrders");
   }, [router]);
 
   return (
@@ -253,7 +257,7 @@ const MerchantApp = () => {
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-3">
               <div className="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center text-white">
-                <img
+                <Image
                   onClick={() => handleTabChange("userProfile")}
                   src={
                     myUserData
@@ -337,7 +341,7 @@ const MerchantApp = () => {
             >
               <AnimatePresence initial={false} mode="wait">
                 <motion.div
-                  key={currentSlide}
+                  key={`slide-${currentSlide}`}
                   initial={{ opacity: 0, x: 100 }}
                   animate={{ opacity: 1, x: 0 }}
                   exit={{ opacity: 0, x: -100 }}
@@ -385,7 +389,7 @@ const MerchantApp = () => {
           </div>
 
           {/* Loading Indicator */}
-          {isLoadingStats && <LoadingSpinner />}
+          {loadingStats && <LoadingSpinner />}
 
           {/* Order Statistics Grid */}
           <div className="p-4">
@@ -394,28 +398,32 @@ const MerchantApp = () => {
             </h2>
             <div className="grid grid-cols-2 gap-4">
               <StatCard
-                title="Successful"
-                value={isLoadingStats ? "..." : merchantData.SuccessFullCount}
+                title="Completed"
+                value={loadingStats ? "..." : merchantData.CompletedCount}
                 icon={CheckCircle}
                 color="text-emerald-500"
+                onClick={() => handleOrderCardClick("completed")}
               />
               <StatCard
-                title="Failed"
-                value={isLoadingStats ? "..." : merchantData.FailedCount || 0}
-                icon={XCircle}
-                color="text-red-500"
+                title="In Progress"
+                value={loadingStats ? "..." : merchantData.InProgressCount || 0}
+                icon={AlertCircle}
+                color="text-blue-500"
+                onClick={() => handleOrderCardClick("inProgress")}
               />
               <StatCard
                 title="Pending"
-                value={isLoadingStats ? "..." : merchantData.PendingCount}
+                value={loadingStats ? "..." : merchantData.PendingCount}
                 icon={Clock}
                 color="text-yellow-500"
+                onClick={() => handleOrderCardClick("pending")}
               />
               <StatCard
                 title="Cancelled"
-                value={isLoadingStats ? "..." : merchantData.CancellCount}
-                icon={AlertCircle}
-                color="text-gray-500"
+                value={loadingStats ? "..." : merchantData.CancellCount}
+                icon={XCircle}
+                color="text-red-500"
+                onClick={() => handleOrderCardClick("cancelled")}
               />
             </div>
 
@@ -463,11 +471,18 @@ const MerchantApp = () => {
             <motion.button
               whileTap={{ scale: 0.95 }}
               onClick={() => handleTabChange("orders")}
-              className={`flex flex-col items-center p-2 ${
+              className={`flex flex-col items-center p-2 relative ${
                 activeTab === "orders" ? "text-emerald-600" : "text-emerald-400"
               }`}
             >
-              <ShoppingBag className="h-6 w-6" />
+              <div className="relative">
+                <ShoppingBag className="h-6 w-6" />
+                {merchantData.PendingCount > 0 && (
+                  <span className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full text-xs w-5 h-5 flex items-center justify-center font-bold">
+                    {merchantData.PendingCount}
+                  </span>
+                )}
+              </div>
               <span className="text-xs mt-1">Orders</span>
             </motion.button>
 

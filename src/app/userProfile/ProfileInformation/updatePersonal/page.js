@@ -1,19 +1,20 @@
-'use client';
+"use client";
 
-import React, { useState, useRef } from 'react';
-import { ArrowLeft, Check, AlertCircle, Camera, Upload } from 'lucide-react';
-import { motion } from 'framer-motion';
-import { useRouter } from 'next/navigation';
+import React, { useState, useRef } from "react";
+import { ArrowLeft, Check, AlertCircle, Camera, Upload } from "lucide-react";
+import { motion } from "framer-motion";
+import { useRouter } from "next/navigation";
+import Image from "next/image";
 
 const PersonalInfoEditPage = () => {
   const [userProfile, setUserProfile] = useState({
-    firstName: 'John',
-    lastName: 'Carter',
-    dateOfBirth: '1990-01-01',
-    email: 'john.carter@example.com',
-    phoneNumber: '+234 800 123 4567',
+    firstName: "John",
+    lastName: "Carter",
+    dateOfBirth: "1990-01-01",
+    email: "john.carter@example.com",
+    phoneNumber: "+234 800 123 4567",
     isPhoneVerified: true,
-    profilePicture: '../../avatar.jpg'
+    profilePicture: "../../avatar.jpg",
   });
 
   const [previewImage, setPreviewImage] = useState(null);
@@ -26,9 +27,9 @@ const PersonalInfoEditPage = () => {
 
   const handleChange = (e) => {
     const { name, value } = e.target;
-    setUserProfile(prev => ({
+    setUserProfile((prev) => ({
       ...prev,
-      [name]: value
+      [name]: value,
     }));
   };
 
@@ -52,12 +53,12 @@ const PersonalInfoEditPage = () => {
     // Handle update logic here
     // Include profile picture update if changed
     if (previewImage) {
-      setUserProfile(prev => ({
+      setUserProfile((prev) => ({
         ...prev,
-        profilePicture: previewImage
+        profilePicture: previewImage,
       }));
     }
-    router.push('/profile');
+    router.push("/profile");
   };
 
   return (
@@ -75,10 +76,12 @@ const PersonalInfoEditPage = () => {
         <form onSubmit={handleSubmit} className="space-y-6">
           {/* Profile Picture Section */}
           <div className="bg-white rounded-lg p-4 shadow-sm">
-            <h2 className="text-lg font-semibold text-amber-900 mb-4">Profile Picture</h2>
+            <h2 className="text-lg font-semibold text-amber-900 mb-4">
+              Profile Picture
+            </h2>
             <div className="flex flex-col items-center space-y-4">
               <div className="relative">
-                <img
+                <Image
                   src={previewImage || userProfile.profilePicture}
                   alt="Profile"
                   className="w-32 h-32 rounded-full object-cover border-4 border-amber-200"
@@ -100,7 +103,9 @@ const PersonalInfoEditPage = () => {
               />
               {previewImage && (
                 <div className="flex items-center space-x-2">
-                  <span className="text-sm text-amber-700">New image selected</span>
+                  <span className="text-sm text-amber-700">
+                    New image selected
+                  </span>
                   <Upload className="h-4 w-4 text-amber-500" />
                 </div>
               )}

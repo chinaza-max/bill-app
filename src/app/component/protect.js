@@ -28,6 +28,9 @@ const ProtectedLayout = ({ children }) => {
           `/api/user?apiType=userData&token=${userDataDe.accessToken}`
         );
 
+        console.log("userDataDe", userDataDe);
+        console.log("response.ok", response.ok);
+
         if (!response.ok) {
           const data = await response.json();
 
@@ -89,88 +92,3 @@ const ProtectedLayout = ({ children }) => {
 };
 
 export default ProtectedLayout;
-
-/*"use client";
-import { useRouter } from "next/navigation";
-import { useSelector, useDispatch } from "react-redux";
-import { useState, useEffect } from "react";
-import { decryptData } from "../../utils/data-encryption";
-import { setUser, setPasscodeStatus } from "@/store/slice";
-import getErrorMessage from "@/app/component/error";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-
-const ProtectedLayout = ({ children }) => {
-  const router = useRouter();
-  const dispatch = useDispatch();
-  const queryClient = useQueryClient();
-  const { isAuthenticated, isPasscodeEntered } = useSelector(
-    (state) => state.user
-  );
-
-  // State to store decrypted user data from localStorage
-  const [localUserData, setLocalUserData] = useState(null);
-
-  // Load and decrypt user data from localStorage on mount
-  useEffect(() => {
-    const userDataEn = localStorage.getItem("userData");
-
-    if (userDataEn) {
-      const userDataDe = decryptData(userDataEn);
-
-      console.log(userDataDe);
-      const fetchUserData = async () => {
-        const response = await fetch(
-          `/api/user?apiType=userData&token=${userDataDe.accessToken}`,
-          {
-            method: "GET",
-            headers: {
-              "Content-Type": "application/json",
-            },
-          }
-        );
-        console.log(response);
-        if (!response.ok) {
-          const data = await response.json();
-
-          //console.log(userDataDe?.isAuthenticated);
-          getErrorMessage(data, router, "", userDataDe?.isAuthenticated);
-
-          throw {
-            status: response.status,
-            message: data.message || "An unexpected error occurred",
-            details: data.details,
-          };
-        }
-
-        const userData = await response.json();
-
-        console.log(userData);
-        console.log(userDataDe.accessToken);
-        dispatch(
-          setUser({
-            user: userData.data.data,
-            accessToken: userDataDe.accessToken,
-            isAuthenticated: true,
-          })
-        );
-
-        if (userDataDe?.isPasscodeEntered !== true) {
-          router.push("/secureInput");
-        }
-
-        //return response.json();
-      };
-      fetchUserData();
-      //setLocalUserData(userDataDe);
-    } else if (!isAuthenticated) {
-      router.push("/sign-in");
-    } else {
-      router.push("/sign-in");
-    }
-  }, [isAuthenticated, router]);
-
-  return <>{children}</>;
-};
-
-export default ProtectedLayout;
-*/

@@ -8,6 +8,7 @@ import { useRouter } from "next/navigation";
 import { useSelector } from "react-redux";
 import * as faceapi from "face-api.js";
 import ProtectedRoute from "@/app/component/protect";
+import Image from "next/image";
 
 const VERIFICATION_STEPS = {
   INITIAL: "initial",
@@ -473,7 +474,7 @@ const FaceVerification = () => {
             {currentStep === VERIFICATION_STEPS.UPLOADING && (
               <div className="relative aspect-video bg-black rounded-lg overflow-hidden">
                 {capturedImage && (
-                  <img
+                  <Image
                     src={capturedImage}
                     alt="Captured face"
                     className="w-full h-full object-cover"
@@ -491,7 +492,7 @@ const FaceVerification = () => {
             {currentStep === VERIFICATION_STEPS.COMPLETE && (
               <div className="relative aspect-video bg-black rounded-lg overflow-hidden">
                 {capturedImage && (
-                  <img
+                  <Image
                     src={capturedImage}
                     alt="Verified face"
                     className="w-full h-full object-cover"

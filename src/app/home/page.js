@@ -22,6 +22,7 @@ import {
 import ProtectedRoute from "@/app/component/protect";
 import WalletBalanceCard from "@/app/component/walletBalanceCard";
 import EnhancedCarousel from "@/app/component/enhancedCarousel";
+import useRequest from "@/hooks/useRequest";
 
 import { useRouter, usePathname } from "next/navigation";
 import BottomNav from "../component/bottomNav";
@@ -29,6 +30,7 @@ import { useSelector } from "react-redux";
 import useVisibility from "../component/useVisibility";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import getErrorMessage from "@/app/component/error";
+import { useNotifications } from "../../hooks/useNotifications";
 
 // Enhanced transaction fetcher with better error handling
 const fetchTransaction = async (accessToken) => {
@@ -221,6 +223,9 @@ const MobileApp = () => {
   const [isBalanceVisible, setIsBalanceVisible] = useState(false);
   const [showPulseAnimation, setShowPulseAnimation] = useState(false);
   const [hasInteractedWithSwitch, setHasInteractedWithSwitch] = useState(false);
+  const { token, notification, sendTestNotification } = useNotifications();
+
+  const [numberOfOrder, setNumberOfOrder] = useState(0);
 
   const data2 = useSelector((state) => state.user);
   const accessToken = useSelector((state) => state.user.accessToken);
@@ -229,6 +234,19 @@ const MobileApp = () => {
   const queryClient = useQueryClient();
   const dropdownRef = useRef(null);
   const pulseTimerRef = useRef(null);
+  const { data, error: apierror, loading, request } = useRequest();
+  const {
+    data: order,
+    error: orderError,
+    loading: loadingLoading,
+    request: getOrder,
+  } = useRequest();
+
+  const {
+    data: users,
+    loading: loadingUsers,
+    request: StoreFCMToken,
+  } = useRequest();
 
   useVisibility();
 
@@ -265,6 +283,40 @@ const MobileApp = () => {
       setHasInteractedWithSwitch(hasInteracted === "true");
     }
   }, []);
+
+  useEffect(() => {
+    if (token) {
+      // Send token to your backend to store for sending notifications
+      console.log("FCM Token:", token);
+      // sendTokenToServer(token);
+      if (accessToken) {
+        StoreFCMToken("/api/user", "POST", {
+          accessToken,
+          apiType: "updateToken",
+          fcmToken: token,
+        });
+      }
+    }
+  }, [token, accessToken]);
+
+  useEffect(() => {
+    if (accessToken) {
+      const queryParams = new URLSearchParams({
+        token: accessToken,
+        apiType: "getMyOrders",
+        type: "active",
+        userType: "client",
+      }).toString();
+
+      getOrder(`/api/user?${queryParams}`, "GET");
+    }
+  }, [accessToken]);
+
+  useEffect(() => {
+    if (order) {
+      setNumberOfOrder(order.data?.data?.length);
+    }
+  }, [order]);
 
   // Function to handle switch interaction
   const handleSwitchInteraction = () => {
@@ -342,6 +394,7 @@ const MobileApp = () => {
         const user = data2.user.user;
 
         setImageUrl(user.imageUrl);
+
         setFullName(`${user.firstName} ${user.lastName}`);
 
         // Safely parse walletBalance
@@ -354,7 +407,7 @@ const MobileApp = () => {
           walletData = rawBalance;
         }
 
-        const balance = walletData.current ?? walletData.previous ?? 0;
+        const balance = walletData?.current ?? walletData?.previous ?? 0;
         setWalletBalance(balance);
       } catch (e) {
         console.error("Error handling user data in useEffect", e);
@@ -703,25 +756,9 @@ const MobileApp = () => {
 
           {/* Transactions */}
           <div className="p-4">
-            <div className="flex justify-between items-center mb-3">
-              <h2 className="text-lg font-semibold text-amber-900">
-                Recent Transactions
-              </h2>
-              {!isLoading && !isError && recentTransactions.length > 0 && (
-                <button
-                  onClick={() => router.push("/history")}
-                  className="text-sm text-amber-600 hover:text-amber-700"
-                >
-                  View All
-                </button>
-              )}
-            </div>
-
-            {renderTransactionsSection()}
-
             {/* Order Button */}
             <motion.div
-              className="mt-6"
+              className="mt-6  mb-4"
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.3 }}
@@ -741,11 +778,31 @@ const MobileApp = () => {
                 </span>
               </motion.button>
             </motion.div>
+
+            <div className="flex justify-between items-center mb-3">
+              <h2 className="text-lg font-semibold text-amber-900">
+                Recent Transactions
+              </h2>
+              {!isLoading && !isError && recentTransactions.length > 0 && (
+                <button
+                  onClick={() => router.push("/history")}
+                  className="text-sm text-amber-600 hover:text-amber-700"
+                >
+                  View All
+                </button>
+              )}
+            </div>
+
+            {renderTransactionsSection()}
           </div>
         </div>
 
         {/* Bottom Navigation */}
-        <BottomNav handleTabChangeP={handleTabChange} activeTabP={activeTab} />
+        <BottomNav
+          handleTabChangeP={handleTabChange}
+          activeTabP={activeTab}
+          pendingP={numberOfOrder}
+        />
       </div>
     </ProtectedRoute>
   );
