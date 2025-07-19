@@ -176,11 +176,25 @@ const TransferPage = () => {
   const isAuthenticated = useSelector((state) => state.user.isAuthenticated);
   const myUserData = useSelector((state) => state.user.user);
 
+  function safeParse(input) {
+    if (typeof input === "string") {
+      try {
+        return JSON.parse(input);
+      } catch (e) {
+        console.error("Failed to parse:", e);
+        return {};
+      }
+    }
+
+    console.log(input);
+    return input || {};
+  }
   // Extract wallet balance from myUserData
   useEffect(() => {
     if (myUserData?.user?.walletBalance) {
       try {
-        const balanceData = JSON.parse(myUserData.user.walletBalance);
+        const balanceData = safeParse(myUserData.user.walletBalance);
+
         setWalletBalance(balanceData.current || 0);
         console.log("Wallet balance extracted:", balanceData.current);
       } catch (error) {
