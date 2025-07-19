@@ -478,6 +478,8 @@ const FaceVerification = () => {
                     src={capturedImage}
                     alt="Captured face"
                     className="w-full h-full object-cover"
+                    width={100}
+                    height={100}
                   />
                 )}
                 <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/50">
@@ -496,6 +498,8 @@ const FaceVerification = () => {
                     src={capturedImage}
                     alt="Verified face"
                     className="w-full h-full object-cover"
+                    width={100}
+                    height={100}
                   />
                 )}
                 <div className="absolute inset-0 flex flex-col items-center justify-center bg-green-500/30">

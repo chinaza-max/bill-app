@@ -265,6 +265,8 @@ const MerchantApp = () => {
                       : "../../avatar.jpg"
                   }
                   alt="avatar"
+                  width={100}
+                  height={100}
                   className="w-full h-full object-cover rounded-full"
                 />
               </div>
