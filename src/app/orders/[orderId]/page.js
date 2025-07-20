@@ -2,14 +2,6 @@
 import { useParams } from "next/navigation";
 import OrderComponent from "@/app/component/order";
 
-
-export async function generateStaticParams() {
-  // Return some sample orderIds that should be pre-built
-  // You can return an empty array if you want all routes to be dynamic
-  return [];
-}
-
-
 export default function OrderPage() {
   const params = useParams();
   const orderId = params?.orderId;
