@@ -22,7 +22,10 @@ import { useParams } from "next/navigation";
 
 let socket;
 
-const SOCKET_SERVER_URL = "http://localhost:5000";
+//const SOCKET_SERVER_URL = "http://localhost:5000";
+const SOCKET_SERVER_URL = "https://fidopoint.onrender.com";
+
+//https://fidopoint.onrender.com/api/v1
 
 // Message Status Icons Component
 const MessageStatusIcon = ({ status, timestamp }) => {
