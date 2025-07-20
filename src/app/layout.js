@@ -27,7 +27,7 @@ export const viewport = {
 }*/
 
 const APP_NAME = "Fidopoint";
-const APP_DEFAULT_TITLE = "My Awesome PWA App";
+const APP_DEFAULT_TITLE = "Fido PWA App";
 const APP_TITLE_TEMPLATE = "%s - PWA App";
 const APP_DESCRIPTION = "Best p2p app";
 
