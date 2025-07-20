@@ -23,9 +23,9 @@ export const useLocationService = () => {
   const sendLocationToServer = async (latitude, longitude) => {
     try {
       console.log('Sending location:', latitude, longitude);
-      const response = await request("/api/user", "POST", {
-        lat:  toString(latitude),
-        lng:  toString(longitude),
+      await request("/api/user", "POST", {
+        lat:  latitude+"",
+        lng:  longitude+"",
         role: "user",
         accessToken,
         apiType: "updateUser",
@@ -74,6 +74,16 @@ const getCurrentLocation = useCallback(() => {
 
 
 const getFallbackLocation = async (resolve, reject) => {
+
+  console.log("fall back")
+    console.log("fall back")
+  console.log("fall back")
+  console.log("fall back")
+  console.log("fall back")
+  console.log("fall back")
+  console.log("fall back")
+  console.log("fall back")
+
   try {
     const response = await fetch('https://ipapi.co/json/');
     const data = await response.json();
