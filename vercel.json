@@ -1,8 +1,0 @@
-{
-  "rewrites": [{ "source": "/(.*)", "destination": "/index.html" }],
-  "functions": {
-    "app/orders/[orderId]/page.js": {
-      "maxDuration": 30
-    }
-  }
-}
