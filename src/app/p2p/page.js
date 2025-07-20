@@ -7,6 +7,7 @@ import ProtectedRoute from "@/app/component/protect";
 import { useQuery } from "@tanstack/react-query";
 import { useSelector } from "react-redux";
 import getErrorMessage from "@/app/component/error";
+import { useLocationService } from "@/hooks/locationService"; // Import the location service
 
 import {
   ArrowLeft,
@@ -71,8 +72,21 @@ const P2PPage = () => {
   const accessToken = useSelector((state) => state.user.accessToken);
   const isAuthenticated = useSelector((state) => state.user.isAuthenticated);
 
+
+    const {
+    isLocationEnabled,
+    locationPermission,
+    handleNavigation,
+    requestLocationPermission,
+    LocationPrompt
+  } = useLocationService();
+
+
+
   const handleTabChange = (tab) => {
     setActiveTab(tab);
+    handleNavigation();
+
     router.push(`/${tab}`);
   };
 
@@ -236,6 +250,19 @@ const P2PPage = () => {
     const formattedRanges = formatRanges(offer.priceRanges);
 
     useEffect(() => {
+
+
+      console.log("sssssssss")
+      console.log("sssssssss")
+      console.log("sssssssss")
+      console.log("sssssssss")
+      console.log("sssssssss")
+      console.log("sssssssss")
+      console.log("sssssssss")
+      console.log("sssssssss")
+      requestLocationPermission()
+      handleNavigation();
+
       router.prefetch("p2p/transfer");
     });
 
@@ -493,6 +520,9 @@ const P2PPage = () => {
   // Debug log to track data structure
   useEffect(() => {
     if (data) {
+
+            requestLocationPermission()
+
       console.log(
         "Full data response structure:",
         JSON.stringify(data, null, 2)
