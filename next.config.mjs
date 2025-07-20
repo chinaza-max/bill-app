@@ -2,6 +2,12 @@
 import withPWAInit from "@ducanh2912/next-pwa";
 
 const nextConfig = {
+  experimental: {
+    appDir: true,
+  },
+  // Ensure client-side routing works in PWA
+  trailingSlash: false,
+  assetPrefix: process.env.NODE_ENV === "production" ? "" : "",
   images: {
     remotePatterns: [
       {
