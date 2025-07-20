@@ -85,6 +85,8 @@ const PersonalInfoEditPage = () => {
                   src={previewImage || userProfile.profilePicture}
                   alt="Profile"
                   className="w-32 h-32 rounded-full object-cover border-4 border-amber-200"
+                  width={100}
+                  height={100}
                 />
                 <button
                   type="button"

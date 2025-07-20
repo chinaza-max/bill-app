@@ -28,17 +28,6 @@ const OnboardingScreen = () => {
 
   const handleSelection = (id) => {
     setSelected(id);
-
-    console.log(id);
-    /* updateUserProfile({ userType: id }, {
-      onError: (err) => {
-        setError(err?.response?.data?.message || "An error occurred while updating your profile");
-      },
-      onSuccess: () => {
-        router.push('/dashboard'); // Redirect to another page after successful update
-      }
-    });*/
-
     try {
       mutate({
         describeYou: id,
@@ -178,7 +167,7 @@ const OnboardingScreen = () => {
               ? "bg-amber-600 text-white hover:bg-amber-700"
               : "bg-gray-100 text-gray-400 cursor-not-allowed"
           }`}
-          onClick={() => router.push("/settingupSecurePin")}
+          onClick={() => router.push("/sign3-up")}
           disabled={!selected && !isSuccess}
         >
           Continue

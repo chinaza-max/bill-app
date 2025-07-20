@@ -712,6 +712,8 @@ const ChatPage = () => {
                       onError={(e) => {
                         e.target.src = "/avatar.jpg";
                       }}
+                      width={100}
+                      height={100}
                     />
                   </div>
                   {otherUser.isOnline && (
@@ -759,6 +761,8 @@ const ChatPage = () => {
                         onError={(e) => {
                           e.target.src = "/avatar.jpg";
                         }}
+                        width={100}
+                        height={100}
                       />
                     </div>
                     <span className="text-sm text-amber-700">
@@ -783,6 +787,8 @@ const ChatPage = () => {
                         /*  onError={(e) => {
                           e.target.src = "/placeholder-image.jpg";
                         }}*/
+                        width={100}
+                        height={100}
                       />
                       {msg.messageType === "text" && msg.content && (
                         <p className="text-sm whitespace-pre-wrap">
@@ -843,6 +849,8 @@ const ChatPage = () => {
                       onError={(e) => {
                         e.target.src = "/avatar.jpg";
                       }}
+                      width={100}
+                      height={100}
                     />
                   </div>
                   <span className="text-sm text-amber-700">

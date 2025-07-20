@@ -166,6 +166,8 @@ const ProfilePage = () => {
                 src={imageUrl}
                 alt="Profile"
                 className="w-full h-full object-cover rounded-full"
+                width={100}
+                height={100}
               />
             </div>
             <div>

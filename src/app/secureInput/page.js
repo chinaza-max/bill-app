@@ -185,10 +185,11 @@ const SecureLogin = () => {
           <Image
             src="/icon.png"
             alt="Company Logo"
-            fill
             className="object-contain"
             sizes="(max-width: 80px) 100vw, 80px"
             priority
+            width={100}
+            height={100}
           />
         </div>
       </div>

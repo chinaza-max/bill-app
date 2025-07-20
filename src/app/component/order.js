@@ -88,6 +88,7 @@ const LeafletMap = ({ orderData }) => {
     if (typeof window !== "undefined" && orderData?.userDetails) {
       const mapContainer = document.getElementById("map");
       if (mapContainer) {
+        console.log(orderData.userDetails);
         const source = orderData.userDetails.sourceCoordinate;
         const destination = orderData.userDetails.destinationCoordinate;
 
@@ -724,12 +725,12 @@ const OrderTrackingPage = () => {
                   <div className="w-12 h-12 rounded-full bg-amber-100 flex items-center justify-center">
                     <img
                       src={
-                        orderData?.userDetails?.image || "/default-avatar.jpg"
+                        orderData?.userDetails?.image || "/default-avatar.png"
                       }
                       alt={orderData?.userDetails?.displayname || "User"}
                       className="w-full h-full object-cover rounded-full"
                       onError={(e) => {
-                        e.target.src = "/default-avatar.jpg";
+                        e.target.src = "/default-avatar.png";
                       }}
                     />
                   </div>
