@@ -4,7 +4,7 @@ import CryptoJS from "crypto-js";
 function generateDeviceInfo() {
   const deviceInfo = [
     navigator.userAgent,
-    navigator.platform,
+    //navigator.platform,
     navigator.language,
     navigator.hardwareConcurrency,
     window.screen.width,
@@ -61,7 +61,11 @@ export const decryptData = (encryptedData) => {
 
     // Decrypt the data
     const bytes = CryptoJS.AES.decrypt(encryptedData, secureKey);
+
+    console.log(bytes)
+
     const decryptedString = bytes.toString(CryptoJS.enc.Utf8);
+    console.log(decryptedString)
 
     if (!decryptedString) return null;
 
@@ -94,6 +98,9 @@ export const storeEncryptedData = (key, data) => {
  */
 export const getDecryptedData = (key) => {
   const encryptedData = localStorage.getItem(key);
+
+          console.log(encryptedData)
+
   return encryptedData ? decryptData(encryptedData) : null;
 };
 

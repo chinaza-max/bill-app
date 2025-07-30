@@ -5,7 +5,7 @@ import useRequest from "@/hooks/useRequest";
 
 
 // Custom hook for location services
-export const useLocationService = () => {
+export const useLocationService = (accessToken) => {
   const [locationPermission, setLocationPermission] = useState('prompt');
   const [isLocationEnabled, setIsLocationEnabled] = useState(false);
   const [showLocationPrompt, setShowLocationPrompt] = useState(false);
@@ -16,7 +16,7 @@ export const useLocationService = () => {
 
   const intervalRef = useRef(null);
   const router = useRouter();
-  const accessToken = useSelector((state) => state.user.accessToken);
+  accessToken =accessToken|| useSelector((state) => state.user.accessToken);
   
 
   // Send location to server

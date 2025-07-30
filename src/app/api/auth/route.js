@@ -30,7 +30,6 @@ export async function POST(req) {
         }
       }
     } else {
-      console.log("sssssssssssssssssssssssssssssssss");
       // Handle JSON request
       const jsonData = await req.json();
       apiType = jsonData.apiType;
@@ -53,7 +52,7 @@ export async function POST(req) {
     let response;
 
     // Handle different API types
-    switch (apiType) {
+   /* switch (apiType) {
       case "loginUser":
         response = await axiosInstance.post("/auth/loginUser", requestData);
 
@@ -109,7 +108,78 @@ export async function POST(req) {
           }),
           { status: 400 }
         );
-    }
+    }*/
+
+        switch (apiType) {
+  case "loginUser":
+    response = await retryRequest({
+      method: "post",
+      url: "/auth/loginUser",
+      data: requestData,
+    });
+    break;
+
+  case "registerUser":
+    response = await retryRequest({
+      method: "post",
+      url: "/auth/registerUser",
+      data: requestData,
+    });
+    break;
+
+  case "sendPasswordResetLink":
+    response = await retryRequest({
+      method: "post",
+      url: "/auth/sendPasswordResetLink",
+      data: requestData,
+    });
+    break;
+
+  case "verifyEmailorTel":
+    response = await retryRequest({
+      method: "post",
+      url: "/auth/verifyEmailorTel",
+      data: requestData,
+    });
+    break;
+
+  case "sendVerificationCodeEmailOrTel":
+    response = await retryRequest({
+      method: "post",
+      url: "/auth/sendVerificationCodeEmailOrTel",
+      data: requestData,
+    });
+    break;
+
+  case "enterPassCode":
+    response = await retryRequest({
+      method: "post",
+      url: "/auth/enterPassCode",
+      data: requestData,
+    });
+    break;
+
+  case "uploadImageGoogleDrive":
+    response = await retryRequest({
+      method: "post",
+      url: "/auth/uploadImageGoogleDrive",
+      data: externalFormData,
+      headers: {
+        "Content-Type": "multipart/form-data",
+      },
+    });
+    break;
+
+  default:
+    return new Response(
+      JSON.stringify({
+        status: "error",
+        message: `Unsupported apiType: ${apiType}`,
+      }),
+      { status: 400 }
+    );
+}
+
 
     return new Response(
       JSON.stringify({
@@ -363,3 +433,26 @@ export async function GET(req) {
     );
   }
 }
+
+
+
+// Helper function to retry axios requests
+async function retryRequest(config, retries = 4, delay = 1000) {
+  for (let attempt = 0; attempt < retries; attempt++) {
+    try {
+      return await axiosInstance(config);
+    } catch (error) {
+      if (
+        error.code === "ECONNABORTED" ||
+        error.message.includes("timeout")
+      ) {
+        if (attempt < retries - 1) {
+          await new Promise((res) => setTimeout(res, delay)); // Wait before retry
+          continue; // Retry again
+        }
+      }
+      throw error; // If not a timeout or retries exhausted
+    }
+  }
+}
+

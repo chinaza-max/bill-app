@@ -250,18 +250,8 @@ const P2PPage = () => {
     const formattedRanges = formatRanges(offer.priceRanges);
 
     useEffect(() => {
-
-
-      console.log("sssssssss")
-      console.log("sssssssss")
-      console.log("sssssssss")
-      console.log("sssssssss")
-      console.log("sssssssss")
-      console.log("sssssssss")
-      console.log("sssssssss")
-      console.log("sssssssss")
-      requestLocationPermission()
-      handleNavigation();
+      //requestLocationPermission()
+     // handleNavigation();
 
       router.prefetch("p2p/transfer");
     });
@@ -281,7 +271,7 @@ const P2PPage = () => {
           </button>
         </div>
         <AnimatePresence>
-          {showOfferDetails === offer.id && (
+          {showOfferDetails === offer.id && ( 
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
@@ -518,19 +508,12 @@ const P2PPage = () => {
   });
 
   // Debug log to track data structure
+  
   useEffect(() => {
-    if (data) {
-
-            requestLocationPermission()
-
-      console.log(
-        "Full data response structure:",
-        JSON.stringify(data, null, 2)
-      );
-      console.log("Data updated:", data);
-      console.log("Merchants count:", data?.data?.length || 0);
+    if(accessToken){
+      requestLocationPermission(accessToken)
     }
-  }, [data]);
+  }, [accessToken]);
 
   // Check if data is available but not displayed
   useEffect(() => {

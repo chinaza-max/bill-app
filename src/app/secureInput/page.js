@@ -126,6 +126,10 @@ const SecureLogin = () => {
     setIsSubmitting(true);
 
     const storedEmail = getDecryptedData("emailEncrypt");
+    console.log(storedEmail)
+        console.log(storedEmail)
+    console.log(storedEmail)
+
     if (storedEmail) {
       try {
         mutate({
