@@ -67,7 +67,7 @@ const getCurrentLocation = useCallback(() => {
       {
         enableHighAccuracy: true,
         timeout: 10000,
-        maximumAge: 300000 // 5 minutes
+        maximumAge: 0 // 5 minutes
       }
     );
   });
@@ -77,6 +77,8 @@ const getCurrentLocation = useCallback(() => {
 const getFallbackLocation = async (resolve, reject) => {
  
   try {
+
+    console.log('Using IP-based geolocation as fallback');
     const response = await fetch('https://ipapi.co/json/');
     const data = await response.json();
      console.log(data)
@@ -110,6 +112,8 @@ const getFallbackLocation = async (resolve, reject) => {
         if (permission.state === 'granted') {
           const location = await getCurrentLocation();
           await sendLocationToServer(location.latitude, location.longitude);
+
+          console.log('Location permission already granted');
           setIsLocationEnabled(true);
           setShowLocationPrompt(false);
           startLocationUpdates();
