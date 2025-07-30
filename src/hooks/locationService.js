@@ -16,8 +16,9 @@ export const useLocationService = (accessToken) => {
 
   const intervalRef = useRef(null);
   const router = useRouter();
-  accessToken =accessToken|| useSelector((state) => state.user.accessToken);
-  
+  const reduxAccessToken = useSelector((state) => state.user.accessToken);
+
+  accessToken = accessToken || reduxAccessToken;
 
   // Send location to server
   const sendLocationToServer = async (latitude, longitude) => {
