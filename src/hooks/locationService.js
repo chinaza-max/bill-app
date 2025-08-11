@@ -252,7 +252,7 @@ import useRequest from "@/hooks/useRequest";
 
 
 // Custom hook for location services
-export const useLocationService = (accessToken, useGeoLocationFirst = false) => {
+export const useLocationService = (accessToken, useGeoLocationFirst = true) => {
   const [locationPermission, setLocationPermission] = useState('prompt');
   const [isLocationEnabled, setIsLocationEnabled] = useState(false);
   const [showLocationPrompt, setShowLocationPrompt] = useState(false);
