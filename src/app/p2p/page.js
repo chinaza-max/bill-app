@@ -79,7 +79,7 @@ const P2PPage = () => {
     handleNavigation,
     requestLocationPermission,
     LocationPrompt
-  } = useLocationService();
+  } = useLocationService(); 
 
 
 

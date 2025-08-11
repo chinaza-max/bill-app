@@ -31,6 +31,7 @@ import useVisibility from "../component/useVisibility";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import getErrorMessage from "@/app/component/error";
 import { useNotifications } from "../../hooks/useNotifications";
+import { useLocationService } from "@/hooks/locationService"; // Import the location service
 
 // Enhanced transaction fetcher with better error handling
 const fetchTransaction = async (accessToken) => {
@@ -248,6 +249,21 @@ const MobileApp = () => {
     request: StoreFCMToken,
   } = useRequest();
 
+
+
+      const {
+      isLocationEnabled,
+      locationPermission,
+      handleNavigation,
+      requestLocationPermission,
+      LocationPrompt
+    } = useLocationService();
+
+      useEffect(() => {
+        if(accessToken){
+          requestLocationPermission(accessToken)
+        }
+      }, [accessToken]);
   useVisibility();
 
   // Enhanced query with proper error handling and retry logic
