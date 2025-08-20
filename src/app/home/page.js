@@ -227,6 +227,10 @@ const MobileApp = () => {
   const { token, notification, sendTestNotification } = useNotifications();
 
   const [numberOfOrder, setNumberOfOrder] = useState(0);
+  const [lat, setlat] = useState(0);
+  const [lng, setlng] = useState(0);
+
+
 
   const data2 = useSelector((state) => state.user);
   const accessToken = useSelector((state) => state.user.accessToken);
@@ -256,7 +260,8 @@ const MobileApp = () => {
       locationPermission,
       handleNavigation,
       requestLocationPermission,
-      LocationPrompt
+      LocationPrompt,
+      getCurrentLocation
     } = useLocationService();
 
       useEffect(() => {
@@ -264,6 +269,7 @@ const MobileApp = () => {
           requestLocationPermission(accessToken)
         }
       }, [accessToken]);
+
   useVisibility();
 
   // Enhanced query with proper error handling and retry logic
@@ -298,6 +304,18 @@ const MobileApp = () => {
       const hasInteracted = localStorage.getItem("hasInteractedWithSwitch");
       setHasInteractedWithSwitch(hasInteracted === "true");
     }
+
+    async function name(params) {
+         const test=await getCurrentLocation()
+                  console.log(test)
+        setlat(test.latitude)
+        setlng(test.longitude)
+
+    }
+
+
+    name()
+ 
   }, []);
 
   useEffect(() => {
@@ -773,6 +791,16 @@ const MobileApp = () => {
           {/* Transactions */}
           <div className="p-4">
             {/* Order Button */}
+
+            <div>
+              
+              lat
+              {lat} 
+              " "
+              lng
+              {lng}
+
+            </div>
             <motion.div
               className="mt-6  mb-4"
               initial={{ opacity: 0, y: 20 }}

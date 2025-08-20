@@ -60,8 +60,23 @@ const SignUpForm = () => {
       .matches(/[a-zA-Z]/, "Password must contain at least one letter")
       .matches(/[0-9]/, "Password must contain at least one number"),
     dateOfBirth: Yup.date()
-      .required("Date of birth is required")
-      .max(new Date(), "Date of birth cannot be in the future"),
+  .required("Date of birth is required")
+  .max(new Date(), "Date of birth cannot be in the future")
+  .test("age", "You must be at least 15 years old", function(value) {
+    if (!value) return false;
+    
+    const today = new Date();
+    const birthDate = new Date(value);
+    const age = today.getFullYear() - birthDate.getFullYear();
+    const monthDiff = today.getMonth() - birthDate.getMonth();
+    
+    // Check if birthday has occurred this year
+    if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
+      return age - 1 >= 15;
+    }
+    
+    return age >= 15;
+  }),
     acceptTerms: Yup.boolean().oneOf(
       [true],
       "You must accept the terms and conditions"

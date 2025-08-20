@@ -34,8 +34,8 @@ const LocationPermissionScreen = () => {
     try {
       console.log(latitude, longitude);
       await request("/api/user", "POST", {
-        lat: latitude,
-        lng: longitude,
+        lat:  Number(latitude.toFixed(7))+"",
+        lng:  Number(longitude.toFixed(7))+"",
         role: "user",
         accessToken,
         apiType: "updateUser",
