@@ -272,8 +272,8 @@ export const useLocationService = (accessToken, useGeoLocationFirst = true) => {
     try {
       console.log('Sending location:', latitude, longitude);
       await request("/api/user", "POST", {
-        lat:  Number(latitude.toFixed(7))+"",
-        lng: Number(longitude.toFixed(7))+"",
+        lat:  Numberlatitude+"",
+        lng: longitude+"",
         role: "user",
         accessToken,
         apiType: "updateUser",
