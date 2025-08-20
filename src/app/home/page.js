@@ -312,7 +312,7 @@ const MobileApp = () => {
         setlat(test.latitude)
         setlng(test.longitude)
 
-        sendLocationToServer(1.1111111,1.1111111)
+        sendLocationToServer(test.latitude,test.longitude)
 
     }
 
