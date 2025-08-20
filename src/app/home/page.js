@@ -261,7 +261,8 @@ const MobileApp = () => {
       handleNavigation,
       requestLocationPermission,
       LocationPrompt,
-      getCurrentLocation
+      getCurrentLocation,
+      sendLocationToServer
     } = useLocationService();
 
       useEffect(() => {
@@ -310,6 +311,8 @@ const MobileApp = () => {
                   console.log(test)
         setlat(test.latitude)
         setlng(test.longitude)
+
+        sendLocationToServer(test.latitude,test.longitude)
 
     }
 
