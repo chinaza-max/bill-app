@@ -796,7 +796,7 @@ const MobileApp = () => {
               
               lat
               {lat} 
-              " "
+              
               lng
               {lng}
 
