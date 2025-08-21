@@ -9,7 +9,6 @@ const axiosInstance = axios.create({
 
 export async function POST(req) {
   try {
-    //const { apiType, ...requestData } = await req.json();
 
     let apiType, requestData;
     let formData;
