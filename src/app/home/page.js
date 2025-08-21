@@ -230,8 +230,6 @@ const MobileApp = () => {
   const [lat, setlat] = useState(0);
   const [lng, setlng] = useState(0);
 
-
-
   const data2 = useSelector((state) => state.user);
   const accessToken = useSelector((state) => state.user.accessToken);
   const isAuthenticated = useSelector((state) => state.user.isAuthenticated);
@@ -253,23 +251,20 @@ const MobileApp = () => {
     request: StoreFCMToken,
   } = useRequest();
 
+  const {
+    isLocationEnabled,
+    locationPermission,
+    handleNavigation,
+    requestLocationPermission,
+    LocationPrompt,
+    getCurrentLocation,
+  } = useLocationService();
 
-
-      const {
-      isLocationEnabled,
-      locationPermission,
-      handleNavigation,
-      requestLocationPermission,
-      LocationPrompt,
-      getCurrentLocation,
-      sendLocationToServer
-    } = useLocationService();
-
-      useEffect(() => {
-        if(accessToken){
-          requestLocationPermission(accessToken)
-        }
-      }, [accessToken]);
+  useEffect(() => {
+    if (accessToken) {
+      requestLocationPermission(accessToken);
+    }
+  }, [accessToken]);
 
   useVisibility();
 
@@ -305,25 +300,24 @@ const MobileApp = () => {
       const hasInteracted = localStorage.getItem("hasInteractedWithSwitch");
       setHasInteractedWithSwitch(hasInteracted === "true");
     }
-
     async function name(params) {
-         const test=await getCurrentLocation()
-                  console.log(test)
-        setlat(test.latitude)
-        setlng(test.longitude)
-
-        sendLocationToServer(test.latitude,test.longitude)
+      const test = await getCurrentLocation();
+      console.log(test);
+      setlat(test.latitude);
+      setlng(test.longitude);
     }
-
-
-    name()
- 
+    name();
   }, []);
+
+  useEffect(() => {
+    if (lat) {
+      requestLocationPermission();
+    }
+  }, [lat]);
 
   useEffect(() => {
     if (token) {
       // Send token to your backend to store for sending notifications
-      console.log("FCM Token:", token);
       // sendTokenToServer(token);
       if (accessToken) {
         StoreFCMToken("/api/user", "POST", {
@@ -795,13 +789,9 @@ const MobileApp = () => {
             {/* Order Button */}
 
             <div>
-              
               lat
-              {lat} 
-              -
-              lng
+              {lat}- lng
               {lng}
-
             </div>
             <motion.div
               className="mt-6  mb-4"
