@@ -1,4 +1,13 @@
+import {
+  motion,
 
+} from "framer-motion";
+
+import {
+
+  Package2,
+
+} from "lucide-react";
   export const EmptyTransactionState = () => (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
