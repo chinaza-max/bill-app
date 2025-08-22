@@ -32,6 +32,10 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import getErrorMessage from "@/app/component/error";
 import { useNotifications } from "../../hooks/useNotifications";
 import { useLocationService } from "@/hooks/locationService"; // Import the location service
+import { AttentionAnimation } from "../component/AttentionAnimation";
+import { PaymentStatusBadge } from "../component/PaymentStatusBadge";
+import { EmptyTransactionState } from "../component/EmptyTransactionState";
+import LocationNotificationModal from "../component/LocationNotificationModal";
 
 // Enhanced transaction fetcher with better error handling
 const fetchTransaction = async (accessToken) => {
@@ -114,105 +118,9 @@ const ErrorDisplay = ({ message }) => (
 );
 
 // Improved Attention Animation Component with Pulsing Highlight Effect
-const AttentionAnimation = ({ isVisible, duration = 2 }) => {
-  if (!isVisible) return null;
 
-  return (
-    <motion.div
-      className="absolute inset-0 rounded bg-green-400 opacity-0 z-0"
-      initial={{ scale: 0.85, opacity: 0 }}
-      animate={{
-        scale: [0.85, 1.05, 0.95, 1.02, 1],
-        opacity: [0, 0.3, 0.2, 0.1, 0],
-      }}
-      transition={{
-        duration: duration,
-        times: [0, 0.25, 0.5, 0.75, 1],
-        ease: "easeInOut",
-        repeat: 1,
-      }}
-    />
-  );
-};
 
-// Improved Payment Status Badge Component
-const PaymentStatusBadge = ({ status }) => {
-  const statusStyles = {
-    successful: "bg-green-100 text-green-800 border-green-200",
-    pending: "bg-yellow-100 text-yellow-800 border-yellow-200",
-    failed: "bg-red-100 text-red-800 border-red-200",
-  };
 
-  const iconStyles = {
-    successful: "text-green-500",
-    pending: "text-yellow-500",
-    failed: "text-red-500",
-  };
-
-  const statusIcons = {
-    successful: (
-      <svg
-        xmlns="http://www.w3.org/2000/svg"
-        className="h-3 w-3"
-        fill="none"
-        viewBox="0 0 24 24"
-        stroke="currentColor"
-      >
-        <path
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          strokeWidth={2}
-          d="M5 13l4 4L19 7"
-        />
-      </svg>
-    ),
-    pending: (
-      <svg
-        xmlns="http://www.w3.org/2000/svg"
-        className="h-3 w-3"
-        fill="none"
-        viewBox="0 0 24 24"
-        stroke="currentColor"
-      >
-        <path
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          strokeWidth={2}
-          d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
-        />
-      </svg>
-    ),
-    failed: (
-      <svg
-        xmlns="http://www.w3.org/2000/svg"
-        className="h-3 w-3"
-        fill="none"
-        viewBox="0 0 24 24"
-        stroke="currentColor"
-      >
-        <path
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          strokeWidth={2}
-          d="M6 18L18 6M6 6l12 12"
-        />
-      </svg>
-    ),
-  };
-
-  return (
-    <span
-      className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium border ${
-        statusStyles[status] || statusStyles.pending
-      }`}
-    >
-      <span className={`mr-1 ${iconStyles[status] || iconStyles.pending}`}>
-        {statusIcons[status] || statusIcons.pending}
-      </span>
-      {status.charAt(0).toUpperCase() + status.slice(1)}
-    </span>
-  );
-};
 
 const MobileApp = () => {
   const [userType, setUserType] = useState("Client");
@@ -251,20 +159,16 @@ const MobileApp = () => {
     request: StoreFCMToken,
   } = useRequest();
 
-  const {
-    isLocationEnabled,
-    locationPermission,
-    handleNavigation,
-    requestLocationPermission,
-    LocationPrompt,
-    getCurrentLocation,
-  } = useLocationService();
-
-  useEffect(() => {
-    if (accessToken) {
-      requestLocationPermission(accessToken);
-    }
-  }, [accessToken]);
+ 
+const { 
+  isLocationEnabled, 
+  showLocationNotification,
+  locationError,
+  isRetrying,
+  retryLocation,
+  dismissNotification ,
+  getCurrentLocation
+} = useLocationService();
 
   useVisibility();
 
@@ -309,11 +213,7 @@ const MobileApp = () => {
     name();
   }, []);
 
-  useEffect(() => {
-    if (lat) {
-      requestLocationPermission();
-    }
-  }, [lat]);
+
 
   useEffect(() => {
     if (token) {
@@ -500,35 +400,6 @@ const MobileApp = () => {
     []
   );
 
-  const EmptyTransactionState = () => (
-    <motion.div
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.5 }}
-      className="flex flex-col items-center justify-center py-3 px-4 bg-white rounded-lg shadow-sm"
-    >
-      <div className="w-16 h-16 mb-4 bg-amber-100 rounded-full flex items-center justify-center">
-        <Package2 className="h-8 w-8 text-amber-600" />
-      </div>
-      <h3 className="text-lg font-semibold text-amber-900 mb-2">
-        No Transactions Yet
-      </h3>
-      <p className="text-amber-600 text-center text-sm mb-6">
-        Start your journey by making your first transaction. It is quick and
-        easy!
-      </p>
-      <motion.button
-        whileHover={{ scale: 1.02 }}
-        whileTap={{ scale: 0.98 }}
-        onClick={() => {
-          handleTabChange("userProfile/fundwallet");
-        }}
-        className="px-6 py-2 bg-amber-100 text-amber-600 rounded-full font-medium text-sm"
-      >
-        Fund wallet for easy ordering
-      </motion.button>
-    </motion.div>
-  );
 
   const handleTabChange = (tab) => {
     setActiveTab(tab);
@@ -832,6 +703,17 @@ const MobileApp = () => {
             {renderTransactionsSection()}
           </div>
         </div>
+
+
+
+         {showLocationNotification && (
+      <LocationNotificationModal
+        error={locationError?.message}
+        isRetrying={isRetrying}
+        onRetry={retryLocation}
+        onDismiss={dismissNotification}
+      />
+    )}
 
         {/* Bottom Navigation */}
         <BottomNav
