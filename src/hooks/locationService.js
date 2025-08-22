@@ -244,16 +244,14 @@ const getFallbackLocation = async (resolve, reject) => {
   };
 };*/
 
-
-import { useState, useEffect, useCallback, useRef } from 'react';
-import { useRouter } from 'next/navigation';
-import { useSelector } from 'react-redux';
+import { useState, useEffect, useCallback, useRef } from "react";
+import { useRouter } from "next/navigation";
+import { useSelector } from "react-redux";
 import useRequest from "@/hooks/useRequest";
-
 
 // Custom hook for location services
 export const useLocationService = (accessToken, useGeoLocationFirst = true) => {
-  const [locationPermission, setLocationPermission] = useState('prompt');
+  const [locationPermission, setLocationPermission] = useState("prompt");
   const [isLocationEnabled, setIsLocationEnabled] = useState(false);
   const [showLocationPrompt, setShowLocationPrompt] = useState(false);
   const [lastLocationUpdate, setLastLocationUpdate] = useState(null);
@@ -270,10 +268,10 @@ export const useLocationService = (accessToken, useGeoLocationFirst = true) => {
   // Send location to server
   const sendLocationToServer = async (latitude, longitude) => {
     try {
-      console.log('Sending location:', latitude, longitude);
+      console.log("Sending location:", latitude, longitude);
       await request("/api/user", "POST", {
-        lat:  Numberlatitude+"",
-        lng: longitude+"",
+        lat: latitude + "",
+        lng: longitude + "",
         role: "user",
         accessToken,
         apiType: "updateUser",
@@ -281,7 +279,7 @@ export const useLocationService = (accessToken, useGeoLocationFirst = true) => {
 
       if (!error) {
         setLastLocationUpdate(new Date());
-        console.log('Location updated successfully');
+        console.log("Location updated successfully");
         return true;
       }
       return false;
@@ -295,7 +293,7 @@ export const useLocationService = (accessToken, useGeoLocationFirst = true) => {
   const getGeoLocation = () => {
     return new Promise((resolve, reject) => {
       if (!navigator.geolocation) {
-        reject(new Error('Geolocation not supported'));
+        reject(new Error("Geolocation not supported"));
         return;
       }
 
@@ -303,17 +301,17 @@ export const useLocationService = (accessToken, useGeoLocationFirst = true) => {
         (position) => {
           resolve({
             latitude: position.coords.latitude,
-            longitude: position.coords.longitude
+            longitude: position.coords.longitude,
           });
         },
         (error) => {
-          console.error('Geolocation error:', error);
+          console.error("Geolocation error:", error);
           reject(error);
         },
         {
           enableHighAccuracy: true,
           timeout: 10000,
-          maximumAge: 0
+          maximumAge: 0,
         }
       );
     });
@@ -322,21 +320,21 @@ export const useLocationService = (accessToken, useGeoLocationFirst = true) => {
   // Get IP-based location
   const getIPLocation = async () => {
     try {
-      console.log('Using IP-based geolocation');
-      const response = await fetch('https://ipapi.co/json/');
+      console.log("Using IP-based geolocation");
+      const response = await fetch("https://ipapi.co/json/");
       const data = await response.json();
       console.log(data);
-      
+
       if (data && data.latitude && data.longitude) {
         return {
           latitude: data.latitude,
-          longitude: data.longitude
+          longitude: data.longitude,
         };
       } else {
-        throw new Error('Could not determine location from IP.');
+        throw new Error("Could not determine location from IP.");
       }
     } catch (error) {
-      console.error('IP-based location error:', error);
+      console.error("IP-based location error:", error);
       throw error;
     }
   };
@@ -344,24 +342,38 @@ export const useLocationService = (accessToken, useGeoLocationFirst = true) => {
   // Get current position with primary/fallback logic
   const getCurrentLocation = useCallback(() => {
     return new Promise(async (resolve, reject) => {
-      const primaryMethod = useGeoLocationFirst ? getGeoLocation : getIPLocation;
-      const fallbackMethod = useGeoLocationFirst ? getIPLocation : getGeoLocation;
+      const primaryMethod = useGeoLocationFirst
+        ? getGeoLocation
+        : getIPLocation;
+      const fallbackMethod = useGeoLocationFirst
+        ? getIPLocation
+        : getGeoLocation;
 
       try {
         // Try primary method first
-        console.log(`Trying primary method: ${useGeoLocationFirst ? 'Geolocation' : 'IP-based'}`);
+        console.log(
+          `Trying primary method: ${
+            useGeoLocationFirst ? "Geolocation" : "IP-based"
+          }`
+        );
         const location = await primaryMethod();
         resolve(location);
       } catch (primaryError) {
-        console.warn(`Primary method failed: ${primaryError.message}. Trying fallback...`);
-        
+        console.warn(
+          `Primary method failed: ${primaryError.message}. Trying fallback...`
+        );
+
         try {
           // Try fallback method
-          console.log(`Trying fallback method: ${useGeoLocationFirst ? 'IP-based' : 'Geolocation'}`);
+          console.log(
+            `Trying fallback method: ${
+              useGeoLocationFirst ? "IP-based" : "Geolocation"
+            }`
+          );
           const location = await fallbackMethod();
           resolve(location);
         } catch (fallbackError) {
-          console.error('Both location methods failed:', fallbackError);
+          console.error("Both location methods failed:", fallbackError);
           reject(fallbackError);
         }
       }
@@ -376,7 +388,7 @@ export const useLocationService = (accessToken, useGeoLocationFirst = true) => {
         const location = await getCurrentLocation();
         await sendLocationToServer(location.latitude, location.longitude);
         setIsLocationEnabled(true);
-        setLocationPermission('granted');
+        setLocationPermission("granted");
         setShowLocationPrompt(false);
         startLocationUpdates();
         return true;
@@ -384,19 +396,21 @@ export const useLocationService = (accessToken, useGeoLocationFirst = true) => {
 
       // For geolocation-first, check permissions
       if (!navigator.geolocation) {
-        throw new Error('Geolocation is not supported');
+        throw new Error("Geolocation is not supported");
       }
 
       // Check current permission status
       if (navigator.permissions) {
-        const permission = await navigator.permissions.query({ name: 'geolocation' });
+        const permission = await navigator.permissions.query({
+          name: "geolocation",
+        });
         setLocationPermission(permission.state);
-        
-        if (permission.state === 'granted') {
+
+        if (permission.state === "granted") {
           const location = await getCurrentLocation();
           await sendLocationToServer(location.latitude, location.longitude);
 
-          console.log('Location permission already granted');
+          console.log("Location permission already granted");
           setIsLocationEnabled(true);
           setShowLocationPrompt(false);
           startLocationUpdates();
@@ -408,14 +422,13 @@ export const useLocationService = (accessToken, useGeoLocationFirst = true) => {
       const location = await getCurrentLocation();
       await sendLocationToServer(location.latitude, location.longitude);
       setIsLocationEnabled(true);
-      setLocationPermission('granted');
+      setLocationPermission("granted");
       setShowLocationPrompt(false);
       startLocationUpdates();
       return true;
-
     } catch (error) {
-      console.error('Location permission error:', error);
-      setLocationPermission('denied');
+      console.error("Location permission error:", error);
+      setLocationPermission("denied");
       setIsLocationEnabled(false);
       return false;
     }
@@ -432,7 +445,7 @@ export const useLocationService = (accessToken, useGeoLocationFirst = true) => {
         const location = await getCurrentLocation();
         await sendLocationToServer(location.latitude, location.longitude);
       } catch (error) {
-        console.error('Failed to update location:', error);
+        console.error("Failed to update location:", error);
       }
     }, 10 * 60 * 1000); // 10 minutes
   }, [getCurrentLocation]);
@@ -452,27 +465,38 @@ export const useLocationService = (accessToken, useGeoLocationFirst = true) => {
       return false;
     }
 
-    if (isLocationEnabled || locationPermission === 'granted') {
+    if (isLocationEnabled || locationPermission === "granted") {
       return false;
     }
 
     // Don't show prompt too frequently
     const now = Date.now();
-    const timeSinceLastPrompt = lastPromptTime ? now - lastPromptTime : Infinity;
+    const timeSinceLastPrompt = lastPromptTime
+      ? now - lastPromptTime
+      : Infinity;
     const minTimeBetweenPrompts = 30 * 60 * 1000; // 30 minutes
 
     // Show prompt if:
     // 1. Never prompted before, OR
     // 2. Last prompt was more than 30 minutes ago AND we've prompted less than 3 times
-    return !lastPromptTime || (timeSinceLastPrompt > minTimeBetweenPrompts && promptCount < 3);
-  }, [isLocationEnabled, locationPermission, lastPromptTime, promptCount, useGeoLocationFirst]);
+    return (
+      !lastPromptTime ||
+      (timeSinceLastPrompt > minTimeBetweenPrompts && promptCount < 3)
+    );
+  }, [
+    isLocationEnabled,
+    locationPermission,
+    lastPromptTime,
+    promptCount,
+    useGeoLocationFirst,
+  ]);
 
   // Handle navigation - check if we should prompt for location
   const handleNavigation = useCallback(() => {
     if (shouldShowPrompt()) {
       setShowLocationPrompt(true);
       setLastPromptTime(Date.now());
-      setPromptCount(prev => prev + 1);
+      setPromptCount((prev) => prev + 1);
     }
   }, [shouldShowPrompt]);
 
@@ -485,17 +509,19 @@ export const useLocationService = (accessToken, useGeoLocationFirst = true) => {
           const location = await getCurrentLocation();
           await sendLocationToServer(location.latitude, location.longitude);
           setIsLocationEnabled(true);
-          setLocationPermission('granted');
+          setLocationPermission("granted");
           startLocationUpdates();
           return;
         }
 
         // For geolocation-first, check permissions
         if (navigator.permissions) {
-          const permission = await navigator.permissions.query({ name: 'geolocation' });
+          const permission = await navigator.permissions.query({
+            name: "geolocation",
+          });
           setLocationPermission(permission.state);
-          
-          if (permission.state === 'granted') {
+
+          if (permission.state === "granted") {
             const location = await getCurrentLocation();
             await sendLocationToServer(location.latitude, location.longitude);
             setIsLocationEnabled(true);
@@ -505,7 +531,7 @@ export const useLocationService = (accessToken, useGeoLocationFirst = true) => {
           // Listen for permission changes
           permission.onchange = () => {
             setLocationPermission(permission.state);
-            if (permission.state === 'granted') {
+            if (permission.state === "granted") {
               setIsLocationEnabled(true);
               startLocationUpdates();
             } else {
@@ -515,7 +541,7 @@ export const useLocationService = (accessToken, useGeoLocationFirst = true) => {
           };
         }
       } catch (error) {
-        console.error('Error initializing location service:', error);
+        console.error("Error initializing location service:", error);
       }
     };
 
@@ -539,6 +565,6 @@ export const useLocationService = (accessToken, useGeoLocationFirst = true) => {
     handleNavigation,
     dismissLocationPrompt: () => setShowLocationPrompt(false),
     getCurrentLocation,
-    sendLocationToServer
+    sendLocationToServer,
   };
 };
