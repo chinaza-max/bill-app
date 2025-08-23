@@ -76,7 +76,6 @@ const P2PPage = () => {
     const {
     isLocationEnabled,
     locationPermission,
-    handleNavigation,
     LocationPrompt
   } = useLocationService(); 
 
@@ -84,8 +83,7 @@ const P2PPage = () => {
 
   const handleTabChange = (tab) => {
     setActiveTab(tab);
-    handleNavigation();
-
+    console.log("djdjdjdjjdjdjdjjdjdjdjdjdjdj")
     router.push(`/${tab}`);
   };
 
@@ -249,8 +247,6 @@ const P2PPage = () => {
     const formattedRanges = formatRanges(offer.priceRanges);
 
     useEffect(() => {
-     // handleNavigation();
-
       router.prefetch("p2p/transfer");
     });
 

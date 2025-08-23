@@ -191,9 +191,6 @@ const MerchantApp = () => {
   // Handle order card clicks
   const handleOrderCardClick = (orderType) => {
     // Store the selected order type in localStorage
-    console.log("Selected order type:", orderType);
-    console.log("Selected order type:", orderType);
-    console.log("Selected order type:", orderType);
 
     localStorage.setItem("selectedOrderTab", orderType);
     router.push("/orders/merchantOrders");
