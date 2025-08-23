@@ -77,7 +77,6 @@ const P2PPage = () => {
     isLocationEnabled,
     locationPermission,
     handleNavigation,
-    requestLocationPermission,
     LocationPrompt
   } = useLocationService(); 
 
@@ -250,7 +249,6 @@ const P2PPage = () => {
     const formattedRanges = formatRanges(offer.priceRanges);
 
     useEffect(() => {
-      //requestLocationPermission()
      // handleNavigation();
 
       router.prefetch("p2p/transfer");
@@ -511,7 +509,6 @@ const P2PPage = () => {
   
   useEffect(() => {
     if(accessToken){
-      requestLocationPermission(accessToken)
     }
   }, [accessToken]);
 
