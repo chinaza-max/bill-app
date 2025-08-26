@@ -83,7 +83,6 @@ const P2PPage = () => {
 
   const handleTabChange = (tab) => {
     setActiveTab(tab);
-    console.log("djdjdjdjjdjdjdjjdjdjdjdjdjdj")
     router.push(`/${tab}`);
   };
 
