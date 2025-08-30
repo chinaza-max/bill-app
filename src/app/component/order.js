@@ -3,6 +3,10 @@ import { toast, Toaster } from "sonner";
 import React, { useState, useEffect, useRef } from "react";
 import QRCode from "qrcode";
 import { XCircle } from "lucide-react";
+import io from "socket.io-client";
+
+let socket;
+const SOCKET_SERVER_URL = "https://fidopoint.onrender.com";
 
 import {
   ArrowLeft,
@@ -259,10 +263,7 @@ const MerchantScanner = ({ onClose, onScan, accessToken, orderId }) => {
   }, [qrSubmissionError]);
 
   useEffect(() => {
-    console.log(qrSubmissionData);
-    console.log(qrSubmissionData);
-    console.log(qrSubmissionData);
-    console.log(qrSubmissionData);
+
     if (qrSubmissionData) {
       console.log(qrSubmissionData);
       toast.success("QR Code submitted successfully!", {
@@ -271,6 +272,28 @@ const MerchantScanner = ({ onClose, onScan, accessToken, orderId }) => {
       });
     }
   }, [qrSubmissionData]);
+
+
+
+  useEffect(() => {
+  if (qrSubmissionData) {
+    console.log("QR submission successful:", qrSubmissionData);
+    
+    // Emit socket event for real-time notification to client
+    if (socket) {
+      socket.emit("qrVerified", {
+        orderId,
+        status: "verified",
+        timestamp: new Date().toISOString(),
+      });
+    }
+
+    toast.success("QR Code submitted successfully!", {
+      duration: 3000,
+      id: "qr-success-toast",
+    });
+  }
+}, [qrSubmissionData, orderId]);
 
   const startScanner = async () => {
     try {
@@ -298,6 +321,17 @@ const MerchantScanner = ({ onClose, onScan, accessToken, orderId }) => {
             };
 
             await submitQRData(`/api/user`, "POST", body);
+
+              if (socket) {
+            socket.emit("qrScanned", {
+              orderId,
+              merchantId: accessToken, // or get actual merchant ID
+              hash: decodedText,
+              timestamp: new Date().toISOString(),
+            });
+          }
+
+
 
             setTimeout(() => {
               onScan(decodedText);
@@ -528,6 +562,13 @@ const OrderTrackingPage = () => {
   const [showReportModal, setShowReportModal] = useState(false);
   const [userType, setUserType] = useState("");
 
+
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [successMessage, setSuccessMessage] = useState("");
+
+
+
+  
   const accessToken = useSelector((state) => state.user.accessToken);
   const {
     data: OrderDetails,
@@ -565,6 +606,75 @@ const OrderTrackingPage = () => {
       );
     }
   }, []);
+
+  useEffect(() => {
+  if (accessToken && orderData?.id) {
+    socket = io(SOCKET_SERVER_URL, {
+      // withCredentials: true,
+      // auth: { token: `Bearer ${accessToken}` },
+    });
+    
+    console.log("Joining:", orderData.id, userType);
+        console.log("Joining order room:", orderData);
+
+    // Join the order room for real-time updates
+    socket.emit("joinOrderRoom", {
+      orderId: orderData.id,
+      userType: userType, // 'merchant' or 'client'
+    });
+
+    // Listen for QR scan success events
+    socket.on("qrScanSuccess", (data) => {
+      console.log("QR Scan success received:", data);
+      
+      // Close scanning modals
+      setShowQRScanner(false);
+      
+      // Show success modal
+      setSuccessMessage(
+        isMerchant 
+          ? "QR Code verified successfully! Customer has been notified." 
+          : "Your QR Code was scanned successfully by the merchant!"
+      );
+      setShowSuccessModal(true);
+
+      // Auto-hide success modal after 3 seconds
+      setTimeout(() => {
+        setShowSuccessModal(false);
+      }, 3000);
+
+      // Refresh order details to get updated status
+      const refreshParams = new URLSearchParams({
+        token: accessToken,
+        apiType: "getMyOrderDetails",
+        userType: userType,
+        orderId,
+      }).toString();
+      fetchOrderDetails(`/api/user?${refreshParams}`, "GET");
+    });
+
+    // Listen for order status updates
+    socket.on("orderStatusUpdate", (data) => {
+      console.log("Order status update:", data);
+      if (data.orderId === orderData.id) {
+        // Refresh order details
+        const refreshParams = new URLSearchParams({
+          token: accessToken,
+          apiType: "getMyOrderDetails",
+          userType: userType,
+          orderId,
+        }).toString();
+        fetchOrderDetails(`/api/user?${refreshParams}`, "GET");
+      }
+    });
+
+    return () => {
+      socket.disconnect();
+    };
+  }
+}, [accessToken, orderData?.id, userType, orderId]);
+
+
 
   useEffect(() => {
     if (accessToken && userType) {
@@ -1016,6 +1126,25 @@ const OrderTrackingPage = () => {
             </button>
           </div>
         </Modal>
+
+
+
+        <Modal
+  isOpen={showSuccessModal}
+  onClose={() => setShowSuccessModal(false)}
+>
+  <div className="text-center p-6">
+    <CheckCircle className="h-16 w-16 text-green-500 mx-auto mb-4" />
+    <h3 className="text-lg font-semibold text-green-700 mb-2">Success!</h3>
+    <p className="text-green-600 mb-4">{successMessage}</p>
+    <button
+      onClick={() => setShowSuccessModal(false)}
+      className="px-6 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600"
+    >
+      OK
+    </button>
+  </div>
+</Modal>
       </div>
     </ProtectedRoute>
   );
