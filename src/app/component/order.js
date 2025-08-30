@@ -581,6 +581,8 @@ const OrderTrackingPage = () => {
   const params = useParams();
   const orderId = params?.orderId;
   const router = useRouter();
+  const orderData = OrderDetails?.data?.data?.orderDetails;
+
 
   useEffect(() => {
     const storedUserType = localStorage.getItem("who");
@@ -778,7 +780,7 @@ const OrderTrackingPage = () => {
     );
   }
 
-  const orderData = OrderDetails?.data?.data?.orderDetails;
+  //const orderData = OrderDetails?.data?.data?.orderDetails;
   console.log("Order Data:", orderData);
   return (
     <ProtectedRoute>
