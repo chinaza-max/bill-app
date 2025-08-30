@@ -75,7 +75,7 @@ const ImagePreview = ({ src, onClose, alt = "Preview" }) => {
           >
             <X className="h-4 w-4" />
           </button>
-          <Image
+          <img
             src={src}
             alt={alt}
             className="max-w-full max-h-[80vh] object-contain rounded"
@@ -782,17 +782,18 @@ const ChatPage = () => {
                 >
                   {msg.messageType === "file" && msg.content ? (
                     <div className="space-y-2">
-                      <Image
-                        src={msg.content}
-                        alt="Shared image"
-                        className="max-w-full h-auto rounded-lg cursor-pointer hover:opacity-90 transition-opacity"
-                        onClick={() => setShowImagePreview(msg.content)}
-                        /*  onError={(e) => {
-                          e.target.src = "/placeholder-image.jpg";
-                        }}*/
-                        width={100}
-                        height={100}
-                      />
+                   
+
+                      <img
+                          src={msg.content}
+                          alt="Shared image"
+                          onClick={() => setShowImagePreview(msg.content)}
+
+                          width={100}
+                          height={100}
+                          className="max-w-full h-auto rounded-lg cursor-pointer hover:opacity-90 transition-opacity"
+                        />
+
                       {msg.messageType === "text" && msg.content && (
                         <p className="text-sm whitespace-pre-wrap">
                           {msg.content}
