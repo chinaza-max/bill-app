@@ -270,15 +270,43 @@ const MerchantScanner = ({ onClose, onScan, accessToken, orderId }) => {
         duration: 10000, // 10 seconds
         id: "qr-success-toast",
       });
+
+
+
+    if (socket) {
+      socket.emit("qrVerified", {
+        orderId,
+        status: "verified",
+        timestamp: new Date().toISOString(),
+      });
     }
-  }, [qrSubmissionData]);
+
+    triggerVibration([300, 100, 300, 100, 300]);
 
 
+    }
+
+
+
+
+  }, [qrSubmissionData,orderId]);
+
+
+  const triggerVibration = (pattern = [200, 100, 200]) => {
+  if ('vibrate' in navigator) {
+    navigator.vibrate(pattern);
+  }
+};
+
+/*
 
   useEffect(() => {
   if (qrSubmissionData) {
     console.log("QR submission successful:", qrSubmissionData);
     
+
+    triggerVibration([300, 100, 300, 100, 300]);
+
     // Emit socket event for real-time notification to client
     if (socket) {
       socket.emit("qrVerified", {
@@ -294,6 +322,9 @@ const MerchantScanner = ({ onClose, onScan, accessToken, orderId }) => {
     });
   }
 }, [qrSubmissionData, orderId]);
+*/
+
+
 
   const startScanner = async () => {
     try {
