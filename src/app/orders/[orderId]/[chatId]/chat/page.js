@@ -708,7 +708,7 @@ const ChatPage = () => {
               <div className="flex items-center space-x-3">
                 <div className="relative">
                   <div className="w-10 h-10 rounded-full bg-amber-100 flex items-center justify-center overflow-hidden">
-                    <Image
+                    <img
                       src={otherUser.imageUrl}
                       alt={otherUser.name}
                       className="w-full h-full object-cover"
@@ -757,7 +757,7 @@ const ChatPage = () => {
                 {!msg.isSender && (
                   <div className="flex items-center space-x-2 mb-1">
                     <div className="w-8 h-8 rounded-full bg-amber-100 overflow-hidden">
-                      <Image
+                      <img
                         src={msg.avatar || otherUser.imageUrl}
                         alt={msg.sender || otherUser.name}
                         className="w-full h-full object-cover"
