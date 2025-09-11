@@ -265,7 +265,6 @@ const MerchantScanner = ({ onClose, onScan, accessToken, orderId }) => {
   useEffect(() => {
 
     if (qrSubmissionData) {
-      console.log(qrSubmissionData);
       toast.success("QR Code submitted successfully!", {
         duration: 10000, // 10 seconds
         id: "qr-success-toast",
