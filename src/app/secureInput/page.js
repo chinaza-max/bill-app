@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { X, Delete, ArrowRight, Loader2 } from "lucide-react";
+import { X, Delete, ArrowRight, Loader2, ArrowLeft } from "lucide-react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useEnterPassCode } from "@/hooks/useAuth";
@@ -117,6 +117,10 @@ const SecureLogin = () => {
     }
   };
 
+  const handleBack = () => {
+    router.push('/sign-in'); // Adjust this path to match your sign-in route
+  };
+
   const handleSubmit = async () => {
     // Prevent submission if PIN is empty or less than 4 digits
     if (pin.length !== 4 || isSubmitting || isLoading) {
@@ -173,6 +177,19 @@ const SecureLogin = () => {
 
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col items-center px-4 py-6 relative">
+      {/* Back Arrow */}
+      <button
+        onClick={handleBack}
+        disabled={isInputDisabled}
+        className={`absolute top-4 left-4 z-10 p-2 rounded-full transition-colors ${
+          isInputDisabled
+            ? "text-gray-300 cursor-not-allowed"
+            : "text-gray-600 hover:text-gray-800 hover:bg-white hover:shadow-sm"
+        }`}
+      >
+        <ArrowLeft size={24} />
+      </button>
+
       {/* Loading Overlay */}
       {showLoading && (
         <div className="fixed inset-0 bg-black bg-opacity-30 flex items-center justify-center z-50">
@@ -184,8 +201,8 @@ const SecureLogin = () => {
       )}
 
       {/* Logo Section */}
-      <div className="mt-4 relative">
-        <div className="w-20 h-20 relative">
+      <div className="mt-16 mb-4 flex flex-col items-center">
+        <div className="w-20 h-20 relative mb-3">
           <Image
             src="/icon.png"
             alt="Company Logo"
@@ -196,9 +213,9 @@ const SecureLogin = () => {
             height={100}
           />
         </div>
-      </div>
-      <div className={`${dosis.className} text-2xl text-gray-800`}>
-        Unlocking Convenience
+        <div className={`${dosis.className} text-2xl text-gray-800 text-center`}>
+          Unlocking Convenience
+        </div>
       </div>
 
       {/* Main Container */}
