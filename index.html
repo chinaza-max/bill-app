@@ -1,13 +1,270 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Document</title>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Enhanced Geolocation Debug Tool</title>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      max-width: 800px;
+      margin: 0 auto;
+      padding: 20px;
+      background: #f5f5f5;
+    }
+    .container {
+      background: white;
+      padding: 20px;
+      border-radius: 10px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    }
+    button {
+      background: #007AFF;
+      color: white;
+      border: none;
+      padding: 12px 24px;
+      border-radius: 8px;
+      font-size: 16px;
+      cursor: pointer;
+      margin: 5px;
+    }
+    button:hover {
+      background: #0056CC;
+    }
+    button:disabled {
+      background: #ccc;
+      cursor: not-allowed;
+    }
+    #output {
+      background: #f8f8f8;
+      border: 1px solid #ddd;
+      padding: 15px;
+      border-radius: 5px;
+      white-space: pre-wrap;
+      font-family: Monaco, monospace;
+      font-size: 13px;
+      max-height: 400px;
+      overflow-y: auto;
+      margin-top: 10px;
+    }
+    .status {
+      padding: 10px;
+      border-radius: 5px;
+      margin: 10px 0;
+    }
+    .success { background: #d4edda; color: #155724; }
+    .error { background: #f8d7da; color: #721c24; }
+    .warning { background: #fff3cd; color: #856404; }
+    .info { background: #d1ecf1; color: #0c5460; }
+  </style>
 </head>
 <body>
-    <img alt="chinaza" width="100"
-     height="100" style="width: 100px; height: 100px;"
-      src="https://drive.google.com/thumbnail?id=1uZ08sYco3kin-DUJejTjGavAu-Bu020n&sz=w1000" >
+  <div class="container">
+    <h2>🧪 Enhanced Geolocation Debug Tool</h2>
+    
+    <div id="systemInfo" class="status info">
+      <strong>System Check:</strong> <span id="systemStatus">Loading...</span>
+    </div>
+    
+    <div>
+      <button id="getLocation">📍 Get Location (High Accuracy)</button>
+      <button id="getLocationLowAccuracy">📍 Get Location (Low Accuracy)</button>
+      <button id="watchLocation">👀 Watch Location</button>
+      <button id="stopWatch">⏹ Stop Watching</button>
+      <button id="clearOutput">🗑 Clear Output</button>
+    </div>
+    
+    <pre id="output"></pre>
+
+
+    <a href="https://www.google.com/maps?q=9.0973376,7.2101813" target="_blank">
+  Open on Google Maps
+</a>
+
+  </div>
+
+  <script>
+    let watchId = null;
+    
+    function log(msg, type = 'info') {
+      const timestamp = new Date().toLocaleTimeString();
+      const output = document.getElementById("output");
+      const prefix = type === 'error' ? '❌' : type === 'success' ? '✅' : type === 'warning' ? '⚠️' : '📝';
+      output.textContent += `[${timestamp}] ${prefix} ${msg}\n`;
+      output.scrollTop = output.scrollHeight;
+    }
+
+    function checkSystemSupport() {
+      const status = document.getElementById("systemStatus");
+      
+      if (!navigator.geolocation) {
+        status.innerHTML = "❌ Geolocation API not supported";
+        status.className = "status error";
+        return;
+      }
+      
+      // Check HTTPS
+      const isHTTPS = location.protocol === 'https:' || location.hostname === 'localhost';
+      
+      // Check permissions API
+      const hasPermissionsAPI = 'permissions' in navigator;
+      
+      let statusText = "✅ Geolocation API supported<br>";
+      statusText += `🔒 HTTPS: ${isHTTPS ? '✅' : '❌ Required for geolocation'}<br>`;
+      statusText += `🔐 Permissions API: ${hasPermissionsAPI ? '✅' : '❌'}`;
+      
+      status.innerHTML = statusText;
+      status.className = isHTTPS ? "status success" : "status warning";
+      
+      log("System check complete");
+      log(`User Agent: ${navigator.userAgent}`);
+      log(`Protocol: ${location.protocol}`);
+      log(`Hostname: ${location.hostname}`);
+      
+      // Check permissions if available
+      if (hasPermissionsAPI) {
+        navigator.permissions.query({name: 'geolocation'}).then(result => {
+          log(`Geolocation permission: ${result.state}`);
+        }).catch(err => {
+          log(`Permission check failed: ${err.message}`, 'warning');
+        });
+      }
+    }
+
+    function handleSuccess(pos) {
+      const { latitude, longitude, accuracy, altitude, altitudeAccuracy, heading, speed } = pos.coords;
+      const timestamp = new Date(pos.timestamp);
+      
+      log("Location acquired successfully!", 'success');
+      log(`📍 Coordinates: ${latitude}, ${longitude}`);
+      log(`🎯 Accuracy: ${Math.round(accuracy)} meters`);
+      
+      if (altitude !== null) log(`⛰️ Altitude: ${altitude}m (±${altitudeAccuracy}m)`);
+      if (heading !== null) log(`🧭 Heading: ${heading}°`);
+      if (speed !== null) log(`🏃 Speed: ${speed} m/s`);
+      
+      log(`⏰ Timestamp: ${timestamp.toLocaleString()}`);
+      
+      // Create Google Maps link
+      const mapsLink = `https://www.google.com/maps?q=${latitude},${longitude}`;
+      log(`🗺️ View on Google Maps: ${mapsLink}`);
+      
+      // Distance to major cities for reference
+      const cities = [
+        { name: "Lagos", lat: 6.5244, lng: 3.3792 },
+        { name: "Abuja", lat: 9.0765, lng: 7.3986 },
+        { name: "London", lat: 51.5074, lng: -0.1278 },
+        { name: "New York", lat: 40.7128, lng: -74.0060 }
+      ];
+      
+      cities.forEach(city => {
+        const distance = haversine(latitude, longitude, city.lat, city.lng);
+        log(`📏 Distance to ${city.name}: ${formatDistance(distance)}`);
+      });
+    }
+
+    function handleError(error) {
+      log(`Geolocation error (${error.code}): ${error.message}`, 'error');
+      
+      switch(error.code) {
+        case error.PERMISSION_DENIED:
+          log("🔒 Location access denied by user", 'error');
+          log("💡 Check browser settings and system location services", 'warning');
+          break;
+        case error.POSITION_UNAVAILABLE:
+          log("📡 Location information unavailable", 'error');
+          log("💡 Try different network or check WiFi connection", 'warning');
+          break;
+        case error.TIMEOUT:
+          log("⏱️ Location request timed out", 'error');
+          log("💡 Try increasing timeout or check network connection", 'warning');
+          break;
+        default:
+          log("❓ Unknown error occurred", 'error');
+          break;
+      }
+    }
+
+    function haversine(lat1, lon1, lat2, lon2) {
+      const R = 6371e3;
+      const φ1 = (lat1 * Math.PI) / 180;
+      const φ2 = (lat2 * Math.PI) / 180;
+      const Δφ = ((lat2 - lat1) * Math.PI) / 180;
+      const Δλ = ((lon2 - lon1) * Math.PI) / 180;
+
+      const a = Math.sin(Δφ / 2) ** 2 + Math.cos(φ1) * Math.cos(φ2) * Math.sin(Δλ / 2) ** 2;
+      return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    }
+
+    function formatDistance(meters) {
+      if (meters < 1000) return `${Math.round(meters)}m`;
+      return `${(meters / 1000).toFixed(1)}km`;
+    }
+
+    // Event listeners
+    document.getElementById("getLocation").addEventListener("click", () => {
+      log("🔍 Requesting high-accuracy location...");
+      navigator.geolocation.getCurrentPosition(handleSuccess, handleError, {
+        enableHighAccuracy: true,
+        timeout: 30000,
+        maximumAge: 0
+      });
+    });
+
+    document.getElementById("getLocationLowAccuracy").addEventListener("click", () => {
+      log("🔍 Requesting low-accuracy location...");
+      navigator.geolocation.getCurrentPosition(handleSuccess, handleError, {
+        enableHighAccuracy: false,
+        timeout: 15000,
+        maximumAge: 60000
+      });
+    });
+
+    document.getElementById("watchLocation").addEventListener("click", () => {
+      if (watchId !== null) {
+        log("⚠️ Already watching location", 'warning');
+        return;
+      }
+      
+      log("👀 Starting location watch...");
+      watchId = navigator.geolocation.watchPosition(
+        (pos) => {
+          log("📍 Location update received");
+          handleSuccess(pos);
+        },
+        handleError,
+        {
+          enableHighAccuracy: true,
+          timeout: 20000,
+          maximumAge: 5000
+        }
+      );
+      
+      document.getElementById("watchLocation").disabled = true;
+      document.getElementById("stopWatch").disabled = false;
+    });
+
+    document.getElementById("stopWatch").addEventListener("click", () => {
+      if (watchId !== null) {
+        navigator.geolocation.clearWatch(watchId);
+        watchId = null;
+        log("⏹ Location watch stopped");
+        
+        document.getElementById("watchLocation").disabled = false;
+        document.getElementById("stopWatch").disabled = true;
+      }
+    });
+
+    document.getElementById("clearOutput").addEventListener("click", () => {
+      document.getElementById("output").textContent = "";
+    });
+
+    // Initialize
+    document.getElementById("stopWatch").disabled = true;
+    checkSystemSupport();
+    
+    // Log initial browser info
+    log("🖥️ Browser info logged above");
+  </script>
 </body>
 </html>

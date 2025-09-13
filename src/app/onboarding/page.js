@@ -4,6 +4,12 @@ import React, { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { useAuthRedirect } from "@/hooks/useAuthRedirect";
+
+import {
+  getDecryptedData,
+} from "../../utils/encryption";
+
 import { ConstructionIcon, Volume2, VolumeX } from "lucide-react";
 
 const title = "Leave Beyond Expectation. Order Smarter, Leave Better";
@@ -35,6 +41,8 @@ const introSlides = [
 ];
 
 export default function Home() {
+  useAuthRedirect();
+
   const [currentIndex, setCurrentIndex] = useState(0);
   const [direction, setDirection] = useState(0);
   const [autoPlayEnabled, setAutoPlayEnabled] = useState(true);
@@ -72,6 +80,19 @@ export default function Home() {
   const swipePower = (offset, velocity) => {
     return Math.abs(offset) * velocity;
   };
+
+
+    
+  useEffect(() => {
+   // const storedEmail = getDecryptedData("emailEncrypt");
+
+    console.log("storedEmail");
+    console.log("storedEmail");
+    console.log("storedEmail");
+    console.log("storedEmail");
+
+
+  }, [router]);
 
   useEffect(() => {
     fetch("api/auth?apiType=ping");

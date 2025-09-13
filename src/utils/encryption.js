@@ -1,28 +1,27 @@
 import CryptoJS from "crypto-js";
 
-// Generate a unique device ID based on browser info
-function generateDeviceInfo() {
+// Generate a more stable device ID
+function generateStableDeviceInfo() {
   const deviceInfo = [
-    navigator.userAgent,
-    //navigator.platform,
-    navigator.language,
-    navigator.hardwareConcurrency,
-    window.screen.width,
-    window.screen.height,
-    window.screen.colorDepth,
-    window.screen.pixelDepth,
-    navigator.maxTouchPoints,
+    // Use only stable browser characteristics
+    navigator.hardwareConcurrency || 4, // Fallback if undefined
+    navigator.maxTouchPoints || 0,      // Fallback if undefined
+    window.screen.colorDepth || 24,     // Fallback if undefined
+    window.screen.pixelDepth || 24,     // Fallback if undefined
+    // Add timezone as it's relatively stable
+    Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC',
+    // Add a browser-specific identifier that's more stable
+    navigator.vendor || 'unknown'
   ].join("-");
 
   return deviceInfo;
 }
 
-// Create a secure key using device info and app secret
+// Create a secure key using stable device info and app secret
 function generateSecureKey() {
-  const deviceInfo = generateDeviceInfo();
-  const SECRET_KEY =
-    process.env.NEXT_PUBLIC_CRYPTO_KEY || "default-fallback-key";
-
+  const deviceInfo = generateStableDeviceInfo();
+  const SECRET_KEY = process.env.NEXT_PUBLIC_CRYPTO_KEY || "default-fallback-key";
+  
   // Combine device info with app secret for better security
   return CryptoJS.SHA256(deviceInfo + SECRET_KEY).toString();
 }
@@ -33,18 +32,23 @@ function generateSecureKey() {
  * @returns {string} - Encrypted string
  */
 export const encryptData = (data) => {
-  // Convert to string if object
-  const dataString =
-    typeof data === "object" ? JSON.stringify(data) : String(data);
-
-  // Get device-specific secure key
-  const secureKey = generateSecureKey();
-
-  console.log("Secure Key: ", secureKey);
-  // Encrypt with AES
-  const encrypted = CryptoJS.AES.encrypt(dataString, secureKey).toString();
-
-  return encrypted;
+  try {
+    // Convert to string if object
+    const dataString = typeof data === "object" ? JSON.stringify(data) : String(data);
+    
+    // Get device-specific secure key
+    const secureKey = generateSecureKey();
+    
+    console.log("Encrypting data:", dataString);
+    
+    // Encrypt with AES
+    const encrypted = CryptoJS.AES.encrypt(dataString, secureKey).toString();
+    
+    return encrypted;
+  } catch (error) {
+    console.error("Encryption failed:", error);
+    return null;
+  }
 };
 
 /**
@@ -53,22 +57,30 @@ export const encryptData = (data) => {
  * @returns {Object|string|null} - Decrypted data, parsed as JSON if possible
  */
 export const decryptData = (encryptedData) => {
+  console.log("Decrypting data:", encryptedData);
+  console.log("Decrypting data:", encryptedData);
+  console.log("Decrypting data:", encryptedData);
   try {
-    if (!encryptedData) return null;
-
+    if (!encryptedData || typeof encryptedData !== 'string') return null;
+    
     // Get device-specific secure key (should be same as during encryption)
     const secureKey = generateSecureKey();
-
+    
     // Decrypt the data
     const bytes = CryptoJS.AES.decrypt(encryptedData, secureKey);
-
-    console.log(bytes)
-
+    
+    if (!bytes || bytes.sigBytes <= 0) {
+      console.warn("Decryption produced empty result");
+      return null;
+    }
+    
     const decryptedString = bytes.toString(CryptoJS.enc.Utf8);
-    console.log(decryptedString)
-
-    if (!decryptedString) return null;
-
+    
+    if (!decryptedString) {
+      console.warn("Failed to convert decrypted bytes to string");
+      return null;
+    }
+    
     // Try to parse as JSON, return as string if not valid JSON
     try {
       return JSON.parse(decryptedString);
@@ -85,10 +97,17 @@ export const decryptData = (encryptedData) => {
  * Stores encrypted data in localStorage
  * @param {string} key - Storage key
  * @param {Object|string} data - Data to encrypt and store
+ * @returns {boolean} - Success status
  */
 export const storeEncryptedData = (key, data) => {
-  //const encrypted = encryptData(data);
-  localStorage.setItem(key, data);
+  try {
+ 
+    localStorage.setItem(key, data);
+    return true;
+  } catch (error) {
+    console.error("Failed to store encrypted data:", error);
+    return false;
+  }
 };
 
 /**
@@ -97,21 +116,57 @@ export const storeEncryptedData = (key, data) => {
  * @returns {Object|string|null} - Decrypted data
  */
 export const getDecryptedData = (key) => {
-  const encryptedData = localStorage.getItem(key);
+  try {
+    const encryptedData = localStorage.getItem(key);
+    
+    if (!encryptedData) {
+      console.warn(`No data found for key: ${key}`);
+      return null;
+    }
+    
 
-          console.log(encryptedData)
+        console.log("Encrypted data:", encryptedData);
+        console.log("Encrypted data:", encryptedData);
+        console.log("Encrypted data:", encryptedData);
 
-  return encryptedData ? decryptData(encryptedData) : null;
+    const result = decryptData(encryptedData);
+
+
+    console.log("Decrypted data:", result);
+    console.log("Decrypted data:", result);
+    console.log("Decrypted data:", result)
+
+
+    if (result === null) {
+      console.warn(`Failed to decrypt data for key: ${key}`);
+    }
+    
+    return result;
+  } catch (error) {
+    console.error("Failed to get decrypted data:", error);
+    return null;
+  }
 };
 
 /**
  * Stores encrypted data in sessionStorage
  * @param {string} key - Storage key
  * @param {Object|string} data - Data to encrypt and store
+ * @returns {boolean} - Success status
  */
 export const storeEncryptedDataInSession = (key, data) => {
-  const encrypted = encryptData(data);
-  sessionStorage.setItem(key, encrypted);
+  try {
+    const encrypted = encryptData(data);
+    if (!encrypted) {
+      console.error("Failed to encrypt data for session storage");
+      return false;
+    }
+    sessionStorage.setItem(key, encrypted);
+    return true;
+  } catch (error) {
+    console.error("Failed to store encrypted data in session:", error);
+    return false;
+  }
 };
 
 /**
@@ -120,8 +175,19 @@ export const storeEncryptedDataInSession = (key, data) => {
  * @returns {Object|string|null} - Decrypted data
  */
 export const getDecryptedDataFromSession = (key) => {
-  const encryptedData = sessionStorage.getItem(key);
-  return encryptedData ? decryptData(encryptedData) : null;
+  try {
+    const encryptedData = sessionStorage.getItem(key);
+    
+    if (!encryptedData) {
+      console.warn(`No session data found for key: ${key}`);
+      return null;
+    }
+    
+    return decryptData(encryptedData);
+  } catch (error) {
+    console.error("Failed to get decrypted data from session:", error);
+    return null;
+  }
 };
 
 /**
@@ -129,7 +195,11 @@ export const getDecryptedDataFromSession = (key) => {
  * @param {string} key - Storage key to remove
  */
 export const removeEncryptedData = (key) => {
-  localStorage.removeItem(key);
+  try {
+    localStorage.removeItem(key);
+  } catch (error) {
+    console.error("Failed to remove encrypted data:", error);
+  }
 };
 
 /**
@@ -137,5 +207,52 @@ export const removeEncryptedData = (key) => {
  * @param {string} key - Storage key to remove
  */
 export const removeEncryptedDataFromSession = (key) => {
-  sessionStorage.removeItem(key);
+  try {
+    sessionStorage.removeItem(key);
+  } catch (error) {
+    console.error("Failed to remove encrypted data from session:", error);
+  }
 };
+
+// Utility function to check if device fingerprint has changed
+export const validateDeviceFingerprint = () => {
+  const currentFingerprint = generateStableDeviceInfo();
+  const storedFingerprint = localStorage.getItem('device_fingerprint');
+  
+  if (!storedFingerprint) {
+    localStorage.setItem('device_fingerprint', currentFingerprint);
+    return true;
+  }
+  
+  return currentFingerprint === storedFingerprint;
+};
+
+// Migration utility for existing unencrypted data
+export const migrateUnencryptedData = (key) => {
+  try {
+    const rawData = localStorage.getItem(key);
+    if (!rawData) return false;
+    
+    // Try to decrypt first - if it works, data is already encrypted
+    const decrypted = decryptData(rawData);
+    if (decrypted !== null) {
+      console.log(`Data for key ${key} is already encrypted`);
+      return true;
+    }
+    
+    // If decryption fails, assume it's unencrypted and encrypt it
+    console.log(`Migrating unencrypted data for key: ${key}`);
+    const success = storeEncryptedData(key, rawData);
+    
+    if (success) {
+      console.log(`Successfully migrated data for key: ${key}`);
+    }
+    
+    return success;
+  } catch (error) {
+    console.error("Migration failed:", error);
+    return false;
+  }
+};
+
+

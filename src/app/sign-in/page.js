@@ -29,7 +29,7 @@ const LoginForm = () => {
   const { mutate, isLoading, isError, error, isSuccess } = useLogin(
     async (data) => {
       const myEmail = data.data.data.user.emailAddress;
-      const encrypted = await encryptData(myEmail);
+      const encrypted =  encryptData(myEmail);
 
       console.log("Encrypted data:", encrypted);
       storeEncryptedData("emailEncrypt", encrypted);
