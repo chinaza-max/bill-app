@@ -436,7 +436,7 @@ export async function GET(req) {
 
 
 // Helper function to retry axios requests
-async function retryRequest(config, retries = 4, delay = 1000) {
+async function retryRequest(config, retries = 6, delay = 1000) {
   for (let attempt = 0; attempt < retries; attempt++) {
     try {
       return await axiosInstance(config);

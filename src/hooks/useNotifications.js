@@ -33,7 +33,7 @@ export const useNotifications = () => {
       // Show browser notification if app is in foreground
       if (Notification.permission === "granted") {
         new Notification(payload.notification.title, {
-          body: "payload.notification.body",
+          body: payload.notification.body,
           // icon: payload.notification.icon || "../images/icons/icon-192x192.png",
           // image: payload.notification.image,
           vibrate: [200, 100, 200, 100, 200],
