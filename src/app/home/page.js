@@ -1,5 +1,7 @@
 "use client";
 
+import { LocationStatusIndicator, LocationStatusBadge } from '../component/LocationStatusIndicator';
+
 import React, { useEffect, useState, useRef, useMemo } from "react";
 import {
   Bell,
@@ -166,8 +168,11 @@ const {
   locationError,
   isRetrying,
   retryLocation,
-  dismissNotification ,
-  getCurrentLocation
+  dismissNotification,
+  getCurrentLocation,
+  locationStatus, // NEW: Add this
+  currentAccuracy, // NEW: Add this
+  lastLocationUpdate // NEW: Add this
 } = useLocationService();
 
   useVisibility();
@@ -543,101 +548,114 @@ const {
     <ProtectedRoute>
       <div className="flex flex-col h-screen bg-amber-50">
         {/* Top Navigation */}
-        <div className="px-4 py-3 bg-gradient-to-r from-amber-600 to-amber-500 text-white">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-3">
-              <div className="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center text-white">
-                <img
-                  onClick={() => {
-                    handleTabChange("userProfile");
-                  }}
-                  src={imageUrl || "/default-avatar.png"} // Fallback image
-                  alt="avatar"
-                  className="w-full h-full object-cover rounded-full"
-                  onError={(e) => {
-                    e.target.onerror = null;
-                    e.target.src = "/default-avatar.png";
-                  }}
-                />
-              </div>
-              <div>
-                <p className="text-sm">Welcome</p>
-                <p className="font-semibold">{fullName || "User"}</p>
-              </div>
-            </div>
-            <div className="flex items-center space-x-4">
-              <div className="relative">
-                <Bell
-                  className="h-6 w-6 cursor-pointer"
-                  onClick={() => router.push("/home/notification")}
-                />
-                {notifications.filter((n) => !n.read).length > 0 && (
-                  <span
-                    className="absolute -top-2 -right-2 bg-red-500 text-white 
-                             rounded-full text-xs w-5 h-5 flex items-center 
-                             justify-center"
-                  >
-                    {notifications.filter((n) => !n.read).length}
-                  </span>
-                )}
-              </div>
-              <div className="relative" ref={dropdownRef}>
-                <button
-                  onClick={() => {
-                    setIsDropdownOpen(!isDropdownOpen);
-                    handleSwitchInteraction();
-                  }}
-                  className="flex items-center space-x-1 text-white hover:bg-amber-600 px-3 py-1.5 rounded relative overflow-hidden"
-                >
-                  {/* Pulse animation effect */}
-                  <AttentionAnimation
-                    isVisible={showPulseAnimation}
-                    duration={2}
-                  />
-
-                  <span className="relative z-10">{userType}</span>
-                  <ChevronDown className="h-4 w-4 relative z-10" />
-                </button>
-
-                <AnimatePresence>
-                  {isDropdownOpen && (
-                    <motion.div
-                      initial={{ opacity: 0, y: -10 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      exit={{ opacity: 0, y: -10 }}
-                      transition={{ duration: 0.2 }}
-                      className="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg py-1 z-10"
-                    >
-                      <button
-                        onClick={() => {
-                          setUserType("Merchant");
-                          setIsDropdownOpen(false);
-                          handleSwitchInteraction();
-                          moveToMerchant(
-                            "userProfile/merchantProfile/merchantHome"
-                          );
-                        }}
-                        className="block px-4 py-2 text-sm text-gray-700 hover:bg-amber-50 w-full text-left"
-                      >
-                        Merchant
-                      </button>
-                      <button
-                        onClick={() => {
-                          setUserType("Client");
-                          setIsDropdownOpen(false);
-                          handleSwitchInteraction();
-                        }}
-                        className="block px-4 py-2 text-sm text-gray-700 hover:bg-amber-50 w-full text-left"
-                      >
-                        Client
-                      </button>
-                    </motion.div>
-                  )}
-                </AnimatePresence>
-              </div>
-            </div>
+       <div className="px-4 py-3 bg-gradient-to-r from-amber-600 to-amber-500 text-white">
+  <div className="flex items-center justify-between">
+    <div className="flex items-center space-x-3">
+      <div className="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center text-white">
+        <img
+          onClick={() => {
+            handleTabChange("userProfile");
+          }}
+          src={imageUrl || "/default-avatar.png"}
+          alt="avatar"
+          className="w-full h-full object-cover rounded-full"
+          onError={(e) => {
+            e.target.onerror = null;
+            e.target.src = "/default-avatar.png";
+          }}
+        />
+      </div>
+      <div>
+        <div className="flex items-center space-x-2">
+          <div>
+            <p className="text-sm">Welcome</p>
+            <p className="font-semibold">{fullName || "User"}</p>
           </div>
+          {/* Location Status Badge */}
+          <LocationStatusBadge status={locationStatus} size="sm" />
         </div>
+      </div>
+    </div>
+    <div className="flex items-center space-x-4">
+      <div className="relative">
+        <Bell
+          className="h-6 w-6 cursor-pointer"
+          onClick={() => router.push("/home/notification")}
+        />
+        {notifications.filter((n) => !n.read).length > 0 && (
+          <span
+            className="absolute -top-2 -right-2 bg-red-500 text-white 
+                     rounded-full text-xs w-5 h-5 flex items-center 
+                     justify-center"
+          >
+            {notifications.filter((n) => !n.read).length}
+          </span>
+        )}
+      </div>
+      <div className="relative" ref={dropdownRef}>
+        <button
+          onClick={() => {
+            setIsDropdownOpen(!isDropdownOpen);
+            handleSwitchInteraction();
+          }}
+          className="flex items-center space-x-1 text-white hover:bg-amber-600 px-3 py-1.5 rounded relative overflow-hidden"
+        >
+          <AttentionAnimation
+            isVisible={showPulseAnimation}
+            duration={2}
+          />
+          <span className="relative z-10">{userType}</span>
+          <ChevronDown className="h-4 w-4 relative z-10" />
+        </button>
+
+        <AnimatePresence>
+          {isDropdownOpen && (
+            <motion.div
+              initial={{ opacity: 0, y: -10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+              transition={{ duration: 0.2 }}
+              className="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg py-1 z-10"
+            >
+              <button
+                onClick={() => {
+                  setUserType("Merchant");
+                  setIsDropdownOpen(false);
+                  handleSwitchInteraction();
+                  moveToMerchant(
+                    "userProfile/merchantProfile/merchantHome"
+                  );
+                }}
+                className="block px-4 py-2 text-sm text-gray-700 hover:bg-amber-50 w-full text-left"
+              >
+                Merchant
+              </button>
+              <button
+                onClick={() => {
+                  setUserType("Client");
+                  setIsDropdownOpen(false);
+                  handleSwitchInteraction();
+                }}
+                className="block px-4 py-2 text-sm text-gray-700 hover:bg-amber-50 w-full text-left"
+              >
+                Client
+              </button>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
+    </div>
+  </div>
+  
+  {/* Full Location Status Indicator (below header) */}
+  <div className="mt-3">
+    <LocationStatusIndicator
+      status={locationStatus}
+      accuracy={currentAccuracy}
+      lastUpdate={lastLocationUpdate}
+    />
+  </div>
+</div>
 
         {/* Main Content */}
         <div className="flex-1 overflow-auto">

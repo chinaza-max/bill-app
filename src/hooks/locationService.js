@@ -1,404 +1,10 @@
-/*import { useState, useEffect, useCallback, useRef } from "react";
-import { useSelector } from "react-redux";
-import useRequest from "@/hooks/useRequest";
-
-export const useLocationService = (accessToken) => {
-  const [isLocationEnabled, setIsLocationEnabled] = useState(false);
-  const [locationPermission, setLocationPermission] = useState("prompt");
-  const [showLocationNotification, setShowLocationNotification] = useState(false);
-  const [lastLocationUpdate, setLastLocationUpdate] = useState(null);
-  const [locationError, setLocationError] = useState(null);
-  const [isRetrying, setIsRetrying] = useState(false);
-  const [currentAccuracy, setCurrentAccuracy] = useState(null);
-  
-  const { request, error } = useRequest();
-  const intervalRef = useRef(null);
-  const retryIntervalRef = useRef(null);
-  const watchPositionId = useRef(null);
-  const reduxAccessToken = useSelector((state) => state.user.accessToken);
-
-  accessToken = accessToken || reduxAccessToken;
-
-  // Send location to server
-  const sendLocationToServer = async (latitude, longitude, accuracy) => {
-    try {
-      console.log("Sending location:", { latitude, longitude, accuracy });
-      await request("/api/user", "POST", {
-        lat: latitude + "",
-        lng: longitude + "",
-        accuracy: accuracy + "",
-        role: "user",
-        accessToken,
-        apiType: "updateUser",
-      });
-
-      if (!error) {
-        setLastLocationUpdate(new Date());
-        setCurrentAccuracy(accuracy);
-        console.log("Location updated successfully with accuracy:", accuracy);
-        return true;
-      }
-      return false;
-    } catch (err) {
-      console.error("Failed to send location to server:", err);
-      return false;
-    }
-  };
-
-  // Get high accuracy position using watchPosition for better results
-  const getHighAccuracyLocation = useCallback(() => {
-    return new Promise((resolve, reject) => {
-      if (!navigator.geolocation) {
-        const error = new Error("Geolocation is not supported by this browser");
-        reject(error);
-        return;
-      }
-
-      let bestPosition = null;
-      let attempts = 0;
-      const maxAttempts = 3;
-      const acceptableAccuracy = 50; // meters
-      
-      const watchId = navigator.geolocation.watchPosition(
-        (position) => {
-          attempts++;
-          console.log(`Location attempt ${attempts}:`, {
-            lat: position.coords.latitude,
-            lng: position.coords.longitude,
-            accuracy: position.coords.accuracy,
-            timestamp: new Date(position.timestamp)
-          });
-
-          // Keep the most accurate position
-          if (!bestPosition || position.coords.accuracy < bestPosition.coords.accuracy) {
-            bestPosition = position;
-          }
-
-          // Resolve if we get acceptable accuracy or max attempts reached
-          if (position.coords.accuracy <= acceptableAccuracy || attempts >= maxAttempts) {
-            navigator.geolocation.clearWatch(watchId);
-            resolve({
-              latitude: bestPosition.coords.latitude,
-              longitude: bestPosition.coords.longitude,
-              accuracy: bestPosition.coords.accuracy,
-              timestamp: bestPosition.timestamp
-            });
-          }
-        },
-        (error) => {
-          navigator.geolocation.clearWatch(watchId);
-          console.error("Geolocation error:", error);
-          
-          let errorMessage;
-          switch (error.code) {
-            case error.PERMISSION_DENIED:
-              errorMessage = "Location access denied. Please allow location access in your browser settings.";
-              break;
-            case error.POSITION_UNAVAILABLE:
-              errorMessage = "Location unavailable. Please enable location services on your device and ensure you have a good GPS signal.";
-              break;
-            case error.TIMEOUT:
-              errorMessage = "Location request timed out. Please try again.";
-              break;
-            default:
-              errorMessage = "Unable to get your location. Please try again.";
-              break;
-          }
-          
-          const customError = new Error(errorMessage);
-          customError.code = error.code;
-          reject(customError);
-        },
-        {
-          enableHighAccuracy: true,        // Use GPS instead of network location
-          timeout: 30000,                  // Increased timeout for better accuracy
-          maximumAge: 0,                   // Don't use cached location data
-        }
-      );
-
-      // Fallback timeout to ensure we don't wait forever
-      setTimeout(() => {
-        if (bestPosition) {
-          navigator.geolocation.clearWatch(watchId);
-          resolve({
-            latitude: bestPosition.coords.latitude,
-            longitude: bestPosition.coords.longitude,
-            accuracy: bestPosition.coords.accuracy,
-            timestamp: bestPosition.timestamp
-          });
-        }
-      }, 25000); // 25 seconds fallback
-    });
-  }, []);
-
-  // Fallback to getCurrentPosition with optimized settings
-  const getCurrentLocation = useCallback(() => {
-    return new Promise((resolve, reject) => {
-      if (!navigator.geolocation) {
-        const error = new Error("Geolocation is not supported by this browser");
-        reject(error);
-        return;
-      }
-
-      navigator.geolocation.getCurrentPosition(
-        (position) => {
-          console.log("Current position:", {
-            lat: position.coords.latitude,
-            lng: position.coords.longitude,
-            accuracy: position.coords.accuracy,
-            timestamp: new Date(position.timestamp)
-          });
-          
-          resolve({
-            latitude: position.coords.latitude,
-            longitude: position.coords.longitude,
-            accuracy: position.coords.accuracy,
-            timestamp: position.timestamp
-          });
-        },
-        (error) => {
-          console.error("Geolocation error:", error);
-          
-          let errorMessage;
-          switch (error.code) {
-            case error.PERMISSION_DENIED:
-              errorMessage = "Location access denied. Please allow location access in your browser settings.";
-              break;
-            case error.POSITION_UNAVAILABLE:
-              errorMessage = "Location unavailable. Please enable location services on your device and ensure you have a good GPS signal.";
-              break;
-            case error.TIMEOUT:
-              errorMessage = "Location request timed out. Please try again.";
-              break;
-            default:
-              errorMessage = "Unable to get your location. Please try again.";
-              break;
-          }
-          
-          const customError = new Error(errorMessage);
-          customError.code = error.code;
-          reject(customError);
-        },
-        {
-          enableHighAccuracy: true,        // Changed to true for GPS accuracy
-          timeout: 20000,                  // Increased timeout
-          maximumAge: 0,                   // Changed to 0 for fresh location
-        }
-      );
-    });
-  }, []);
-
-  // Try to get location with fallback strategy
-  const tryGetLocation = useCallback(async (showNotificationOnFail = true) => {
-    try {
-      setLocationError(null);
-      let location;
-
-      try {
-        // First try high accuracy method
-        location = await getHighAccuracyLocation();
-        console.log("Using high accuracy location");
-      } catch (highAccuracyError) {
-        console.log("High accuracy failed, falling back to getCurrentPosition");
-        // Fallback to regular getCurrentPosition
-        location = await getCurrentLocation();
-      }
-
-      const success = await sendLocationToServer(
-        location.latitude, 
-        location.longitude, 
-        location.accuracy
-      );
-      
-      if (success) {
-        setIsLocationEnabled(true);
-        setLocationPermission("granted");
-        setShowLocationNotification(false);
-        setIsRetrying(false);
-        
-        // Start regular updates if not already running
-        if (!intervalRef.current) {
-          startLocationUpdates();
-        }
-        
-        return true;
-      } else {
-        throw new Error("Failed to send location to server");
-      }
-
-    } catch (error) {
-      console.error("Location error:", error);
-      
-      if (error.code === 1) { // PERMISSION_DENIED
-        setLocationPermission("denied");
-      }
-      
-      setIsLocationEnabled(false);
-      setLocationError(error);
-      
-      if (showNotificationOnFail) {
-        setShowLocationNotification(true);
-      }
-      
-      return false;
-    }
-  }, [getHighAccuracyLocation, getCurrentLocation, accessToken]);
-
-  // Start automatic location updates with better frequency
-  const startLocationUpdates = useCallback(() => {
-    if (intervalRef.current) {
-      clearInterval(intervalRef.current);
-    }
-
-    // More frequent updates for better tracking (5 minutes instead of 10)
-    intervalRef.current = setInterval(async () => {
-      await tryGetLocation(false);
-    }, 5 * 60 * 1000); // 5 minutes
-  }, [tryGetLocation]);
-
-  // Start retry attempts with exponential backoff
-  const startRetryAttempts = useCallback(() => {
-    if (retryIntervalRef.current) {
-      clearInterval(retryIntervalRef.current);
-    }
-
-    let retryCount = 0;
-    const maxRetries = 5;
-    
-    setIsRetrying(true);
-    
-    const doRetry = async () => {
-      retryCount++;
-      console.log(`Retry attempt ${retryCount}/${maxRetries}`);
-      
-      const success = await tryGetLocation(false);
-      
-      if (success || retryCount >= maxRetries) {
-        clearInterval(retryIntervalRef.current);
-        retryIntervalRef.current = null;
-        setIsRetrying(false);
-        return;
-      }
-      
-      // Exponential backoff: 1min, 2min, 4min, 8min, 16min
-      const nextDelay = Math.min(Math.pow(2, retryCount - 1) * 60 * 1000, 16 * 60 * 1000);
-      
-      setTimeout(() => {
-        if (retryIntervalRef.current) {
-          doRetry();
-        }
-      }, nextDelay);
-    };
-
-    // Start first retry after 1 minute
-    retryIntervalRef.current = setTimeout(doRetry, 60 * 1000);
-  }, [tryGetLocation]);
-
-  // Stop all location services
-  const stopAllLocationServices = useCallback(() => {
-    if (intervalRef.current) {
-      clearInterval(intervalRef.current);
-      intervalRef.current = null;
-    }
-    if (retryIntervalRef.current) {
-      clearInterval(retryIntervalRef.current);
-      retryIntervalRef.current = null;
-    }
-    if (watchPositionId.current) {
-      navigator.geolocation.clearWatch(watchPositionId.current);
-      watchPositionId.current = null;
-    }
-    setIsRetrying(false);
-  }, []);
-
-  // Manual retry function for user action
-  const retryLocation = useCallback(async () => {
-    const success = await tryGetLocation(true);
-    
-    if (!success) {
-      startRetryAttempts();
-    }
-    
-    return success;
-  }, [tryGetLocation, startRetryAttempts]);
-
-  // Dismiss notification but continue background retries
-  const dismissNotification = useCallback(() => {
-    setShowLocationNotification(false);
-    
-    if (!isLocationEnabled) {
-      startRetryAttempts();
-    }
-  }, [isLocationEnabled, startRetryAttempts]);
-
-  // Initialize location service
-  useEffect(() => {
-    const initializeLocation = async () => {
-      if (!navigator.geolocation) {
-        setLocationError(new Error("Geolocation is not supported by this browser"));
-        setShowLocationNotification(true);
-        return;
-      }
-
-      // Check permission status if available
-      if (navigator.permissions) {
-        try {
-          const permission = await navigator.permissions.query({ name: "geolocation" });
-          setLocationPermission(permission.state);
-
-          permission.onchange = () => {
-            setLocationPermission(permission.state);
-            if (permission.state === "granted") {
-              tryGetLocation(false);
-            } else if (permission.state === "denied") {
-              setIsLocationEnabled(false);
-              setShowLocationNotification(true);
-              setLocationError(new Error("Location access denied"));
-            }
-          };
-        } catch (error) {
-          console.error("Error checking permissions:", error);
-        }
-      }
-
-      // Try to get location initially
-      const success = await tryGetLocation(true);
-      
-      if (!success) {
-        startRetryAttempts();
-      }
-    };
-
-    if (accessToken) {
-      initializeLocation();
-    }
-
-    return () => {
-      stopAllLocationServices();
-    };
-  }, [accessToken]);
-
-  return {
-    isLocationEnabled,
-    locationPermission,
-    showLocationNotification,
-    lastLocationUpdate,
-    locationError,
-    isRetrying,
-    currentAccuracy, // Added accuracy info
-    retryLocation,
-    dismissNotification,
-    getCurrentLocation,
-    getHighAccuracyLocation, // Expose high accuracy method
-  };
-};
-*/
-
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useSelector } from "react-redux";
 import useRequest from "@/hooks/useRequest";
 
-// Simple moving average filter
+// ----------------------------------------------------
+// MOVING AVERAGE FILTER
+// ----------------------------------------------------
 class LocationFilter {
   constructor(windowSize = 5) {
     this.history = [];
@@ -420,11 +26,14 @@ class LocationFilter {
       this.history.reduce((s, p) => s + p.lng, 0) / this.history.length;
     const avgAccuracy =
       this.history.reduce((s, p) => s + p.accuracy, 0) / this.history.length;
+
     return { lat: avgLat, lng: avgLng, accuracy: avgAccuracy };
   }
 }
 
-// Haversine distance (meters)
+// ----------------------------------------------------
+// HAVERSINE DISTANCE FOR OUTLIER FILTERING
+// ----------------------------------------------------
 function haversine(lat1, lon1, lat2, lon2) {
   const R = 6371e3;
   const φ1 = (lat1 * Math.PI) / 180;
@@ -433,151 +42,100 @@ function haversine(lat1, lon1, lat2, lon2) {
   const Δλ = ((lon2 - lon1) * Math.PI) / 180;
 
   const a =
-    Math.sin(Δφ / 2) * Math.sin(Δφ / 2) +
-    Math.cos(φ1) * Math.cos(φ2) * Math.sin(Δλ / 2) * Math.sin(Δλ / 2);
+    Math.sin(Δφ / 2) ** 2 + Math.cos(φ1) * Math.cos(φ2) * Math.sin(Δλ / 2) ** 2;
 
   return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }
 
+// ====================================================
+// MAIN HOOK
+// ====================================================
 export const useLocationService = (accessToken) => {
   const [isLocationEnabled, setIsLocationEnabled] = useState(false);
   const [locationPermission, setLocationPermission] = useState("prompt");
   const [showLocationNotification, setShowLocationNotification] =
     useState(false);
+
   const [lastLocationUpdate, setLastLocationUpdate] = useState(null);
   const [locationError, setLocationError] = useState(null);
   const [isRetrying, setIsRetrying] = useState(false);
   const [currentAccuracy, setCurrentAccuracy] = useState(null);
 
-  const { request, error } = useRequest();
-  const intervalRef = useRef(null);
-  const retryIntervalRef = useRef(null);
-  const watchPositionId = useRef(null);
-  const reduxAccessToken = useSelector((state) => state.user.accessToken);
+  const [locationStatus, setLocationStatus] = useState("idle");
 
+  const { request, error } = useRequest();
+  const reduxAccessToken = useSelector((s) => s.user.accessToken);
   accessToken = accessToken || reduxAccessToken;
 
   const filterRef = useRef(new LocationFilter(5));
   const lastGoodLocationRef = useRef(null);
 
-  // Send location to server
-  const sendLocationToServer = async (latitude, longitude, accuracy) => {
-    try {
-      console.log("Sending location:", { latitude, longitude, accuracy });
-      await request("/api/user", "POST", {
-        lat: latitude + "",
-        lng: longitude + "",
-        // accuracy: accuracy + "",
-        role: "user",
-        accessToken,
-        apiType: "updateUser",
-      });
+  const intervalRef = useRef(null);
+  const retryIntervalRef = useRef(null);
 
-      if (!error) {
-        setLastLocationUpdate(new Date());
-        setCurrentAccuracy(accuracy);
-        console.log("✅ Location updated with accuracy:", accuracy);
-        return true;
-      }
-      return false;
-    } catch (err) {
-      console.error("❌ Failed to send location:", err);
-      return false;
-    }
-  };
+  const pendingUpdateRef = useRef(null);
+  const isPageVisibleRef = useRef(true);
 
-  // Outlier check (ignore >500m jumps)
+  // ----------------------------------------------------
+  // OUTLIER CHECK (More lenient: 1500m)
+  // Works much better indoors / poor GPS
+  // ----------------------------------------------------
   const isOutlier = (lat, lng) => {
     if (!lastGoodLocationRef.current) return false;
-    const distance = haversine(
+
+    const d = haversine(
       lastGoodLocationRef.current.lat,
       lastGoodLocationRef.current.lng,
       lat,
       lng
     );
-    return distance > 500;
+
+    return d > 1500; // less sensitive indoors
   };
 
-  /*
-  // High accuracy with smoothing + outlier rejection
-  const getHighAccuracyLocation = useCallback(() => {
-    return new Promise((resolve, reject) => {
-      if (!navigator.geolocation) {
-        reject(new Error("Geolocation not supported"));
-        return;
+  // ----------------------------------------------------
+  // SEND LOCATION TO SERVER
+  // ----------------------------------------------------
+  const sendLocationToServer = async (lat, lng, accuracy) => {
+    try {
+      setLocationStatus("pending");
+
+      const updatePromise = request("/api/user", "POST", {
+        lat: lat + "",
+        lng: lng + "",
+        role: "user",
+        accessToken,
+        apiType: "updateUser",
+      });
+
+      pendingUpdateRef.current = updatePromise;
+      await updatePromise;
+
+      if (!error) {
+        pendingUpdateRef.current = null;
+        setLocationStatus("success");
+        setLastLocationUpdate(new Date());
+        setCurrentAccuracy(accuracy);
+
+        setTimeout(() => setLocationStatus("idle"), 2500);
+        return true;
       }
 
-      let bestPosition = null;
-      let attempts = 0;
-      const maxAttempts = 3;
-      const acceptableAccuracy = 50;
+      throw new Error("Server rejected location");
+    } catch (err) {
+      console.error("❌ Failed to send:", err);
+      setLocationStatus("error");
+      pendingUpdateRef.current = null;
 
-      const watchId = navigator.geolocation.watchPosition(
-        (pos) => {
-          attempts++;
-          const { latitude, longitude, accuracy } = pos.coords;
+      setTimeout(() => setLocationStatus("idle"), 3000);
+      return false;
+    }
+  };
 
-          console.log(`Attempt ${attempts}:`, { latitude, longitude, accuracy });
-
-          if (isOutlier(latitude, longitude)) {
-            console.warn("⚠️ Outlier location ignored");
-            return;
-          }
-
-          if (!bestPosition || accuracy < bestPosition.coords.accuracy) {
-            bestPosition = pos;
-          }
-
-          if (accuracy <= acceptableAccuracy || attempts >= maxAttempts) {
-            navigator.geolocation.clearWatch(watchId);
-
-            const smoothed = filterRef.current.add(
-              bestPosition.coords.latitude,
-              bestPosition.coords.longitude,
-              bestPosition.coords.accuracy
-            );
-
-            lastGoodLocationRef.current = { lat: smoothed.lat, lng: smoothed.lng };
-
-            resolve({
-              latitude: smoothed.lat,
-              longitude: smoothed.lng,
-              accuracy: smoothed.accuracy,
-              timestamp: bestPosition.timestamp,
-            });
-          }
-        },
-        (err) => {
-          navigator.geolocation.clearWatch(watchId);
-          reject(err);
-        },
-        { enableHighAccuracy: true, timeout: 30000, maximumAge: 0 }
-      );
-
-      // Fallback after 25s
-      setTimeout(() => {
-        if (bestPosition) {
-          navigator.geolocation.clearWatch(watchId);
-
-          const smoothed = filterRef.current.add(
-            bestPosition.coords.latitude,
-            bestPosition.coords.longitude,
-            bestPosition.coords.accuracy
-          );
-
-          lastGoodLocationRef.current = { lat: smoothed.lat, lng: smoothed.lng };
-
-          resolve({
-            latitude: smoothed.lat,
-            longitude: smoothed.lng,
-            accuracy: smoothed.accuracy,
-            timestamp: bestPosition.timestamp,
-          });
-        }
-      }, 25000);
-    });
-  }, []);
-  */
+  // ----------------------------------------------------
+  // HIGH ACCURACY (BEST EFFORT)
+  // WORKS EVEN WHEN GPS SIGNAL IS WEAK
+  // ----------------------------------------------------
   const getHighAccuracyLocation = useCallback(() => {
     return new Promise((resolve, reject) => {
       if (!navigator.geolocation) {
@@ -590,135 +148,133 @@ export const useLocationService = (accessToken) => {
       const options = {
         enableHighAccuracy: true,
         timeout: 15000,
-        maximumAge: 5000,
+        maximumAge: 5000, // CRITICAL for indoor usage
       };
 
       const fallbackTimer = setTimeout(() => {
-        if (best) {
-          return resolve(format(best));
-        }
-        reject(new Error("High accuracy timeout"));
+        if (best) resolve(format(best));
+        else reject(new Error("High accuracy timeout"));
       }, 16000);
 
       const watchId = navigator.geolocation.watchPosition(
         (pos) => {
           const { latitude, longitude, accuracy } = pos.coords;
 
-          // Ignore extremely poor accuracy
-          if (accuracy > 250) return;
-
-          // detect outliers
+          if (accuracy > 500) return; // ignore extremely bad readings
           if (isOutlier(latitude, longitude)) return;
 
-          if (!best || accuracy < best.coords.accuracy) {
-            best = pos;
-          }
+          if (!best || accuracy < best.coords.accuracy) best = pos;
 
-          // good enough, stop early
-          if (accuracy <= 50) {
-            clearTimeout(fallbackTimer);
-            navigator.geolocation.clearWatch(watchId);
-            return resolve(format(best));
+          if (accuracy <= 70) {
+            clearAll();
+            resolve(format(best));
           }
         },
-
         (err) => {
-          clearTimeout(fallbackTimer);
-          navigator.geolocation.clearWatch(watchId);
+          clearAll();
           reject(err);
         },
-
         options
       );
 
+      function clearAll() {
+        clearTimeout(fallbackTimer);
+        navigator.geolocation.clearWatch(watchId);
+      }
+
       function format(p) {
-        const smoothed = filterRef.current.add(
+        const smooth = filterRef.current.add(
           p.coords.latitude,
           p.coords.longitude,
           p.coords.accuracy
         );
-        lastGoodLocationRef.current = { lat: smoothed.lat, lng: smoothed.lng };
+
+        lastGoodLocationRef.current = {
+          lat: smooth.lat,
+          lng: smooth.lng,
+        };
+
         return {
-          latitude: smoothed.lat,
-          longitude: smoothed.lng,
-          accuracy: smoothed.accuracy,
+          latitude: smooth.lat,
+          longitude: smooth.lng,
+          accuracy: smooth.accuracy,
           timestamp: p.timestamp,
         };
       }
     });
   }, []);
 
-  // Fallback simple getCurrentPosition
+  // ----------------------------------------------------
+  // SIMPLE FALLBACK (MEDIUM ACCURACY)
+  // ----------------------------------------------------
   const getCurrentLocation = useCallback(() => {
     return new Promise((resolve, reject) => {
-      if (!navigator.geolocation) {
-        reject(new Error("Geolocation not supported"));
-        return;
-      }
-
       navigator.geolocation.getCurrentPosition(
         (pos) => {
           const { latitude, longitude, accuracy } = pos.coords;
 
-          if (isOutlier(latitude, longitude)) {
-            console.warn("⚠️ Outlier current position ignored");
-            reject(new Error("Outlier location ignored"));
-            return;
+          if (accuracy > 800) {
+            // very weak signal but still usable
+            console.warn("Weak GPS signal accepted");
           }
 
-          const smoothed = filterRef.current.add(latitude, longitude, accuracy);
+          if (isOutlier(latitude, longitude)) {
+            return reject(new Error("Outlier rejected"));
+          }
+
+          const smooth = filterRef.current.add(latitude, longitude, accuracy);
+
           lastGoodLocationRef.current = {
-            lat: smoothed.lat,
-            lng: smoothed.lng,
+            lat: smooth.lat,
+            lng: smooth.lng,
           };
 
           resolve({
-            latitude: smoothed.lat,
-            longitude: smoothed.lng,
-            accuracy: smoothed.accuracy,
+            latitude: smooth.lat,
+            longitude: smooth.lng,
+            accuracy: smooth.accuracy,
             timestamp: pos.timestamp,
           });
         },
         (err) => reject(err),
-        { enableHighAccuracy: true, timeout: 20000, maximumAge: 0 }
+        {
+          enableHighAccuracy: false,
+          timeout: 15000,
+          maximumAge: 10000,
+        }
       );
     });
   }, []);
 
-  // Strategy: try high accuracy first, fallback if needed
+  // ----------------------------------------------------
+  // LOCATION STRATEGY
+  // ----------------------------------------------------
   const tryGetLocation = useCallback(
     async (showNotificationOnFail = true) => {
       try {
         setLocationError(null);
-        let location;
 
+        let loc;
         try {
-          location = await getHighAccuracyLocation();
+          loc = await getHighAccuracyLocation();
         } catch {
-          console.log("High accuracy failed, falling back");
-          location = await getCurrentLocation();
+          loc = await getCurrentLocation();
         }
 
-        const success = await sendLocationToServer(
-          location.latitude,
-          location.longitude,
-          location.accuracy
+        const ok = await sendLocationToServer(
+          loc.latitude,
+          loc.longitude,
+          loc.accuracy
         );
 
-        if (success) {
-          setIsLocationEnabled(true);
+        if (ok) {
           setLocationPermission("granted");
+          setIsLocationEnabled(true);
           setShowLocationNotification(false);
-          setIsRetrying(false);
-
-          if (!intervalRef.current) {
-            startLocationUpdates();
-          }
-
           return true;
-        } else {
-          throw new Error("Failed to send location");
         }
+
+        throw new Error("Save failed");
       } catch (err) {
         console.error("Location error:", err);
 
@@ -737,115 +293,93 @@ export const useLocationService = (accessToken) => {
     [getHighAccuracyLocation, getCurrentLocation, accessToken]
   );
 
+  // ----------------------------------------------------
+  // PERIODIC UPDATES
+  // ----------------------------------------------------
   const startLocationUpdates = useCallback(() => {
-    if (intervalRef.current) clearInterval(intervalRef.current);
+    clearInterval(intervalRef.current);
 
-    intervalRef.current = setInterval(async () => {
-      await tryGetLocation(false);
+    intervalRef.current = setInterval(() => {
+      if (isPageVisibleRef.current) tryGetLocation(false);
     }, 5 * 60 * 1000);
   }, [tryGetLocation]);
 
+  // ----------------------------------------------------
+  // RETRY LOGIC
+  // ----------------------------------------------------
   const startRetryAttempts = useCallback(() => {
-    if (retryIntervalRef.current) clearInterval(retryIntervalRef.current);
+    clearInterval(retryIntervalRef.current);
 
-    let retryCount = 0;
-    const maxRetries = 5;
-    setIsRetrying(true);
+    let retry = 0;
+    const max = 5;
 
-    const doRetry = async () => {
-      retryCount++;
-      console.log(`Retry ${retryCount}/${maxRetries}`);
+    retryIntervalRef.current = setInterval(async () => {
+      retry++;
 
       const success = await tryGetLocation(false);
-      if (success || retryCount >= maxRetries) {
+      if (success || retry >= max) {
         clearInterval(retryIntervalRef.current);
-        retryIntervalRef.current = null;
-        setIsRetrying(false);
-        return;
       }
-
-      const nextDelay = Math.min(
-        Math.pow(2, retryCount - 1) * 60 * 1000,
-        16 * 60 * 1000
-      );
-      setTimeout(() => {
-        if (retryIntervalRef.current) doRetry();
-      }, nextDelay);
-    };
-
-    retryIntervalRef.current = setTimeout(doRetry, 60 * 1000);
+    }, 60000);
   }, [tryGetLocation]);
 
-  const stopAllLocationServices = useCallback(() => {
-    if (intervalRef.current) clearInterval(intervalRef.current);
-    if (retryIntervalRef.current) clearInterval(retryIntervalRef.current);
-    if (watchPositionId.current) {
-      navigator.geolocation.clearWatch(watchPositionId.current);
-      watchPositionId.current = null;
-    }
-    setIsRetrying(false);
+  // ----------------------------------------------------
+  // CLEANUP
+  // ----------------------------------------------------
+  const stopAll = useCallback(() => {
+    clearInterval(intervalRef.current);
+    clearInterval(retryIntervalRef.current);
   }, []);
 
-  const retryLocation = useCallback(async () => {
-    const success = await tryGetLocation(true);
-    if (!success) startRetryAttempts();
-    return success;
-  }, [tryGetLocation, startRetryAttempts]);
-
-  const dismissNotification = useCallback(() => {
-    setShowLocationNotification(false);
-    if (!isLocationEnabled) startRetryAttempts();
-  }, [isLocationEnabled, startRetryAttempts]);
-
+  // ----------------------------------------------------
+  // INITIALIZE
+  // ----------------------------------------------------
   useEffect(() => {
     const init = async () => {
       if (!navigator.geolocation) {
         setLocationError(new Error("Geolocation not supported"));
-        setShowLocationNotification(true);
         return;
       }
 
       if (navigator.permissions) {
         try {
-          const permission = await navigator.permissions.query({
+          const p = await navigator.permissions.query({
             name: "geolocation",
           });
-          setLocationPermission(permission.state);
 
-          permission.onchange = () => {
-            setLocationPermission(permission.state);
-            if (permission.state === "granted") {
-              tryGetLocation(false);
-            } else if (permission.state === "denied") {
-              setIsLocationEnabled(false);
-              setShowLocationNotification(true);
-              setLocationError(new Error("Location access denied"));
-            }
+          setLocationPermission(p.state);
+
+          p.onchange = () => {
+            setLocationPermission(p.state);
           };
-        } catch (e) {
-          console.error("Permission check error:", e);
-        }
+        } catch {}
       }
 
-      const success = await tryGetLocation(true);
-      if (!success) startRetryAttempts();
+      const ok = await tryGetLocation(true);
+      if (ok) startLocationUpdates();
+      else startRetryAttempts();
     };
 
     if (accessToken) init();
-    return () => stopAllLocationServices();
+    return stopAll;
   }, [accessToken]);
 
+  // ----------------------------------------------------
+  // RETURN API
+  // ----------------------------------------------------
   return {
     isLocationEnabled,
     locationPermission,
     showLocationNotification,
     lastLocationUpdate,
     locationError,
-    isRetrying,
     currentAccuracy,
-    retryLocation,
-    dismissNotification,
-    getCurrentLocation,
+    locationStatus,
+
+    retryLocation: tryGetLocation,
+    dismissNotification: () => setShowLocationNotification(false),
+
     getHighAccuracyLocation,
+    getCurrentLocation,
   };
 };
