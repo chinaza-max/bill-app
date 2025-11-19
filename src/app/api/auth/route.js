@@ -1,6 +1,6 @@
 import axios from "axios";
 const axiosInstance = axios.create({
-  baseURL: "https://fidopoint.onrender.com/api/v1", // Base URL  http://localhost:5000  //https://fidopoint.onrender.com/api/v1
+  baseURL: "http://localhost:5000/api/v1", // Base URL  http://localhost:5000  //https://fidopoint.onrender.com/api/v1
   headers: {
     "Content-Type": "application/json", // Set default content-type for the API requests
   },
@@ -9,7 +9,6 @@ const axiosInstance = axios.create({
 
 export async function POST(req) {
   try {
-
     let apiType, requestData;
     let formData;
     let externalFormData = new FormData();
@@ -51,7 +50,7 @@ export async function POST(req) {
     let response;
 
     // Handle different API types
-   /* switch (apiType) {
+    /* switch (apiType) {
       case "loginUser":
         response = await axiosInstance.post("/auth/loginUser", requestData);
 
@@ -109,76 +108,75 @@ export async function POST(req) {
         );
     }*/
 
-        switch (apiType) {
-  case "loginUser":
-    response = await retryRequest({
-      method: "post",
-      url: "/auth/loginUser",
-      data: requestData,
-    });
-    break;
+    switch (apiType) {
+      case "loginUser":
+        response = await retryRequest({
+          method: "post",
+          url: "/auth/loginUser",
+          data: requestData,
+        });
+        break;
 
-  case "registerUser":
-    response = await retryRequest({
-      method: "post",
-      url: "/auth/registerUser",
-      data: requestData,
-    });
-    break;
+      case "registerUser":
+        response = await retryRequest({
+          method: "post",
+          url: "/auth/registerUser",
+          data: requestData,
+        });
+        break;
 
-  case "sendPasswordResetLink":
-    response = await retryRequest({
-      method: "post",
-      url: "/auth/sendPasswordResetLink",
-      data: requestData,
-    });
-    break;
+      case "sendPasswordResetLink":
+        response = await retryRequest({
+          method: "post",
+          url: "/auth/sendPasswordResetLink",
+          data: requestData,
+        });
+        break;
 
-  case "verifyEmailorTel":
-    response = await retryRequest({
-      method: "post",
-      url: "/auth/verifyEmailorTel",
-      data: requestData,
-    });
-    break;
+      case "verifyEmailorTel":
+        response = await retryRequest({
+          method: "post",
+          url: "/auth/verifyEmailorTel",
+          data: requestData,
+        });
+        break;
 
-  case "sendVerificationCodeEmailOrTel":
-    response = await retryRequest({
-      method: "post",
-      url: "/auth/sendVerificationCodeEmailOrTel",
-      data: requestData,
-    });
-    break;
+      case "sendVerificationCodeEmailOrTel":
+        response = await retryRequest({
+          method: "post",
+          url: "/auth/sendVerificationCodeEmailOrTel",
+          data: requestData,
+        });
+        break;
 
-  case "enterPassCode":
-    response = await retryRequest({
-      method: "post",
-      url: "/auth/enterPassCode",
-      data: requestData,
-    });
-    break;
+      case "enterPassCode":
+        response = await retryRequest({
+          method: "post",
+          url: "/auth/enterPassCode",
+          data: requestData,
+        });
+        break;
 
-  case "uploadImageGoogleDrive":
-    response = await retryRequest({
-      method: "post",
-      url: "/auth/uploadImageGoogleDrive",
-      data: externalFormData,
-      headers: {
-        "Content-Type": "multipart/form-data",
-      },
-    });
-    break;
+      case "uploadImageGoogleDrive":
+        response = await retryRequest({
+          method: "post",
+          url: "/auth/uploadImageGoogleDrive",
+          data: externalFormData,
+          headers: {
+            "Content-Type": "multipart/form-data",
+          },
+        });
+        break;
 
-  default:
-    return new Response(
-      JSON.stringify({
-        status: "error",
-        message: `Unsupported apiType: ${apiType}`,
-      }),
-      { status: 400 }
-    );
-}
-
+      default:
+        return new Response(
+          JSON.stringify({
+            status: "error",
+            message: `Unsupported apiType: ${apiType}`,
+          }),
+          { status: 400 }
+        );
+    }
 
     return new Response(
       JSON.stringify({
@@ -433,18 +431,13 @@ export async function GET(req) {
   }
 }
 
-
-
 // Helper function to retry axios requests
 async function retryRequest(config, retries = 6, delay = 1000) {
   for (let attempt = 0; attempt < retries; attempt++) {
     try {
       return await axiosInstance(config);
     } catch (error) {
-      if (
-        error.code === "ECONNABORTED" ||
-        error.message.includes("timeout")
-      ) {
+      if (error.code === "ECONNABORTED" || error.message.includes("timeout")) {
         if (attempt < retries - 1) {
           await new Promise((res) => setTimeout(res, delay)); // Wait before retry
           continue; // Retry again
@@ -454,4 +447,3 @@ async function retryRequest(config, retries = 6, delay = 1000) {
     }
   }
 }
-

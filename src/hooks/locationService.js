@@ -394,7 +394,6 @@ export const useLocationService = (accessToken) => {
 };
 */
 
-
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useSelector } from "react-redux";
 import useRequest from "@/hooks/useRequest";
@@ -415,9 +414,12 @@ class LocationFilter {
   }
 
   getSmoothed() {
-    const avgLat = this.history.reduce((s, p) => s + p.lat, 0) / this.history.length;
-    const avgLng = this.history.reduce((s, p) => s + p.lng, 0) / this.history.length;
-    const avgAccuracy = this.history.reduce((s, p) => s + p.accuracy, 0) / this.history.length;
+    const avgLat =
+      this.history.reduce((s, p) => s + p.lat, 0) / this.history.length;
+    const avgLng =
+      this.history.reduce((s, p) => s + p.lng, 0) / this.history.length;
+    const avgAccuracy =
+      this.history.reduce((s, p) => s + p.accuracy, 0) / this.history.length;
     return { lat: avgLat, lng: avgLng, accuracy: avgAccuracy };
   }
 }
@@ -432,8 +434,7 @@ function haversine(lat1, lon1, lat2, lon2) {
 
   const a =
     Math.sin(Δφ / 2) * Math.sin(Δφ / 2) +
-    Math.cos(φ1) * Math.cos(φ2) *
-    Math.sin(Δλ / 2) * Math.sin(Δλ / 2);
+    Math.cos(φ1) * Math.cos(φ2) * Math.sin(Δλ / 2) * Math.sin(Δλ / 2);
 
   return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }
@@ -441,7 +442,8 @@ function haversine(lat1, lon1, lat2, lon2) {
 export const useLocationService = (accessToken) => {
   const [isLocationEnabled, setIsLocationEnabled] = useState(false);
   const [locationPermission, setLocationPermission] = useState("prompt");
-  const [showLocationNotification, setShowLocationNotification] = useState(false);
+  const [showLocationNotification, setShowLocationNotification] =
+    useState(false);
   const [lastLocationUpdate, setLastLocationUpdate] = useState(null);
   const [locationError, setLocationError] = useState(null);
   const [isRetrying, setIsRetrying] = useState(false);
@@ -465,7 +467,7 @@ export const useLocationService = (accessToken) => {
       await request("/api/user", "POST", {
         lat: latitude + "",
         lng: longitude + "",
-        accuracy: accuracy + "",
+        // accuracy: accuracy + "",
         role: "user",
         accessToken,
         apiType: "updateUser",
@@ -496,6 +498,7 @@ export const useLocationService = (accessToken) => {
     return distance > 500;
   };
 
+  /*
   // High accuracy with smoothing + outlier rejection
   const getHighAccuracyLocation = useCallback(() => {
     return new Promise((resolve, reject) => {
@@ -574,6 +577,76 @@ export const useLocationService = (accessToken) => {
       }, 25000);
     });
   }, []);
+  */
+  const getHighAccuracyLocation = useCallback(() => {
+    return new Promise((resolve, reject) => {
+      if (!navigator.geolocation) {
+        reject(new Error("Geolocation not supported"));
+        return;
+      }
+
+      let best = null;
+
+      const options = {
+        enableHighAccuracy: true,
+        timeout: 15000,
+        maximumAge: 5000,
+      };
+
+      const fallbackTimer = setTimeout(() => {
+        if (best) {
+          return resolve(format(best));
+        }
+        reject(new Error("High accuracy timeout"));
+      }, 16000);
+
+      const watchId = navigator.geolocation.watchPosition(
+        (pos) => {
+          const { latitude, longitude, accuracy } = pos.coords;
+
+          // Ignore extremely poor accuracy
+          if (accuracy > 250) return;
+
+          // detect outliers
+          if (isOutlier(latitude, longitude)) return;
+
+          if (!best || accuracy < best.coords.accuracy) {
+            best = pos;
+          }
+
+          // good enough, stop early
+          if (accuracy <= 50) {
+            clearTimeout(fallbackTimer);
+            navigator.geolocation.clearWatch(watchId);
+            return resolve(format(best));
+          }
+        },
+
+        (err) => {
+          clearTimeout(fallbackTimer);
+          navigator.geolocation.clearWatch(watchId);
+          reject(err);
+        },
+
+        options
+      );
+
+      function format(p) {
+        const smoothed = filterRef.current.add(
+          p.coords.latitude,
+          p.coords.longitude,
+          p.coords.accuracy
+        );
+        lastGoodLocationRef.current = { lat: smoothed.lat, lng: smoothed.lng };
+        return {
+          latitude: smoothed.lat,
+          longitude: smoothed.lng,
+          accuracy: smoothed.accuracy,
+          timestamp: p.timestamp,
+        };
+      }
+    });
+  }, []);
 
   // Fallback simple getCurrentPosition
   const getCurrentLocation = useCallback(() => {
@@ -594,7 +667,10 @@ export const useLocationService = (accessToken) => {
           }
 
           const smoothed = filterRef.current.add(latitude, longitude, accuracy);
-          lastGoodLocationRef.current = { lat: smoothed.lat, lng: smoothed.lng };
+          lastGoodLocationRef.current = {
+            lat: smoothed.lat,
+            lng: smoothed.lng,
+          };
 
           resolve({
             latitude: smoothed.lat,
@@ -610,53 +686,56 @@ export const useLocationService = (accessToken) => {
   }, []);
 
   // Strategy: try high accuracy first, fallback if needed
-  const tryGetLocation = useCallback(async (showNotificationOnFail = true) => {
-    try {
-      setLocationError(null);
-      let location;
-
+  const tryGetLocation = useCallback(
+    async (showNotificationOnFail = true) => {
       try {
-        location = await getHighAccuracyLocation();
-      } catch {
-        console.log("High accuracy failed, falling back");
-        location = await getCurrentLocation();
-      }
+        setLocationError(null);
+        let location;
 
-      const success = await sendLocationToServer(
-        location.latitude,
-        location.longitude,
-        location.accuracy
-      );
-
-      if (success) {
-        setIsLocationEnabled(true);
-        setLocationPermission("granted");
-        setShowLocationNotification(false);
-        setIsRetrying(false);
-
-        if (!intervalRef.current) {
-          startLocationUpdates();
+        try {
+          location = await getHighAccuracyLocation();
+        } catch {
+          console.log("High accuracy failed, falling back");
+          location = await getCurrentLocation();
         }
 
-        return true;
-      } else {
-        throw new Error("Failed to send location");
+        const success = await sendLocationToServer(
+          location.latitude,
+          location.longitude,
+          location.accuracy
+        );
+
+        if (success) {
+          setIsLocationEnabled(true);
+          setLocationPermission("granted");
+          setShowLocationNotification(false);
+          setIsRetrying(false);
+
+          if (!intervalRef.current) {
+            startLocationUpdates();
+          }
+
+          return true;
+        } else {
+          throw new Error("Failed to send location");
+        }
+      } catch (err) {
+        console.error("Location error:", err);
+
+        if (err.code === 1) setLocationPermission("denied");
+
+        setIsLocationEnabled(false);
+        setLocationError(err);
+
+        if (showNotificationOnFail) {
+          setShowLocationNotification(true);
+        }
+
+        return false;
       }
-    } catch (err) {
-      console.error("Location error:", err);
-
-      if (err.code === 1) setLocationPermission("denied");
-
-      setIsLocationEnabled(false);
-      setLocationError(err);
-
-      if (showNotificationOnFail) {
-        setShowLocationNotification(true);
-      }
-
-      return false;
-    }
-  }, [getHighAccuracyLocation, getCurrentLocation, accessToken]);
+    },
+    [getHighAccuracyLocation, getCurrentLocation, accessToken]
+  );
 
   const startLocationUpdates = useCallback(() => {
     if (intervalRef.current) clearInterval(intervalRef.current);
@@ -685,7 +764,10 @@ export const useLocationService = (accessToken) => {
         return;
       }
 
-      const nextDelay = Math.min(Math.pow(2, retryCount - 1) * 60 * 1000, 16 * 60 * 1000);
+      const nextDelay = Math.min(
+        Math.pow(2, retryCount - 1) * 60 * 1000,
+        16 * 60 * 1000
+      );
       setTimeout(() => {
         if (retryIntervalRef.current) doRetry();
       }, nextDelay);
@@ -725,7 +807,9 @@ export const useLocationService = (accessToken) => {
 
       if (navigator.permissions) {
         try {
-          const permission = await navigator.permissions.query({ name: "geolocation" });
+          const permission = await navigator.permissions.query({
+            name: "geolocation",
+          });
           setLocationPermission(permission.state);
 
           permission.onchange = () => {
