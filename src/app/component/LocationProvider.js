@@ -15,7 +15,7 @@ export default function LocationProvider({ children }) {
 
     // Initialize service
     locationService.init({
-      updateInterval: 10 * 1000, // 20 minutes  1 * 60 * 1000
+      updateInterval: 5 * 60 * 1000, // 20 minutes
       simulationMode: false, // Change to false for real GPS
       
       onUpdate: async (location) => {
