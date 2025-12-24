@@ -309,7 +309,7 @@ class LocationFilter {
 }
 
 // ==================================================
-// SINGLETON INSTANCE
+// SINGLETON INSTANCE ll
 // ==================================================
 const locationService = new BackgroundLocationService();
 
