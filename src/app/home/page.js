@@ -678,7 +678,7 @@ const {
             {/* Order Button */}
 
             <div>
-              lat22
+              lat
               {lat}- lng
               {lng}
             </div>
