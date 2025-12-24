@@ -3,6 +3,7 @@ import "./globals.css";
 import Providers from "./providers";
 import ProvidersRedux from "./providers-redux";
 import { Toaster } from "sonner";
+import LocationProvider from "./component/LocationProvider";
 
 const geistSans = localFont({
   src: "./fonts/GeistVF.woff",
@@ -71,8 +72,10 @@ export const viewport = {
   themeColor: "#FFFFFF",
 };
 
+
+
+// Then in app/layout.js
 export default function RootLayout({ children }) {
-  //useVisibility();
   return (
     <html lang="en">
       <body
@@ -80,11 +83,13 @@ export default function RootLayout({ children }) {
       >
         <Toaster position="top-right" richColors />
         <ProvidersRedux>
-          <Providers>{children}</Providers>
+          <Providers>
+            <LocationProvider>
+              {children}
+            </LocationProvider>
+          </Providers>
         </ProvidersRedux>
       </body>
     </html>
   );
 }
-//14.2.15
-//https://uideck.com/
