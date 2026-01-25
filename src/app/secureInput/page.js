@@ -238,7 +238,7 @@ const SecureLogin = () => {
         // Optionally redirect to OTP verification page
         setTimeout(() => {
           router.push('/sign-in');
-        }, 2000);
+        }, 4000);
       } else {
         setResetError(data.message || "Failed to send reset OTP. Please try again.");
       }
@@ -361,7 +361,7 @@ const SecureLogin = () => {
           <Alert className="mb-6 border-emerald-500 bg-emerald-50">
             <AlertTitle className="text-emerald-700">Reset OTP Sent</AlertTitle>
             <AlertDescription className="text-emerald-600">
-              Check your email for the reset code. Redirecting...
+              Check your email for the reset link and click on it . Redirecting...
             </AlertDescription>
           </Alert>
         )}
