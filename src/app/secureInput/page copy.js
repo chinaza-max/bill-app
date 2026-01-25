@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { X, Delete, ArrowRight, Loader2, ArrowLeft, AlertCircle } from "lucide-react";
+import { X, Delete, ArrowRight, Loader2, ArrowLeft } from "lucide-react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useEnterPassCode } from "@/hooks/useAuth";
@@ -23,22 +23,10 @@ import getErrorMessage from "@/app/component/error";
 
 const dosis = Dosis({ subsets: ["latin"], weight: ["400", "600", "700"] });
 
-const LOCKOUT_DURATION = 30 * 60 * 1000; // 30 minutes in milliseconds
-const MAX_ATTEMPTS = 7;
-const RESET_BUTTON_THRESHOLD = 3;
-
 const SecureLogin = () => {
   const [pin, setPin] = useState("");
   const [numbers, setNumbers] = useState([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [attempts, setAttempts] = useState(0);
-  const [isLockedOut, setIsLockedOut] = useState(false);
-  const [lockoutEndTime, setLockoutEndTime] = useState(null);
-  const [remainingTime, setRemainingTime] = useState(0);
-  const [isResetting, setIsResetting] = useState(false);
-  const [resetSuccess, setResetSuccess] = useState(false);
-  const [resetError, setResetError] = useState(null);
-  
   const router = useRouter();
   const dispatch = useDispatch();
   const { mutate, isLoading, isError, error, isSuccess, reset } =
@@ -77,60 +65,7 @@ const SecureLogin = () => {
       const encryptedDatas = encryptUserData(stateData);
 
       localStorage.setItem("userData", encryptedDatas);
-      
-      // Reset attempts on successful login
-      setAttempts(0);
-      localStorage.removeItem("pinAttempts");
-      localStorage.removeItem("lockoutEndTime");
     });
-
-  // Load attempts and lockout state from localStorage
-  useEffect(() => {
-    const storedAttempts = localStorage.getItem("pinAttempts");
-    const storedLockoutTime = localStorage.getItem("lockoutEndTime");
-    
-    if (storedAttempts) {
-      setAttempts(parseInt(storedAttempts, 10));
-    }
-    
-    if (storedLockoutTime) {
-      const lockoutTime = parseInt(storedLockoutTime, 10);
-      const now = Date.now();
-      
-      if (now < lockoutTime) {
-        setIsLockedOut(true);
-        setLockoutEndTime(lockoutTime);
-      } else {
-        // Lockout expired, clear it
-        localStorage.removeItem("lockoutEndTime");
-        localStorage.removeItem("pinAttempts");
-        setAttempts(0);
-      }
-    }
-  }, []);
-
-  // Countdown timer for lockout
-  useEffect(() => {
-    if (!isLockedOut || !lockoutEndTime) return;
-
-    const interval = setInterval(() => {
-      const now = Date.now();
-      const remaining = lockoutEndTime - now;
-
-      if (remaining <= 0) {
-        setIsLockedOut(false);
-        setLockoutEndTime(null);
-        setAttempts(0);
-        localStorage.removeItem("lockoutEndTime");
-        localStorage.removeItem("pinAttempts");
-        clearInterval(interval);
-      } else {
-        setRemainingTime(remaining);
-      }
-    }, 1000);
-
-    return () => clearInterval(interval);
-  }, [isLockedOut, lockoutEndTime]);
 
   useEffect(() => {
     if (isSuccess) {
@@ -151,30 +86,10 @@ const SecureLogin = () => {
 
   // Auto-submit when PIN is complete
   useEffect(() => {
-    if (pin.length === 4 && !isSubmitting && !isLoading && !isLockedOut) {
+    if (pin.length === 4 && !isSubmitting && !isLoading) {
       handleSubmit();
     }
-  }, [pin, isSubmitting, isLoading, isLockedOut]);
-
-  // Handle failed attempts
-  useEffect(() => {
-    if (isError) {
-      const newAttempts = attempts + 1;
-      setAttempts(newAttempts);
-      localStorage.setItem("pinAttempts", newAttempts.toString());
-      
-      // Check if max attempts reached
-      if (newAttempts >= MAX_ATTEMPTS) {
-        const lockoutTime = Date.now() + LOCKOUT_DURATION;
-        setIsLockedOut(true);
-        setLockoutEndTime(lockoutTime);
-        localStorage.setItem("lockoutEndTime", lockoutTime.toString());
-      }
-      
-      setIsSubmitting(false);
-      setPin("");
-    }
-  }, [isError]);
+  }, [pin, isSubmitting, isLoading]);
 
   const randomizeNumbers = () => {
     const shuffled = [...Array(10).keys()]
@@ -184,80 +99,40 @@ const SecureLogin = () => {
   };
 
   const handleNumberClick = (num) => {
-    if (pin.length < 4 && !isSubmitting && !isLoading && !isLockedOut) {
+    if (pin.length < 4 && !isSubmitting && !isLoading) {
       setPin((prev) => prev + num);
     }
   };
 
   const handleDelete = () => {
-    if (!isSubmitting && !isLoading && !isLockedOut) {
+    if (!isSubmitting && !isLoading) {
       setPin((prev) => prev.slice(0, -1));
     }
   };
 
   const handleClear = () => {
-    if (!isSubmitting && !isLoading && !isLockedOut) {
+    if (!isSubmitting && !isLoading) {
       setPin("");
       randomizeNumbers();
     }
   };
 
   const handleBack = () => {
-    router.push('/sign-in');
-  };
-
-  const handleResetPin = async () => {
-    const storedEmail = getDecryptedData("emailEncrypt");
-    
-    if (!storedEmail) {
-      setResetError("No email found. Please sign in again.");
-      return;
-    }
-
-    setIsResetting(true);
-    setResetError(null);
-    setResetSuccess(false);
-
-    try {
-      const response = await fetch('/api/auth', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          emailOrPhone: storedEmail,
-          type: 'user',
-          apiType: 'sendPinResetOtp',
-        }),
-      });
-
-      const data = await response.json();
-
-      if (response.ok) {
-        setResetSuccess(true);
-        // Optionally redirect to OTP verification page
-        setTimeout(() => {
-          router.push('/sign-in');
-        }, 2000);
-      } else {
-        setResetError(data.message || "Failed to send reset OTP. Please try again.");
-      }
-    } catch (error) {
-      console.error("Reset PIN error:", error);
-      setResetError("Network error. Please check your connection and try again.");
-    } finally {
-      setIsResetting(false);
-    }
+    router.push('/sign-in'); // Adjust this path to match your sign-in route
   };
 
   const handleSubmit = async () => {
-    if (pin.length !== 4 || isSubmitting || isLoading || isLockedOut) {
+    // Prevent submission if PIN is empty or less than 4 digits
+    if (pin.length !== 4 || isSubmitting || isLoading) {
       return;
     }
 
     setIsSubmitting(true);
 
     const storedEmail = getDecryptedData("emailEncrypt");
+    console.log(storedEmail)
+        console.log(storedEmail)
+    console.log(storedEmail)
 
     if (storedEmail) {
       try {
@@ -269,6 +144,7 @@ const SecureLogin = () => {
         console.error("Decryption or submission error:", error);
         setIsSubmitting(false);
       } finally {
+        // Don't randomize numbers immediately, wait for response
         setTimeout(() => {
           if (!isSuccess) {
             randomizeNumbers();
@@ -287,15 +163,17 @@ const SecureLogin = () => {
     router.prefetch("home");
   }, [router]);
 
-  const isInputDisabled = isSubmitting || isLoading || isLockedOut;
-  const showLoading = isSubmitting || isLoading;
-  const showResetButton = attempts >= RESET_BUTTON_THRESHOLD && !isLockedOut;
+  // Reset submitting state when there's an error
+  useEffect(() => {
+    if (isError) {
+      setIsSubmitting(false);
+      setPin("");
+    }
+  }, [isError]);
 
-  const formatTime = (ms) => {
-    const minutes = Math.floor(ms / 60000);
-    const seconds = Math.floor((ms % 60000) / 1000);
-    return `${minutes}:${seconds.toString().padStart(2, '0')}`;
-  };
+  // Determine if inputs should be disabled
+  const isInputDisabled = isSubmitting || isLoading;
+  const showLoading = isSubmitting || isLoading;
 
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col items-center px-4 py-6 relative">
@@ -345,49 +223,14 @@ const SecureLogin = () => {
         className="bg-white rounded-lg shadow-sm border border-gray-100 p-6 w-full max-w-sm"
         style={{ position: "absolute", bottom: "50px" }}
       >
-        {/* Lockout Alert */}
-        {isLockedOut && (
-          <Alert variant="destructive" className="mb-6 border-red-500">
-            <AlertCircle className="h-4 w-4" />
-            <AlertTitle>Account Temporarily Locked</AlertTitle>
-            <AlertDescription>
-              Too many failed attempts. Please try again in {formatTime(remainingTime)}.
-            </AlertDescription>
-          </Alert>
-        )}
-
-        {/* Reset Success Alert */}
-        {resetSuccess && (
-          <Alert className="mb-6 border-emerald-500 bg-emerald-50">
-            <AlertTitle className="text-emerald-700">Reset OTP Sent</AlertTitle>
-            <AlertDescription className="text-emerald-600">
-              Check your email for the reset code. Redirecting...
-            </AlertDescription>
-          </Alert>
-        )}
-
-        {/* Reset Error Alert */}
-        {resetError && (
-          <Alert variant="destructive" className="mb-6 border-red-500">
-            <AlertCircle className="h-4 w-4" />
-            <AlertTitle>Reset Failed</AlertTitle>
-            <AlertDescription>{resetError}</AlertDescription>
-          </Alert>
-        )}
-
-        {/* Login Error Alert */}
-        {isError && !isLockedOut && (
+        {isError && (
           <Alert variant="destructive" className="mb-6 border-red-500">
             <AlertTitle>Login Failed</AlertTitle>
             <AlertDescription>
               {getErrorMessage(error, router)}
-              <div className="mt-2 text-sm">
-                Attempts: {attempts}/{MAX_ATTEMPTS}
-              </div>
             </AlertDescription>
           </Alert>
         )}
-
         <div className="flex justify-between items-center mb-6">
           <h2 className="text-lg font-medium text-gray-700">
             Enter 4-Digit PIN
@@ -458,35 +301,9 @@ const SecureLogin = () => {
           </div>
         </div>
 
-        {/* Reset PIN Button */}
-        {showResetButton && (
-          <button
-            onClick={handleResetPin}
-            disabled={isResetting || isLockedOut}
-            className={`w-full mb-4 py-3 rounded-md text-sm font-medium transition-all duration-150
-                       focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50
-                       flex items-center justify-center ${
-                         isResetting || isLockedOut
-                           ? "bg-gray-100 text-gray-400 cursor-not-allowed"
-                           : "bg-blue-600 text-white hover:bg-blue-700 active:bg-blue-800"
-                       }`}
-          >
-            {isResetting ? (
-              <>
-                <Loader2 size={16} className="animate-spin mr-2" />
-                Sending Reset OTP...
-              </>
-            ) : (
-              "Forgot PIN? Reset Now"
-            )}
-          </button>
-        )}
-
         <p className="text-xs text-gray-400 text-center">
           {showLoading
             ? "Verifying your PIN..."
-            : isLockedOut
-            ? "Account locked due to multiple failed attempts"
             : "Enhanced security: Keypad layout changes automatically"}
         </p>
       </div>

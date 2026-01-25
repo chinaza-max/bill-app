@@ -68,7 +68,7 @@ const LocationPermissionScreen = () => {
     const options = {
       enableHighAccuracy: true,
       timeout: 10000,
-      maximumAge: 300000, // 5 minutes
+      maximumAge: 300000, 
     };
 
     navigator.geolocation.getCurrentPosition(
@@ -91,7 +91,7 @@ const LocationPermissionScreen = () => {
 
   const handleSkipLocation = () => {
     // Proceed to home without location
-    router.push("/home");
+    router.push("/settingupSecurePin");
   };
 
   const benefits = [
@@ -243,7 +243,7 @@ const LocationPermissionScreen = () => {
           {permissionStatus === "granted" && !loading && (
             <button
               className="w-full p-3 rounded-lg font-medium text-sm bg-green-600 text-white hover:bg-green-700 transition-all duration-200"
-              onClick={() => router.push("/home")}
+              onClick={() => router.push("/settingupSecurePin")}
             >
               Continue to App
             </button>

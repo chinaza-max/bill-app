@@ -1,6 +1,6 @@
 import axios from "axios";
 const axiosInstance = axios.create({
-  baseURL: "https://fidopoint.onrender.com/api/v1", // Base URL  http://localhost:5000  //https://fidopoint.onrender.com/api/v1
+  baseURL: "http://localhost:5000/api/v1", // Base URL  http://localhost:5000  //https://fidopoint.onrender.com/api/v1
   headers: {
     "Content-Type": "application/json", // Set default content-type for the API requests
   },
@@ -166,6 +166,16 @@ export async function POST(req) {
             "Content-Type": "multipart/form-data",
           },
         });
+
+      case "sendPinResetOtp":
+        response = await retryRequest({
+          method: "post",
+          url: "/auth/sendPinResetOtp",
+          data: requestData,
+        });
+         
+
+
         break;
 
       default:
