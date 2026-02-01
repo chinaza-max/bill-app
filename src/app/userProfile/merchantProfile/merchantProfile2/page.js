@@ -28,7 +28,7 @@ const MerchantInfoPage = () => {
         },
         body: JSON.stringify({
           ...merchantData,
-          apiType: "updateMerchantProfile",
+          apiType: "updateMerchantProfileWithoutFile",
           accessToken: accessToken,
         }),
       });
