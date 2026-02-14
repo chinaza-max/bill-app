@@ -734,7 +734,7 @@ const P2PPage = () => {
                       <MapPin className="h-5 w-5" />
                       <span>
                         {typeof offer.distance === "number"
-                          ? `${offer.distance.toFixed(1)} km away`
+                          ? `${offer.distance.toFixed(1)} m away`
                           : "Distance unavailable"}
                       </span>
                     </div>
