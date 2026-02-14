@@ -867,7 +867,7 @@ const OrderTrackingPage = () => {
                   <div className="w-12 h-12 rounded-full bg-amber-100 flex items-center justify-center">
                     <img
                       src={
-                        orderData?.userDetails?.image || "/default-avatar.png"
+                        orderData?.userDetails?.avatar || "/default-avatar.png"
                       }
                       alt={orderData?.userDetails?.displayname || "User"}
                       className="w-full h-full object-cover rounded-full"
@@ -942,7 +942,7 @@ const OrderTrackingPage = () => {
                     <div className="flex justify-between text-sm">
                       <span className="text-amber-700">Distance</span>
                       <span className="font-medium text-amber-900">
-                        {orderData?.distance || "0"} km
+                        {orderData?.distance || "0"} m
                       </span>
                     </div>
                     <div className="flex justify-between text-sm">
