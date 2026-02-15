@@ -79,6 +79,15 @@ export async function POST(req) {
         });
 
         break;
+      
+      case "setWithdrawalBank":
+        response = await axiosInstance.post("/user/setPin", requestData, {
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+          },
+        });
+
+        break;
 
       case "orderAcceptOrCancel":
         response = await axiosInstance.post(
