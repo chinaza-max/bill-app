@@ -1,6 +1,6 @@
 import axios from "axios";
 const axiosInstance = axios.create({
-  baseURL: "https://fidopoint.onrender.com/api/v1",
+  baseURL: "http://localhost:5000/api/v1",
   headers: {
     "Content-Type": "application/json", // default content-type for the API requests
   },
@@ -504,6 +504,13 @@ export async function GET(req) {
 
       case "getMyRangeLimit":
         response = await axiosInstance.get("/user/getMyRangeLimit", {
+          headers,
+          params: additionalParams,
+        });
+        break;
+      
+      case "banks":
+        response = await axiosInstance.get("/user/getBank", {
           headers,
           params: additionalParams,
         });
