@@ -8,7 +8,6 @@ import {
   HelpCircle,
   Eye,
   AlertTriangle,
-  CheckCircle,
 } from "lucide-react";
 import {
   Dialog,
@@ -31,7 +30,6 @@ const CreateAdsPage = () => {
   const [selectedCharge, setSelectedCharge] = useState("");
   const [adsList, setAdsList] = useState([]);
   const [showHelpModal, setShowHelpModal] = useState(false);
-  const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [maxAmountLimit, setMaxAmountLimit] = useState(20000);
   const [minAmountLimit, setMinAmountLimit] = useState(1000);
   const [errorMessage, setErrorMessage] = useState("");
@@ -134,7 +132,7 @@ const CreateAdsPage = () => {
     }));
 
     // Support both item.prices (array) and item.charge (single value)
-    // No custom charge option
+    // No custom charge option added
     const charges = breakPoint.reduce((acc, item) => {
       const priceList = item.prices
         ? item.prices
@@ -147,6 +145,7 @@ const CreateAdsPage = () => {
         label: `₦${Number(charge).toLocaleString()}`,
       }));
 
+      // No custom charge option
       acc[String(item.amount)] = chargeOptions;
       return acc;
     }, {});
@@ -213,6 +212,7 @@ const CreateAdsPage = () => {
       ...withinRange,
     ];
 
+    // Map back to option objects, filtering out already-used amounts
     return relevantValues
       .filter((v) => !usedAmounts.has(String(v)))
       .map((v) => ({
@@ -249,8 +249,7 @@ const CreateAdsPage = () => {
       });
 
       if (response.ok) {
-        // Show success modal before navigating
-        setShowSuccessModal(true);
+        router.push("/userProfile/merchantProfile/merchantHome/viewAds");
       } else {
         const errorData = await response.json();
         setErrorMessage(
@@ -261,7 +260,7 @@ const CreateAdsPage = () => {
       console.error("Error submitting ads:", error);
       setErrorMessage("Error creating ads. Please try again.");
     }
-  }, [adsList, accessToken, minPrice, maxPrice]);
+  }, [adsList, accessToken, router]);
 
   // Setup default ads when price range changes
   useEffect(() => {
@@ -296,16 +295,6 @@ const CreateAdsPage = () => {
       return () => clearTimeout(timer);
     }
   }, [errorMessage]);
-
-  // Auto-navigate after success modal shows (3 seconds)
-  useEffect(() => {
-    if (showSuccessModal) {
-      const timer = setTimeout(() => {
-        router.push("/userProfile/merchantProfile/merchantHome/viewAds");
-      }, 3000);
-      return () => clearTimeout(timer);
-    }
-  }, [showSuccessModal, router]);
 
   const handleMinPriceChange = useCallback(
     (value) => {
@@ -493,50 +482,6 @@ const CreateAdsPage = () => {
     </button>
   );
 
-  const SuccessModal = () => (
-    <Dialog open={showSuccessModal} onOpenChange={() => {}}>
-      <DialogContent
-        className="max-w-sm text-center"
-        // Prevent closing by clicking outside
-        onInteractOutside={(e) => e.preventDefault()}
-      >
-        <div className="flex flex-col items-center space-y-4 py-4">
-          {/* Animated success icon */}
-          <div className="relative flex items-center justify-center w-20 h-20 rounded-full bg-green-100">
-            <CheckCircle className="w-12 h-12 text-green-500" />
-            <span className="absolute inset-0 rounded-full border-4 border-green-400 animate-ping opacity-30" />
-          </div>
-
-          <div className="space-y-1">
-            <h2 className="text-xl font-bold text-gray-800">
-              Ads Created Successfully!
-            </h2>
-            <p className="text-gray-500 text-sm">
-              Your ads are now live and visible to customers.
-            </p>
-          </div>
-
-          <div className="w-full bg-gray-100 rounded-full h-1.5 overflow-hidden">
-            <div className="bg-green-500 h-1.5 rounded-full animate-[shrink_3s_linear_forwards]" />
-          </div>
-
-          <p className="text-xs text-gray-400">
-            Redirecting to your ads in a moment...
-          </p>
-
-          <button
-            onClick={() =>
-              router.push("/userProfile/merchantProfile/merchantHome/viewAds")
-            }
-            className="w-full bg-gradient-to-r from-amber-500 to-amber-600 text-white py-2.5 rounded-lg font-medium hover:from-amber-600 hover:to-amber-700 transition-colors"
-          >
-            View My Ads Now
-          </button>
-        </div>
-      </DialogContent>
-    </Dialog>
-  );
-
   const HelpModal = () => (
     <Dialog open={showHelpModal} onOpenChange={setShowHelpModal}>
       <DialogContent className="max-w-2xl">
@@ -683,6 +628,7 @@ const CreateAdsPage = () => {
 
                 {!useDefaultSettings && (
                   <div className="space-y-4">
+                    {/* Amount Selector */}
                     <div>
                       <label className="block text-sm text-amber-700 mb-1">
                         Amount
@@ -704,6 +650,7 @@ const CreateAdsPage = () => {
                       </select>
                     </div>
 
+                    {/* Charge Selector — only backend options, no custom */}
                     <div>
                       <label className="block text-sm text-amber-700 mb-1">
                         Charge
@@ -819,27 +766,8 @@ const CreateAdsPage = () => {
           </button>
         </div>
 
-        {/* Success Modal */}
-        <SuccessModal />
-
-        {/* Help Modal */}
         <HelpModal />
       </div>
-
-      {/* Tailwind keyframe for progress bar shrink */}
-      <style jsx>{`
-        @keyframes shrink {
-          from {
-            width: 100%;
-          }
-          to {
-            width: 0%;
-          }
-        }
-        .animate-\\[shrink_3s_linear_forwards\\] {
-          animation: shrink 3s linear forwards;
-        }
-      `}</style>
     </ProtectedRoute>
   );
 };
