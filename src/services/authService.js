@@ -79,8 +79,8 @@ export const getPasswordResetLink = async (user) => {
   } catch (error) {
     throw {
       status: error.status || 500,
-      message: error.message || "An unexpected error occurred",
-      details: error.details,
+      details: error.message || "An unexpected error occurred",
+      message: error.details,
     };
   }
 };

@@ -6,80 +6,53 @@ import React, { useEffect, useState, useRef, useMemo } from "react";
 import {
   Bell,
   ChevronDown,
-  Home,
-  History,
-  Users,
   ShoppingBag,
-  Package2,
   Loader2,
-  Eye,
-  EyeOff,
+  ArrowRight,
+  Zap,
+  CheckCircle2,
+  XCircle,
+  Clock,
 } from "lucide-react";
 import {
   motion,
   AnimatePresence,
-  useMotionValue,
-  useAnimation,
 } from "framer-motion";
 import ProtectedRoute from "@/app/component/protect";
 import WalletBalanceCard from "@/app/component/walletBalanceCard";
-import EnhancedCarousel from "@/app/component/enhancedCarousel";
 import useRequest from "@/hooks/useRequest";
 
 import { useRouter, usePathname } from "next/navigation";
 import BottomNav from "../component/bottomNav";
 import { useSelector } from "react-redux";
 import useVisibility from "../component/useVisibility";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import getErrorMessage from "@/app/component/error";
 import { useNotifications } from "../../hooks/useNotifications";
-import { useLocationService } from "@/hooks/locationService"; // Import the location service
+import { useLocationService } from "@/hooks/locationService";
 import { AttentionAnimation } from "../component/AttentionAnimation";
 import { PaymentStatusBadge } from "../component/PaymentStatusBadge";
 import { EmptyTransactionState } from "../component/EmptyTransactionState";
 import LocationNotificationModal from "../component/LocationNotificationModal";
 
-// Enhanced transaction fetcher with better error handling
+// ─── Transaction fetcher ───────────────────────────────────────────────────────
 const fetchTransaction = async (accessToken) => {
-  if (!accessToken) {
-    throw new Error("No access token provided");
+  if (!accessToken) throw new Error("No access token provided");
+  const queryParams = new URLSearchParams({
+    limit: 3, offset: 0, token: accessToken, apiType: "getGeneralTransaction",
+  }).toString();
+  const response = await fetch(`/api/user?${queryParams}`, {
+    method: "GET",
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${accessToken}` },
+  });
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => null);
+    throw new Error(errorData?.message || `Error: ${response.status}`);
   }
-
-  try {
-    const queryParams = new URLSearchParams({
-      limit: 3,
-      offset: 0,
-      token: accessToken,
-      apiType: "getGeneralTransaction",
-    }).toString();
-
-    const response = await fetch(`/api/user?${queryParams}`, {
-      method: "GET",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${accessToken}`,
-      },
-    });
-
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => null);
-      throw new Error(
-        errorData?.message || `Error fetching transactions: ${response.status}`
-      );
-    }
-
-    const data = await response.json();
-    return data;
-  } catch (error) {
-    console.error("Transaction fetch error:", error);
-    throw error;
-  }
+  return response.json();
 };
 
-// Set display name for React memo component
-//EnhancedCarousel.displayName = "EnhancedCarousel";
-
-// Loading spinner component for better UX
+// ─── Loading / Error helpers ──────────────────────────────────────────────────
 const LoadingSpinner = () => (
   <div className="flex flex-col items-center justify-center py-6 px-4">
     <Loader2 className="h-8 w-8 text-amber-600 animate-spin" />
@@ -87,399 +60,299 @@ const LoadingSpinner = () => (
   </div>
 );
 
-// Error display component
 const ErrorDisplay = ({ message }) => (
   <div className="flex flex-col items-center justify-center py-6 px-4 bg-red-50 rounded-lg">
     <div className="w-16 h-16 mb-4 bg-red-100 rounded-full flex items-center justify-center">
-      <svg
-        xmlns="http://www.w3.org/2000/svg"
-        className="h-8 w-8 text-red-500"
-        fill="none"
-        viewBox="0 0 24 24"
-        stroke="currentColor"
-      >
-        <path
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          strokeWidth={2}
-          d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
-        />
+      <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
       </svg>
     </div>
-    <h3 className="text-lg font-semibold text-red-700 mb-2">
-      Unable to load transactions
-    </h3>
+    <h3 className="text-lg font-semibold text-red-700 mb-2">Unable to load transactions</h3>
     <p className="text-red-600 text-center text-sm mb-4">{message}</p>
-    <button
-      className="px-6 py-2 bg-amber-500 text-white rounded-full font-medium text-sm"
-      onClick={() => window.location.reload()}
-    >
+    <button className="px-6 py-2 bg-amber-500 text-white rounded-full font-medium text-sm" onClick={() => window.location.reload()}>
       Try Again
     </button>
   </div>
 );
 
-// Improved Attention Animation Component with Pulsing Highlight Effect
+// ─── Live Activity Ticker ─────────────────────────────────────────────────────
+const FIRST_NAMES = ["Amina","Chukwudi","Fatima","Emeka","Ngozi","Tunde","Aisha","Kelechi","Blessing","Usman","Adaeze","Seun","Halima","Tobi","Chisom","Musa","Yetunde","Ifeanyi","Zainab","Babatunde","Chiamaka","Abdullahi","Sola","Chinyere","Ahmed","Folake","Obinna","Rukayat","Gbenga","Nneka"];
+const LAST_NAMES  = ["Okafor","Adeyemi","Ibrahim","Nwosu","Bello","Eze","Lawal","Obi","Yusuf","Adeleke","Nwachukwu","Suleiman","Okonkwo","Abubakar","Dike","Omotayo","Garba","Onuoha","Aliyu","Fashola"];
 
+// 4 action types — placed, completed, order_completed (amber), cancelled
+const ACTIONS = [
+  { type: "placed",          label: "just placed an order of",    icon: Clock,        color: "#f59e0b" },
+  { type: "completed",       label: "just completed an order of", icon: CheckCircle2, color: "#16a34a" },
+  { type: "order_completed", label: "order has been completed —", icon: CheckCircle2, color: "#d97706" },
+  { type: "cancelled",       label: "cancelled an order of",      icon: XCircle,      color: "#dc2626" },
+];
 
+const randomBetween = (min, max) => Math.floor(Math.random() * (max - min + 1)) + min;
 
+const randomName = () =>
+  `${FIRST_NAMES[randomBetween(0, FIRST_NAMES.length - 1)]} ${LAST_NAMES[randomBetween(0, LAST_NAMES.length - 1)][0]}.`;
 
+// Generates amounts in steps of ₦100 between ₦1,000 and ₦20,000 — hard capped
+const randomAmount = () => {
+  const raw = randomBetween(10, 200) * 100;          // 1,000 – 20,000
+  const capped = Math.min(raw, 20000);               // hard cap at ₦20,000
+  return `₦${capped.toLocaleString("en-NG")}`;
+};
+
+const randomAction = () => ACTIONS[randomBetween(0, ACTIONS.length - 1)];
+
+const generateFeed = (count = 20) =>
+  Array.from({ length: count }, (_, i) => ({
+    id: i,
+    name: randomName(),
+    amount: randomAmount(),
+    action: randomAction(),
+  }));
+
+const LiveActivityTicker = () => {
+  const [feed, setFeed] = useState(() => generateFeed(20));
+  const [currentIndex, setCurrentIndex] = useState(0);
+  const [visible, setVisible] = useState(true);
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setVisible(false);
+      setTimeout(() => {
+        setCurrentIndex((prev) => {
+          const next = (prev + 1) % feed.length;
+          if (next === 0) setFeed(generateFeed(20)); // regenerate on full loop
+          return next;
+        });
+        setVisible(true);
+      }, 300);
+    }, 3200);
+    return () => clearInterval(interval);
+  }, [feed.length]);
+
+  const item = feed[currentIndex];
+  const Icon = item.action.icon;
+
+  return (
+    <div
+      className="mx-4 mb-3 overflow-hidden rounded-xl px-3 py-2 flex items-center gap-2"
+      style={{
+        background: "rgba(251,191,36,0.08)",
+        border: "1px solid rgba(251,191,36,0.22)",
+      }}
+    >
+      {/* Pulsing dot — color matches action type */}
+      <span className="relative flex-shrink-0">
+        <span
+          className="absolute inline-flex h-full w-full rounded-full animate-ping opacity-60"
+          style={{ background: item.action.color }}
+        />
+        <span
+          className="relative inline-flex rounded-full h-2 w-2"
+          style={{ background: item.action.color }}
+        />
+      </span>
+
+      <AnimatePresence mode="wait">
+        {visible && (
+          <motion.div
+            key={`${currentIndex}-${item.id}`}
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -8 }}
+            transition={{ duration: 0.28, ease: "easeOut" }}
+            className="flex items-center gap-1.5 min-w-0 flex-1"
+          >
+            <Icon className="flex-shrink-0 h-3.5 w-3.5" style={{ color: item.action.color }} />
+            <p className="text-xs truncate" style={{ color: "rgba(0,0,0,0.65)" }}>
+              <span className="font-semibold" style={{ color: "#92400e" }}>{item.name}</span>
+              {" "}{item.action.label}{" "}
+              <span className="font-bold" style={{ color: "#b45309" }}>{item.amount}</span>
+            </p>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* LIVE badge */}
+      <span
+        className="ml-auto flex-shrink-0 text-[9px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded-full"
+        style={{ background: "rgba(220,38,38,0.12)", color: "#dc2626", border: "1px solid rgba(220,38,38,0.25)" }}
+      >
+        LIVE
+      </span>
+    </div>
+  );
+};
+
+// ─── Main Component ────────────────────────────────────────────────────────────
 const MobileApp = () => {
-  const [userType, setUserType] = useState("Client");
-  const [activeTab, setActiveTab] = useState("home");
-  const [fullName, setFullName] = useState("");
-  const [imageUrl, setImageUrl] = useState("");
-  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
-  const [walletBalance, setWalletBalance] = useState(0);
-  const [isBalanceVisible, setIsBalanceVisible] = useState(false);
-  const [showPulseAnimation, setShowPulseAnimation] = useState(false);
+  const [userType, setUserType]                               = useState("Client");
+  const [activeTab, setActiveTab]                             = useState("home");
+  const [fullName, setFullName]                               = useState("");
+  const [imageUrl, setImageUrl]                               = useState("");
+  const [isDropdownOpen, setIsDropdownOpen]                   = useState(false);
+  const [walletBalance, setWalletBalance]                     = useState(0);
+  const [isBalanceVisible, setIsBalanceVisible]               = useState(false);
+  const [showPulseAnimation, setShowPulseAnimation]           = useState(false);
   const [hasInteractedWithSwitch, setHasInteractedWithSwitch] = useState(false);
-  const { token, notification, sendTestNotification } = useNotifications();
 
+  const { token } = useNotifications();
   const [numberOfOrder, setNumberOfOrder] = useState(0);
-  const [lat, setlat] = useState(0);
-  const [lng, setlng] = useState(0);
 
-  const data2 = useSelector((state) => state.user);
-  const accessToken = useSelector((state) => state.user.accessToken);
+  const data2           = useSelector((state) => state.user);
+  const accessToken     = useSelector((state) => state.user.accessToken);
   const isAuthenticated = useSelector((state) => state.user.isAuthenticated);
-  const myUserData = useSelector((state) => state.user.user);
-  const queryClient = useQueryClient();
-  const dropdownRef = useRef(null);
+  const myUserData      = useSelector((state) => state.user.user);
+
+  const dropdownRef   = useRef(null);
   const pulseTimerRef = useRef(null);
-  const { data, error: apierror, loading, request } = useRequest();
-  const {
-    data: order,
-    error: orderError,
-    loading: loadingLoading,
-    request: getOrder,
-  } = useRequest();
+
+  const { data: order, request: getOrder } = useRequest();
+  const { request: StoreFCMToken }         = useRequest();
 
   const {
-    data: users,
-    loading: loadingUsers,
-    request: StoreFCMToken,
-  } = useRequest();
-
- 
-const { 
-  isLocationEnabled, 
-  showLocationNotification,
-  locationError,
-  isRetrying,
-  retryLocation,
-  dismissNotification,
-  getCurrentLocation,
-  locationStatus, // NEW: Add this
-  currentAccuracy, // NEW: Add this
-  lastLocationUpdate // NEW: Add this
-} = useLocationService();
+    showLocationNotification, locationError, isRetrying,
+    retryLocation, dismissNotification, getCurrentLocation,
+    locationStatus, currentAccuracy, lastLocationUpdate,
+  } = useLocationService();
 
   useVisibility();
 
-  // Enhanced query with proper error handling and retry logic
-  const {
-    data: transactionData,
-    isLoading,
-    isError,
-    error,
-    refetch,
-  } = useQuery({
+  const { data: transactionData, isLoading, isError, error, refetch } = useQuery({
     queryKey: ["transactions"],
     queryFn: () => fetchTransaction(accessToken),
-    enabled: !!accessToken, // Only run when accessToken is available
-    retry: 2, // Retry failed requests up to 2 times
-    retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000), // Exponential backoff
-    staleTime: 300000, // Data considered fresh for 5 minutes
-    refetchOnWindowFocus: false, // Don't refetch when window regains focus
+    enabled: !!accessToken,
+    retry: 2,
+    retryDelay: (i) => Math.min(1000 * 2 ** i, 30000),
+    staleTime: 300000,
+    refetchOnWindowFocus: false,
   });
 
-  const [notifications, setNotifications] = useState([
+  const [notifications] = useState([
     { id: 1, message: "New transaction received", read: false },
-    { id: 2, message: "Promotion available", read: false },
-    { id: 3, message: "Account update", read: true },
+    { id: 2, message: "Promotion available",      read: false },
+    { id: 3, message: "Account update",           read: true  },
   ]);
 
-  const router = useRouter();
+  const router   = useRouter();
   const pathname = usePathname();
 
-  // Load user interaction state from localStorage
   useEffect(() => {
     if (typeof window !== "undefined") {
-      const hasInteracted = localStorage.getItem("hasInteractedWithSwitch");
-      setHasInteractedWithSwitch(hasInteracted === "true");
+      setHasInteractedWithSwitch(localStorage.getItem("hasInteractedWithSwitch") === "true");
     }
-    async function name(params) {
-      const test = await getCurrentLocation();
-      console.log(test);
-      setlat(test.latitude);
-      setlng(test.longitude);
-    }
-    name();
+    (async () => { await getCurrentLocation(); })();
   }, []);
 
-
-
   useEffect(() => {
-    if (token) {
-      // Send token to your backend to store for sending notifications
-      // sendTokenToServer(token);
-      if (accessToken) {
-        StoreFCMToken("/api/user", "POST", {
-          accessToken,
-          apiType: "updateToken",
-          fcmToken: token,
-        });
-      }
+    if (token && accessToken) {
+      StoreFCMToken("/api/user", "POST", { accessToken, apiType: "updateToken", fcmToken: token });
     }
   }, [token, accessToken]);
 
   useEffect(() => {
     if (accessToken) {
-      const queryParams = new URLSearchParams({
-        token: accessToken,
-        apiType: "getMyOrders",
-        type: "active",
-        userType: "client",
+      const q = new URLSearchParams({
+        token: accessToken, apiType: "getMyOrders", type: "active", userType: "client",
       }).toString();
-
-      getOrder(`/api/user?${queryParams}`, "GET");
+      getOrder(`/api/user?${q}`, "GET");
     }
   }, [accessToken]);
 
   useEffect(() => {
-    if (order) {
-      setNumberOfOrder(order.data?.data?.length);
-    }
+    if (order) setNumberOfOrder(order.data?.data?.length);
   }, [order]);
 
-  // Function to handle switch interaction
   const handleSwitchInteraction = () => {
     setHasInteractedWithSwitch(true);
     localStorage.setItem("hasInteractedWithSwitch", "true");
-
-    // Hide the animation when user interacts
     setShowPulseAnimation(false);
-
-    // Clear existing timer
-    if (pulseTimerRef.current) {
-      clearTimeout(pulseTimerRef.current);
-    }
+    if (pulseTimerRef.current) clearTimeout(pulseTimerRef.current);
   };
 
-  // Set up pulse animation timer
   const setupPulseTimer = () => {
-    if (pulseTimerRef.current) {
-      clearTimeout(pulseTimerRef.current);
-    }
-
-    // Only show animation if user hasn't interacted with switch
+    if (pulseTimerRef.current) clearTimeout(pulseTimerRef.current);
     if (!hasInteractedWithSwitch) {
       setShowPulseAnimation(true);
-
-      // Hide the animation after 3 seconds
-      setTimeout(() => {
-        setShowPulseAnimation(false);
-      }, 3000);
+      setTimeout(() => setShowPulseAnimation(false), 3000);
     }
-
-    // Set next timer for 5 minutes (300000 ms)
-    pulseTimerRef.current = setTimeout(() => {
-      setupPulseTimer();
-    }, 300000);
+    pulseTimerRef.current = setTimeout(setupPulseTimer, 300000);
   };
 
-  // Toggle wallet balance visibility
-  const toggleBalanceVisibility = () => {
-    setIsBalanceVisible(!isBalanceVisible);
-  };
+  const toggleBalanceVisibility = () => setIsBalanceVisible((v) => !v);
 
-  // Extract transactions from data with better error handling
   const recentTransactions = useMemo(() => {
     if (!transactionData?.data?.data) return [];
-
-    // Map API data to our display format
-    return transactionData.data.data.map((transaction) => ({
-      id: transaction.id || Math.random().toString(),
-      title: transaction.title || "Transaction",
-      initials:
-        transaction.initials ||
-        (transaction.title
-          ? transaction.title.substring(0, 2).toUpperCase()
-          : "TX"),
-      date:
-        transaction.date ||
-        new Date(transaction.createdAt).toLocaleDateString(),
-      type: transaction.type || "outgoing",
-      amount: transaction.amount || "0.00 ₦",
-      paymentStatus: transaction.paymentStatus || "pending", // Add payment status
+    return transactionData.data.data.map((t) => ({
+      id: t.id || Math.random().toString(),
+      title: t.title || "Transaction",
+      initials: t.initials || (t.title ? t.title.substring(0, 2).toUpperCase() : "TX"),
+      date: t.date || new Date(t.createdAt).toLocaleDateString(),
+      type: t.type || "outgoing",
+      amount: t.amount || "0.00 ₦",
+      paymentStatus: t.paymentStatus || "pending",
     }));
   }, [transactionData]);
 
   useEffect(() => {
-    if (error) {
-      console.error("Transaction error:", error);
-      getErrorMessage(error, router, "", isAuthenticated);
-    }
+    if (error) getErrorMessage(error, router, "", isAuthenticated);
   }, [error, router, isAuthenticated]);
 
   useEffect(() => {
     if (data2?.user?.user) {
       try {
         const user = data2.user.user;
-
         setImageUrl(user.imageUrl);
-
         setFullName(`${user.firstName} ${user.lastName}`);
-
-        // Safely parse walletBalance
         let walletData = { current: 0, previous: 0 };
-        const rawBalance = user.walletBalance;
-
-        if (typeof rawBalance === "string") {
-          walletData = JSON.parse(rawBalance);
-        } else if (typeof rawBalance === "object" && rawBalance !== null) {
-          walletData = rawBalance;
-        }
-
-        const balance = walletData?.current ?? walletData?.previous ?? 0;
-        setWalletBalance(balance);
-      } catch (e) {
-        console.error("Error handling user data in useEffect", e);
-        setWalletBalance(0);
-      }
+        const raw = user.walletBalance;
+        if (typeof raw === "string") walletData = JSON.parse(raw);
+        else if (typeof raw === "object" && raw !== null) walletData = raw;
+        setWalletBalance(walletData?.current ?? walletData?.previous ?? 0);
+      } catch { setWalletBalance(0); }
     }
   }, [data2.user]);
 
   useEffect(() => {
-    if (typeof window !== "undefined" && pathname) {
-      localStorage.setItem("pathname", pathname);
-    }
-
-    // Set localStorage "who" here once to prevent re-renders
+    if (typeof window !== "undefined" && pathname) localStorage.setItem("pathname", pathname);
     localStorage.setItem("who", "client");
-
-    // Setup initial pulse animation timer
     setupPulseTimer();
-
-    // Cleanup function
-    return () => {
-      if (pulseTimerRef.current) {
-        clearTimeout(pulseTimerRef.current);
-      }
-    };
+    return () => { if (pulseTimerRef.current) clearTimeout(pulseTimerRef.current); };
   }, [pathname, hasInteractedWithSwitch]);
 
-  // Enhanced carousel data - memoized to prevent re-renders
-  const carouselItems = useMemo(
-    () => [
-      {
-        id: 1,
-        title: "Special Offer",
-        description: "50% off on first transaction",
-        image: "test3.png",
-        color: "from-amber-400 to-amber-600",
-      },
-      {
-        id: 2,
-        title: "New Feature",
-        description: "Instant P2P transfers",
-        image: "test.png",
-        color: "from-amber-500 to-amber-700",
-      },
-      {
-        id: 3,
-        title: "Weekend Promotion",
-        description: "Earn 2x points this weekend",
-        image: "test2.png",
-        color: "from-amber-300 to-amber-500",
-      },
-      {
-        id: 4,
-        title: "Weekend Promotion",
-        description: "Earn 2x points this weekend",
-        image: "test2.png",
-        color: "from-amber-300 to-amber-500",
-      },
-    ],
-    []
-  );
+  const handleTabChange = (tab) => { setActiveTab(tab); router.push(`/${tab}`); };
 
-
-  const handleTabChange = (tab) => {
-    setActiveTab(tab);
-    router.push(`/${tab}`);
-  };
-
-  const moveToMerchant = (path) => {
-    if (myUserData?.user?.isNinVerified === false) {
-      router.push(`/userProfile/merchantProfile`);
-    } else if (myUserData?.user?.isDisplayNameMerchantSet === false) {
-      router.push(`/userProfile/merchantProfile/merchantProfile2`);
-    } else if (myUserData?.user?.isFaceVerified === false) {
-      router.push(`/userProfile/merchantProfile/merchantProfile3`);
-    } else if (
-      myUserData?.user?.MerchantProfile?.accountStatus === "processing"
-    ) {
-      router.push(`/userProfile/merchantProfile/merchantProfile4`);
-    } else if (
-      myUserData?.user?.MerchantProfile?.accountStatus === "rejected"
-    ) {
-      router.push(`/userProfile/merchantProfile/merchantProfile5`);
-    } else if (
-      myUserData?.user?.MerchantProfile?.accountStatus === "suspended"
-    ) {
-      router.push(`/userProfile/merchantProfile/merchantProfile6`);
-    } else if (myUserData?.user?.merchantActivated === true) {
-      router.push(`/userProfile/merchantProfile/merchantHome`);
-    } else {
-      router.push(`/userProfile/merchantProfile/merchantHome`);
-    }
+  const moveToMerchant = () => {
+    const u = myUserData?.user;
+    if (!u?.isNinVerified)            return router.push("/userProfile/merchantProfile");
+    if (!u?.isDisplayNameMerchantSet) return router.push("/userProfile/merchantProfile/merchantProfile2");
+    if (!u?.isFaceVerified)           return router.push("/userProfile/merchantProfile/merchantProfile3");
+    const s = u?.MerchantProfile?.accountStatus;
+    if (s === "processing")           return router.push("/userProfile/merchantProfile/merchantProfile4");
+    if (s === "rejected")             return router.push("/userProfile/merchantProfile/merchantProfile5");
+    if (s === "suspended")            return router.push("/userProfile/merchantProfile/merchantProfile6");
+    return router.push("/userProfile/merchantProfile/merchantHome");
   };
 
   useEffect(() => {
-    // Prefetch routes for better performance
-    router.prefetch("userProfile/merchantProfile/merchantHome");
-    router.prefetch("userProfile/merchantProfile");
-    router.prefetch("userProfile/merchantProfile/merchantProfile2");
-    router.prefetch("userProfile/merchantProfile/merchantProfile3");
-    router.prefetch("userProfile/merchantProfile/merchantProfile4");
-    router.prefetch("userProfile/merchantProfile/merchantProfile5");
-    router.prefetch("userProfile/merchantProfile/merchantProfile6");
-    router.prefetch("userProfile/fundwallet");
-    router.prefetch("history");
-    router.prefetch("p2p");
-    router.prefetch("userProfile");
+    [
+      "userProfile/merchantProfile/merchantHome", "userProfile/merchantProfile",
+      "userProfile/merchantProfile/merchantProfile2", "userProfile/merchantProfile/merchantProfile3",
+      "userProfile/merchantProfile/merchantProfile4", "userProfile/merchantProfile/merchantProfile5",
+      "userProfile/merchantProfile/merchantProfile6", "userProfile/fundwallet",
+      "history", "p2p", "userProfile",
+    ].forEach((r) => router.prefetch(r));
   }, [router]);
 
-  // Function to manually refresh transactions
-  const handleRefreshTransactions = () => {
-    refetch();
-  };
-
-  // Render transactions section based on loading/error state
   const renderTransactionsSection = () => {
-    if (isLoading) {
-      return <LoadingSpinner />;
-    }
-
-    if (isError) {
-      return (
-        <ErrorDisplay
-          message={error?.message || "Failed to load transactions"}
-        />
-      );
-    }
-
-    if (recentTransactions.length === 0) {
-      return <EmptyTransactionState />;
-    }
+    if (isLoading) return <LoadingSpinner />;
+    if (isError)   return <ErrorDisplay message={error?.message || "Failed to load transactions"} />;
+    if (recentTransactions.length === 0) return <EmptyTransactionState />;
 
     return (
       <div className="space-y-3">
-        {recentTransactions.map((transaction) => (
+        {recentTransactions.map((tx) => (
           <motion.div
-            key={transaction.id}
+            key={tx.id}
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.3 }}
@@ -488,54 +361,33 @@ const {
             <div className="flex items-start justify-between">
               <div className="flex items-center space-x-3">
                 <div className="w-10 h-10 rounded-full bg-amber-100 flex items-center justify-center text-amber-800 font-medium">
-                  {transaction.initials}
+                  {tx.initials}
                 </div>
                 <div>
-                  <p className="font-medium text-amber-900">
-                    {transaction.title}
-                  </p>
-                  <p className="text-xs text-amber-600">{transaction.date}</p>
+                  <p className="font-medium text-amber-900">{tx.title}</p>
+                  <p className="text-xs text-amber-600">{tx.date}</p>
                 </div>
               </div>
               <div className="text-right flex flex-col items-end">
-                <p
-                  className={`font-semibold ${
-                    transaction.type === "incoming"
-                      ? "text-green-600"
-                      : "text-amber-700"
-                  }`}
-                >
-                  {transaction.type === "incoming" ? "+" : "-"}
-                  {transaction.amount}
+                <p className={`font-semibold ${tx.type === "incoming" ? "text-green-600" : "text-amber-700"}`}>
+                  {tx.type === "incoming" ? "+" : "-"}{tx.amount}
                 </p>
                 <div className="mt-1">
-                  <PaymentStatusBadge status={transaction.paymentStatus} />
+                  <PaymentStatusBadge status={tx.paymentStatus} />
                 </div>
               </div>
             </div>
           </motion.div>
         ))}
 
-        {/* Manual refresh button */}
         <div className="flex justify-center mt-4">
           <button
-            onClick={handleRefreshTransactions}
+            onClick={() => refetch()}
             className="flex items-center space-x-1 text-amber-600 text-sm"
             disabled={isLoading}
           >
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              className={`h-4 w-4 ${isLoading ? "animate-spin" : ""}`}
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
-              />
+            <svg xmlns="http://www.w3.org/2000/svg" className={`h-4 w-4 ${isLoading ? "animate-spin" : ""}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
             </svg>
             <span>{isLoading ? "Refreshing..." : "Refresh"}</span>
           </button>
@@ -547,198 +399,166 @@ const {
   return (
     <ProtectedRoute>
       <div className="flex flex-col h-screen bg-amber-50">
-        {/* Top Navigation */}
-       <div className="px-4 py-3 bg-gradient-to-r from-amber-600 to-amber-500 text-white">
-  <div className="flex items-center justify-between">
-    <div className="flex items-center space-x-3">
-      <div className="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center text-white">
-        <img
-          onClick={() => {
-            handleTabChange("userProfile");
-          }}
-          src={imageUrl || "/default-avatar.png"}
-          alt="avatar"
-          className="w-full h-full object-cover rounded-full"
-          onError={(e) => {
-            e.target.onerror = null;
-            e.target.src = "/default-avatar.png";
-          }}
-        />
-      </div>
-      <div>
-        <div className="flex items-center space-x-2">
-          <div>
-            <p className="text-sm">Welcome</p>
-            <p className="font-semibold">{fullName || "User"}</p>
-          </div>
-          {/* Location Status Badge */}
-          <LocationStatusBadge status={locationStatus} size="sm" />
-        </div>
-      </div>
-    </div>
-    <div className="flex items-center space-x-4">
-      <div className="relative">
-        <Bell
-          className="h-6 w-6 cursor-pointer"
-          onClick={() => router.push("/home/notification")}
-        />
-        {notifications.filter((n) => !n.read).length > 0 && (
-          <span
-            className="absolute -top-2 -right-2 bg-red-500 text-white 
-                     rounded-full text-xs w-5 h-5 flex items-center 
-                     justify-center"
-          >
-            {notifications.filter((n) => !n.read).length}
-          </span>
-        )}
-      </div>
-      <div className="relative" ref={dropdownRef}>
-        <button
-          onClick={() => {
-            setIsDropdownOpen(!isDropdownOpen);
-            handleSwitchInteraction();
-          }}
-          className="flex items-center space-x-1 text-white hover:bg-amber-600 px-3 py-1.5 rounded relative overflow-hidden"
-        >
-          <AttentionAnimation
-            isVisible={showPulseAnimation}
-            duration={2}
-          />
-          <span className="relative z-10">{userType}</span>
-          <ChevronDown className="h-4 w-4 relative z-10" />
-        </button>
 
-        <AnimatePresence>
-          {isDropdownOpen && (
-            <motion.div
-              initial={{ opacity: 0, y: -10 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -10 }}
-              transition={{ duration: 0.2 }}
-              className="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg py-1 z-10"
-            >
-              <button
-                onClick={() => {
-                  setUserType("Merchant");
-                  setIsDropdownOpen(false);
-                  handleSwitchInteraction();
-                  moveToMerchant(
-                    "userProfile/merchantProfile/merchantHome"
-                  );
-                }}
-                className="block px-4 py-2 text-sm text-gray-700 hover:bg-amber-50 w-full text-left"
-              >
-                Merchant
-              </button>
-              <button
-                onClick={() => {
-                  setUserType("Client");
-                  setIsDropdownOpen(false);
-                  handleSwitchInteraction();
-                }}
-                className="block px-4 py-2 text-sm text-gray-700 hover:bg-amber-50 w-full text-left"
-              >
-                Client
-              </button>
-            </motion.div>
-          )}
-        </AnimatePresence>
-      </div>
-    </div>
-  </div>
-  
-  {/* Full Location Status Indicator (below header) */}
-  <div className="mt-3">
-    <LocationStatusIndicator
-      status={locationStatus}
-      accuracy={currentAccuracy}
-      lastUpdate={lastLocationUpdate}
-    />
-  </div>
-</div>
-
-        {/* Main Content */}
-        <div className="flex-1 overflow-auto">
-          {/* Wallet Balance Card */}
-          <div className="px-4 pt-4">
-            <WalletBalanceCard
-              balance={walletBalance}
-              isVisible={isBalanceVisible}
-              onToggleVisibility={toggleBalanceVisibility}
-            />
-          </div>
-
-          {/* Enhanced Carousel */}
-          <div className="relative px-4 mb-4">
-            <EnhancedCarousel items={carouselItems} />
-          </div>
-
-          {/* Transactions */}
-          <div className="p-4">
-            {/* Order Button */}
-
-            <div>
-              lat
-              {lat}- lng
-              {lng}
+        {/* ── Top Navigation ── */}
+        <div className="px-4 py-3 bg-gradient-to-r from-amber-600 to-amber-500 text-white">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-3">
+              <div className="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center">
+                <img
+                  onClick={() => handleTabChange("userProfile")}
+                  src={imageUrl || "/default-avatar.png"}
+                  alt="avatar"
+                  className="w-full h-full object-cover rounded-full cursor-pointer"
+                  onError={(e) => { e.target.onerror = null; e.target.src = "/default-avatar.png"; }}
+                />
+              </div>
+              <div className="flex items-center space-x-2">
+                <div>
+                  <p className="text-sm">Welcome</p>
+                  <p className="font-semibold">{fullName || "User"}</p>
+                </div>
+                <LocationStatusBadge status={locationStatus} size="sm" />
+              </div>
             </div>
-            <motion.div
-              className="mt-6  mb-4"
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.3 }}
-            >
-              <motion.button
-                whileHover={{ scale: 1.02 }}
-                whileTap={{ scale: 0.98 }}
-                className="w-full bg-gradient-to-r from-amber-500 to-amber-600 text-white rounded-xl py-2 px-6 shadow-lg flex items-center justify-center space-x-2 relative overflow-hidden group"
-                onClick={() => {
-                  handleTabChange("p2p");
-                }}
-              >
-                <motion.div className="absolute inset-0 bg-gradient-to-r from-amber-400 to-amber-500 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
-                <ShoppingBag className="h-6 w-6" />
-                <span className="text-lg font-semibold relative z-10">
-                  Place New Order
-                </span>
-              </motion.button>
-            </motion.div>
 
-            <div className="flex justify-between items-center mb-3">
-              <h2 className="text-lg font-semibold text-amber-900">
-                Recent Transactions
-              </h2>
-              {!isLoading && !isError && recentTransactions.length > 0 && (
+            <div className="flex items-center space-x-4">
+              <div className="relative">
+                <Bell className="h-6 w-6 cursor-pointer" onClick={() => router.push("/home/notification")} />
+                {notifications.filter((n) => !n.read).length > 0 && (
+                  <span className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full text-xs w-5 h-5 flex items-center justify-center">
+                    {notifications.filter((n) => !n.read).length}
+                  </span>
+                )}
+              </div>
+
+              <div className="relative" ref={dropdownRef}>
                 <button
-                  onClick={() => router.push("/history")}
-                  className="text-sm text-amber-600 hover:text-amber-700"
+                  onClick={() => { setIsDropdownOpen(!isDropdownOpen); handleSwitchInteraction(); }}
+                  className="flex items-center space-x-1 text-white hover:bg-amber-600 px-3 py-1.5 rounded relative overflow-hidden"
                 >
+                  <AttentionAnimation isVisible={showPulseAnimation} duration={2} />
+                  <span className="relative z-10">{userType}</span>
+                  <ChevronDown className="h-4 w-4 relative z-10" />
+                </button>
+
+                <AnimatePresence>
+                  {isDropdownOpen && (
+                    <motion.div
+                      initial={{ opacity: 0, y: -10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -10 }}
+                      transition={{ duration: 0.2 }}
+                      className="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg py-1 z-10"
+                    >
+                      <button
+                        onClick={() => { setUserType("Merchant"); setIsDropdownOpen(false); handleSwitchInteraction(); moveToMerchant(); }}
+                        className="block px-4 py-2 text-sm text-gray-700 hover:bg-amber-50 w-full text-left"
+                      >
+                        Merchant
+                      </button>
+                      <button
+                        onClick={() => { setUserType("Client"); setIsDropdownOpen(false); handleSwitchInteraction(); }}
+                        className="block px-4 py-2 text-sm text-gray-700 hover:bg-amber-50 w-full text-left"
+                      >
+                        Client
+                      </button>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
+            </div>
+          </div>
+
+          <div className="mt-3">
+            <LocationStatusIndicator status={locationStatus} accuracy={currentAccuracy} lastUpdate={lastLocationUpdate} />
+          </div>
+        </div>
+
+        {/* ── Main Content ── */}
+        <div className="flex-1 overflow-auto">
+
+          {/* Wallet Balance Card */}
+          <WalletBalanceCard
+            balance={walletBalance}
+            isVisible={isBalanceVisible}
+            onToggleVisibility={toggleBalanceVisibility}
+          />
+
+          {/* ── Place New Order — gold CTA ── */}
+          <div className="px-4 pb-3 pt-1">
+            <motion.button
+              whileTap={{ scale: 0.97 }}
+              onClick={() => handleTabChange("p2p")}
+              className="w-full relative overflow-hidden rounded-2xl shadow-md"
+              style={{ background: "linear-gradient(135deg, #92400e 0%, #b45309 40%, #d97706 75%, #f59e0b 100%)" }}
+            >
+              {/* shimmer sweep */}
+              <motion.div
+                className="absolute inset-0 -skew-x-12 pointer-events-none"
+                style={{ background: "linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.12) 50%, transparent 100%)" }}
+                initial={{ x: "-100%" }}
+                animate={{ x: "220%" }}
+                transition={{ duration: 1.6, delay: 0.4, ease: "easeInOut" }}
+              />
+              <div
+                className="absolute inset-0 pointer-events-none"
+                style={{ backgroundImage: "radial-gradient(circle at 88% 18%, rgba(255,255,255,0.18) 0%, transparent 50%)" }}
+              />
+              <div className="relative z-10 flex items-center justify-between px-5 py-4">
+                <div className="flex items-center gap-3">
+                  <div
+                    className="flex items-center justify-center w-10 h-10 rounded-xl"
+                    style={{ background: "rgba(255,255,255,0.15)", border: "1px solid rgba(255,255,255,0.25)" }}
+                  >
+                    <ShoppingBag className="h-5 w-5 text-white" />
+                  </div>
+                  <div className="text-left">
+                    <p className="text-white font-bold text-base leading-tight">Place New Order</p>
+                    <p className="text-xs mt-0.5" style={{ color: "rgba(255,255,255,0.65)" }}>
+                      Fast &amp; secure P2P transaction
+                    </p>
+                  </div>
+                </div>
+                <div
+                  className="flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-bold"
+                  style={{ background: "rgba(255,255,255,0.18)", border: "1px solid rgba(255,255,255,0.3)", color: "#fff" }}
+                >
+                  <Zap className="h-3 w-3" />
+                  <span>Start</span>
+                  <ArrowRight className="h-3 w-3" />
+                </div>
+              </div>
+            </motion.button>
+          </div>
+
+          {/* ── Live Activity Ticker ── */}
+          <LiveActivityTicker />
+
+          {/* ── Transactions ── */}
+          <div className="p-4">
+            <div className="flex justify-between items-center mb-3">
+              <h2 className="text-lg font-semibold text-amber-900">Recent Transactions</h2>
+              {!isLoading && !isError && recentTransactions.length > 0 && (
+                <button onClick={() => router.push("/history")} className="text-sm text-amber-600 hover:text-amber-700">
                   View All
                 </button>
               )}
             </div>
-
             {renderTransactionsSection()}
           </div>
         </div>
 
+        {showLocationNotification && (
+          <LocationNotificationModal
+            error={locationError?.message}
+            isRetrying={isRetrying}
+            onRetry={retryLocation}
+            onDismiss={dismissNotification}
+          />
+        )}
 
-
-         {showLocationNotification && (
-      <LocationNotificationModal
-        error={locationError?.message}
-        isRetrying={isRetrying}
-        onRetry={retryLocation}
-        onDismiss={dismissNotification}
-      />
-    )}
-
-        {/* Bottom Navigation */}
-        <BottomNav
-          handleTabChangeP={handleTabChange}
-          activeTabP={activeTab}
-          pendingP={numberOfOrder}
-        />
+        <BottomNav handleTabChangeP={handleTabChange} activeTabP={activeTab} pendingP={numberOfOrder} />
       </div>
     </ProtectedRoute>
   );

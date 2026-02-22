@@ -1,6 +1,6 @@
 import axios from "axios";
 const axiosInstance = axios.create({
-  baseURL: "https://fidopoint.onrender.com/api/v1",
+  baseURL: "http://localhost:5000/api/v1",
   headers: {
     "Content-Type": "application/json", // default content-type for the API requests
   },
@@ -153,6 +153,21 @@ export async function POST(req) {
       case "getChargeSummary":
         response = await axiosInstance.post(
           "/user/getChargeSummary",
+          requestData,
+          {
+            headers: {
+              Authorization: `Bearer ${accessToken}`,
+            },
+          }
+        );
+
+        break;
+
+      
+
+         case "setWithdrawalBank":
+        response = await axiosInstance.post(
+          "/user/setWithdrawalBank",
           requestData,
           {
             headers: {
@@ -497,6 +512,17 @@ export async function GET(req) {
         });
         break;
 
+        case "hasMerchantAds":
+        response = await axiosInstance.get("/user/hasMerchantAds", {
+          headers,
+          params: additionalParams,
+        });
+        break;
+
+
+
+        
+
       case "getMerchantProfile":
         response = await axiosInstance.get("/user/getMerchantProfile", {
           headers,
@@ -524,6 +550,15 @@ export async function GET(req) {
           params: additionalParams,
         });
         break;
+
+          case "nameEnquiry":
+        response = await axiosInstance.get("/user/nameEnquiry", {
+          headers,
+          params: additionalParams,
+        });
+        break;
+
+        
 
       case "getSettings":
         response = await axiosInstance.get("/user/getSettings", {

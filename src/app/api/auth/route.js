@@ -1,6 +1,6 @@
 import axios from "axios";
 const axiosInstance = axios.create({
-  baseURL: "https://fidopoint.onrender.com/api/v1", // Base URL  http://localhost:5000  //https://fidopoint.onrender.com/api/v1
+  baseURL: "http://localhost:5000/api/v1", // Base URL  http://localhost:5000  //https://fidopoint.onrender.com/api/v1
   headers: {
     "Content-Type": "application/json", // Set default content-type for the API requests
   },
@@ -49,64 +49,7 @@ export async function POST(req) {
 
     let response;
 
-    // Handle different API types
-    /* switch (apiType) {
-      case "loginUser":
-        response = await axiosInstance.post("/auth/loginUser", requestData);
-
-        break;
-
-      case "registerUser":
-        response = await axiosInstance.post("/auth/registerUser", requestData);
-        break;
-
-      case "sendPasswordResetLink":
-        response = await axiosInstance.post(
-          "/auth/sendPasswordResetLink",
-          requestData
-        );
-        break;
-
-      case "verifyEmailorTel":
-        response = await axiosInstance.post(
-          "/auth/verifyEmailorTel",
-          requestData
-        );
-        break;
-
-      case "sendVerificationCodeEmailOrTel":
-        response = await axiosInstance.post(
-          "/auth/sendVerificationCodeEmailOrTel",
-          requestData
-        );
-        break;
-
-      case "enterPassCode":
-        response = await axiosInstance.post("/auth/enterPassCode", requestData);
-        break;
-
-      case "uploadImageGoogleDrive":
-        const config = {
-          headers: {},
-        };
-        config.headers["Content-Type"] = "multipart/form-data";
-        response = await axiosInstance.post(
-          "/auth/uploadImageGoogleDrive",
-          externalFormData,
-          config
-        );
-
-        break;
-      // Add other API types here
-      default:
-        return new Response(
-          JSON.stringify({
-            status: "error",
-            message: `Unsupported apiType: ${apiType}`,
-          }),
-          { status: 400 }
-        );
-    }*/
+ 
 
     switch (apiType) {
       case "loginUser":
@@ -282,10 +225,6 @@ export async function POST(req) {
             stack: error.stack,
           });
 
-          console.log("sssssssssss");
-          console.log(process.env.NODE_ENV);
-
-          console.log("sssssssssss");
 
           return new Response(
             JSON.stringify({
@@ -310,11 +249,6 @@ export async function POST(req) {
       );
     }
 
-    // Handle any other unexpected errors
-    console.error("Unexpected Error:", {
-      message: error.message,
-      stack: error.stack,
-    });
 
     return new Response(
       JSON.stringify({
@@ -442,7 +376,7 @@ export async function GET(req) {
 }
 
 // Helper function to retry axios requests
-async function retryRequest(config, retries = 6, delay = 1000) {
+async function retryRequest(config, retries = 7, delay = 3000) {
   for (let attempt = 0; attempt < retries; attempt++) {
     try {
       return await axiosInstance(config);
