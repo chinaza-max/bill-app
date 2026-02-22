@@ -121,7 +121,7 @@ const AdsSetupDialog = ({ onClose, onSetupAds, pricingImage }) => {
 
             <p className="text-sm text-gray-500 mb-4 leading-relaxed">
               Ads let customers discover you by showing how much you charge for
-              cash delivery. Without an active ad, you're invisible to new
+              cash delivery. Without an active ad, you are invisible to new
               clients.
             </p>
 
