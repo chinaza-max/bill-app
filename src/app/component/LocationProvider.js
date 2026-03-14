@@ -41,7 +41,7 @@ export default function LocationProvider({ children }) {
       },
 
       onError: (error) => {
-        console.error("⚠️ Location service error:", error.message);
+        console.log("⚠️ Location service error:", error.message);
       },
     });
 

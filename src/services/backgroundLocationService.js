@@ -113,7 +113,7 @@ class BackgroundLocationService {
 
       return location;
     } catch (error) {
-      console.error("❌ Location update failed:", error.message);
+      console.log("❌ Location update failed:", error.message);
       
       if (this.config.onError) {
         this.config.onError(error);

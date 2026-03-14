@@ -8,7 +8,7 @@ import {
   Package2,
 
 } from "lucide-react";
-  export const EmptyTransactionState = () => (
+  export const EmptyTransactionState = ({ handleTabChange }) => (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}

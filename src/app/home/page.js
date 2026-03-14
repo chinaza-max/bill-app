@@ -346,7 +346,7 @@ const MobileApp = () => {
   const renderTransactionsSection = () => {
     if (isLoading) return <LoadingSpinner />;
     if (isError)   return <ErrorDisplay message={error?.message || "Failed to load transactions"} />;
-    if (recentTransactions.length === 0) return <EmptyTransactionState />;
+    if (recentTransactions.length === 0) return <EmptyTransactionState   handleTabChange={handleTabChange}/>;
 
     return (
       <div className="space-y-3">

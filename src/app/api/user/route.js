@@ -567,6 +567,20 @@ export async function GET(req) {
         });
         break;
 
+      case "bank-details":
+        response = await axiosInstance.get("/user/bank-details", {
+          headers,
+          params: additionalParams,
+        });
+        break;
+
+      case "bank-details":
+        response = await axiosInstance.get("/user/bank-details", {
+          headers,
+          params: additionalParams,
+        });
+        break;
+
       default:
         return new Response(
           JSON.stringify({

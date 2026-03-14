@@ -46,7 +46,7 @@ export const useBackgroundLocation = (config = {}) => {
 
       // Callback on error
       onError: (error) => {
-        console.error("⚠️ Location service error:", error.message);
+        console.log("⚠️ Location service error:", error.message);
       },
     });
 

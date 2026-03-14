@@ -417,7 +417,7 @@ export default function Home() {
                   ) : (
                     <Link
                       //onClick={() => router.push('/auth/sign-up')}
-                      href="/sign-up"
+                      href="/sign-up-selection"
                       className="flex-1 text-center rounded-full bg-primary-600 py-3 text-white font-semibold"
                     >
                       Get Started

@@ -158,21 +158,34 @@ const CreateAdsPage = () => {
   }, [settingsData]);
 
   // Get default sample data — uses backend defaultAds if available
-  const getDefaultSampleData = useCallback(() => {
-    const defaultAds = settingsData?.data?.defaultAds;
-    if (defaultAds && defaultAds.length > 0) {
-      return defaultAds.map((item) => ({
-        amount: String(item.amount),
-        charge: String(item.charge),
-      }));
-    }
-    return [
-      { amount: "1000", charge: "100" },
-      { amount: "5000", charge: "200" },
-      { amount: "10000", charge: "320" },
-      { amount: "15000", charge: "350" },
-    ];
-  }, [settingsData]);
+const getDefaultSampleData = useCallback(() => {
+  let raw = settingsData?.data?.defaultAds;
+
+  // Handle JSON string
+  if (typeof raw === "string") {
+    try { raw = JSON.parse(raw); } catch { raw = null; }
+  }
+
+  // Handle plain object (not array) — wrap in array
+  if (raw && !Array.isArray(raw)) {
+    raw = Object.values(raw);
+  }
+
+  if (Array.isArray(raw) && raw.length > 0) {
+    return raw.map((item) => ({
+      amount: String(item.amount),
+      charge: String(item.charge),
+    }));
+  }
+
+  // Fallback defaults
+  return [
+    { amount: "1000", charge: "100" },
+    { amount: "5000", charge: "200" },
+    { amount: "10000", charge: "320" },
+    { amount: "15000", charge: "350" },
+  ];
+}, [settingsData]);
 
   const getAvailableAmounts = useCallback(() => {
     if (!minPrice || !maxPrice) return [];

@@ -1,6 +1,10 @@
+"use client";
+
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Eye, EyeOff, ArrowDownLeft, ArrowUpRight } from "lucide-react";
+import { Eye, EyeOff, ArrowDownLeft, ArrowUpRight, Loader2 } from "lucide-react";
+import { useSelector } from "react-redux";
+import { useRouter } from "next/navigation";
 
 const WalletBalanceCard = ({ balance = 125000, isVisible: isVisibleProp, onToggleVisibility }) => {
   const [isVisible, setIsVisible] = useState(isVisibleProp ?? true);
@@ -16,6 +20,34 @@ const WalletBalanceCard = ({ balance = 125000, isVisible: isVisibleProp, onToggl
   const handleDragEnd = (_, info) => {
     if (info.offset.x < -50 && activeCard === 0) setActiveCard(1);
     if (info.offset.x > 50 && activeCard === 1) setActiveCard(0);
+  };
+
+  const accessToken = useSelector((state) => state.user.accessToken);
+  const router = useRouter();
+  const [isChecking, setIsChecking] = useState(false);
+
+  const handleWithdraw = async () => {
+
+    if (isChecking) return;
+    setIsChecking(true);
+    try {
+      const response = await fetch(`/api/user?apiType=bank-details&token=${accessToken}`);
+      const result = await response.json();
+
+
+      if (result?.data?.hasBankDetails) {
+        router.push("/userProfile/withdraw");
+      } else {
+        localStorage.setItem("redirectAfterBankSetup", "/userProfile/withdraw");
+       router.push("/userProfile/merchantProfile/merchantHome/settings/settingUpAccount");
+        //     router.push("/userProfile/withdraw");
+
+      }
+    } catch (error) {
+      router.push("/userProfile/withdraw");
+    } finally {
+      setIsChecking(false);
+    }
   };
 
   return (
@@ -78,11 +110,16 @@ const WalletBalanceCard = ({ balance = 125000, isVisible: isVisibleProp, onToggl
                     Fund Wallet
                   </button>
                   <button
-                    onClick={() => (window.location.href = "/userProfile/withdraw")}
-                    className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-xs font-bold transition-opacity active:opacity-80"
+                    onClick={handleWithdraw}
+                    disabled={isChecking}
+                    className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-xs font-bold transition-opacity active:opacity-80 disabled:opacity-70"
                     style={{ background: "#ffffff", color: "#92400e" }}
                   >
-                    <ArrowUpRight className="h-3.5 w-3.5" />
+                    {isChecking ? (
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    ) : (
+                      <ArrowUpRight className="h-3.5 w-3.5" />
+                    )}
                     Withdraw
                   </button>
                 </div>
