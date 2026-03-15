@@ -4,6 +4,7 @@ import Providers from "./providers";
 import ProvidersRedux from "./providers-redux";
 import { Toaster } from "sonner";
 import LocationProvider from "./component/LocationProvider";
+import NotificationManager from "@/components/NotificationManager.jsx"
 
 const geistSans = localFont({
   src: "./fonts/GeistVF.woff",
@@ -82,6 +83,8 @@ export default function RootLayout({ children }) {
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
         <Toaster position="top-right" richColors />
+              <NotificationManager />
+
         <ProvidersRedux>
           <Providers>
             <LocationProvider>

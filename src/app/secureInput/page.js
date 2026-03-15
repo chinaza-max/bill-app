@@ -23,9 +23,18 @@ import getErrorMessage from "@/app/component/error";
 
 const dosis = Dosis({ subsets: ["latin"], weight: ["400", "600", "700"] });
 
-const LOCKOUT_DURATION = 30 * 60 * 1000; // 30 minutes in milliseconds
+const LOCKOUT_DURATION = 30 * 60 * 1000;
 const MAX_ATTEMPTS = 7;
 const RESET_BUTTON_THRESHOLD = 3;
+
+// ─── Resolve destination based on localStorage 'who' ─────────────────────────
+const resolveDestination = () => {
+  if (typeof window === 'undefined') return null;
+  const who = localStorage.getItem('who');
+  if (!who) return null;                                        // not set → go to login
+  if (who === 'client') return '/home';                        // client → home
+  return '/userProfile/merchantProfile/merchantHome';          // merchant → merchant home
+};
 
 const SecureLogin = () => {
   const [pin, setPin] = useState("");
@@ -38,9 +47,19 @@ const SecureLogin = () => {
   const [isResetting, setIsResetting] = useState(false);
   const [resetSuccess, setResetSuccess] = useState(false);
   const [resetError, setResetError] = useState(null);
-  
-  const router = useRouter();
+
+  const router   = useRouter();
   const dispatch = useDispatch();
+
+  // ── On mount: if 'who' is not set → redirect to sign-in immediately ───────
+  useEffect(() => {
+    const destination = resolveDestination();
+    if (destination === null) {
+      // 'who' not in localStorage — send to login
+      router.replace('/sign-in');
+    }
+  }, []);
+
   const { mutate, isLoading, isError, error, isSuccess, reset } =
     useEnterPassCode(async (data) => {
       dispatch(
@@ -75,9 +94,8 @@ const SecureLogin = () => {
       };
 
       const encryptedDatas = encryptUserData(stateData);
-
       localStorage.setItem("userData", encryptedDatas);
-      
+
       // Reset attempts on successful login
       setAttempts(0);
       localStorage.removeItem("pinAttempts");
@@ -86,22 +104,21 @@ const SecureLogin = () => {
 
   // Load attempts and lockout state from localStorage
   useEffect(() => {
-    const storedAttempts = localStorage.getItem("pinAttempts");
+    const storedAttempts  = localStorage.getItem("pinAttempts");
     const storedLockoutTime = localStorage.getItem("lockoutEndTime");
-    
+
     if (storedAttempts) {
       setAttempts(parseInt(storedAttempts, 10));
     }
-    
+
     if (storedLockoutTime) {
       const lockoutTime = parseInt(storedLockoutTime, 10);
       const now = Date.now();
-      
+
       if (now < lockoutTime) {
         setIsLockedOut(true);
         setLockoutEndTime(lockoutTime);
       } else {
-        // Lockout expired, clear it
         localStorage.removeItem("lockoutEndTime");
         localStorage.removeItem("pinAttempts");
         setAttempts(0);
@@ -114,7 +131,7 @@ const SecureLogin = () => {
     if (!isLockedOut || !lockoutEndTime) return;
 
     const interval = setInterval(() => {
-      const now = Date.now();
+      const now       = Date.now();
       const remaining = lockoutEndTime - now;
 
       if (remaining <= 0) {
@@ -132,9 +149,16 @@ const SecureLogin = () => {
     return () => clearInterval(interval);
   }, [isLockedOut, lockoutEndTime]);
 
+  // ── On success: route based on 'who' in localStorage ─────────────────────
   useEffect(() => {
     if (isSuccess) {
-      router.push(`/home`);
+      const destination = resolveDestination();
+      if (destination === null) {
+        // 'who' missing even after login — fallback to sign-in
+        router.replace('/sign-in');
+      } else {
+        router.push(destination);
+      }
     }
   }, [isSuccess]);
 
@@ -162,15 +186,14 @@ const SecureLogin = () => {
       const newAttempts = attempts + 1;
       setAttempts(newAttempts);
       localStorage.setItem("pinAttempts", newAttempts.toString());
-      
-      // Check if max attempts reached
+
       if (newAttempts >= MAX_ATTEMPTS) {
         const lockoutTime = Date.now() + LOCKOUT_DURATION;
         setIsLockedOut(true);
         setLockoutEndTime(lockoutTime);
         localStorage.setItem("lockoutEndTime", lockoutTime.toString());
       }
-      
+
       setIsSubmitting(false);
       setPin("");
     }
@@ -208,7 +231,7 @@ const SecureLogin = () => {
 
   const handleResetPin = async () => {
     const storedEmail = getDecryptedData("emailEncrypt");
-    
+
     if (!storedEmail) {
       setResetError("No email found. Please sign in again.");
       return;
@@ -221,13 +244,11 @@ const SecureLogin = () => {
     try {
       const response = await fetch('/api/auth', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           emailOrPhone: storedEmail,
-          type: 'user',
-          apiType: 'sendPinResetOtp',
+          type:         'user',
+          apiType:      'sendPinResetOtp',
         }),
       });
 
@@ -235,10 +256,7 @@ const SecureLogin = () => {
 
       if (response.ok) {
         setResetSuccess(true);
-        // Optionally redirect to OTP verification page
-        setTimeout(() => {
-          router.push('/sign-in');
-        }, 4000);
+        setTimeout(() => { router.push('/sign-in'); }, 4000);
       } else {
         setResetError(data.message || "Failed to send reset OTP. Please try again.");
       }
@@ -251,9 +269,7 @@ const SecureLogin = () => {
   };
 
   const handleSubmit = async () => {
-    if (pin.length !== 4 || isSubmitting || isLoading || isLockedOut) {
-      return;
-    }
+    if (pin.length !== 4 || isSubmitting || isLoading || isLockedOut) return;
 
     setIsSubmitting(true);
 
@@ -261,10 +277,7 @@ const SecureLogin = () => {
 
     if (storedEmail) {
       try {
-        mutate({
-          passCode: pin,
-          emailAddress: storedEmail,
-        });
+        mutate({ passCode: pin, emailAddress: storedEmail });
       } catch (error) {
         console.error("Decryption or submission error:", error);
         setIsSubmitting(false);
@@ -288,7 +301,7 @@ const SecureLogin = () => {
   }, [router]);
 
   const isInputDisabled = isSubmitting || isLoading || isLockedOut;
-  const showLoading = isSubmitting || isLoading;
+  const showLoading     = isSubmitting || isLoading;
   const showResetButton = attempts >= RESET_BUTTON_THRESHOLD && !isLockedOut;
 
   const formatTime = (ms) => {
@@ -361,7 +374,7 @@ const SecureLogin = () => {
           <Alert className="mb-6 border-emerald-500 bg-emerald-50">
             <AlertTitle className="text-emerald-700">Reset OTP Sent</AlertTitle>
             <AlertDescription className="text-emerald-600">
-              Check your email for the reset link and click on it . Redirecting...
+              Check your email for the reset link and click on it. Redirecting...
             </AlertDescription>
           </Alert>
         )}

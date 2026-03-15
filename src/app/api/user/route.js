@@ -1,6 +1,6 @@
 import axios from "axios";
 const axiosInstance = axios.create({
-  baseURL: "https://fidopoint.onrender.com/api/v1",
+  baseURL: "http://localhost:5000/api/v1",
   headers: {
     "Content-Type": "application/json", // default content-type for the API requests
   },
@@ -127,6 +127,33 @@ export async function POST(req) {
       case "getMerchantInformation":
         response = await axiosInstance.post(
           "/user/getMerchantInformation",
+          requestData,
+          {
+            headers: {
+              Authorization: `Bearer ${accessToken}`,
+            },
+          }
+        );
+
+        break;
+
+      case "notificationDelete":
+        response = await axiosInstance.post(
+          "/user/notification/delete",
+          requestData,
+          {
+            headers: {
+              Authorization: `Bearer ${accessToken}`,
+            },
+          }
+        );
+
+        break;
+
+
+       case "notificationMarkRead":
+        response = await axiosInstance.post(
+          "/user/notification/read",
           requestData,
           {
             headers: {
@@ -484,6 +511,13 @@ export async function GET(req) {
         });
         break;
 
+      case "notification":
+        response = await axiosInstance.get("/user/notification", {
+          headers,
+          params: additionalParams,
+        });
+        break;
+
       case "getGeneralTransaction":
         response = await axiosInstance.get("/user/getGeneralTransaction", {
           headers,
@@ -532,6 +566,14 @@ export async function GET(req) {
 
       case "getdefaultAds":
         response = await axiosInstance.get("/user/getdefaultAds", {
+          headers,
+          params: additionalParams,
+        });
+        break;
+
+
+      case "notificationCountUnread":
+        response = await axiosInstance.get("/user/notification/unread/count", {
           headers,
           params: additionalParams,
         });

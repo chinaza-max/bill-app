@@ -45,10 +45,23 @@ export const requestNotificationPermission = async () => {
   }
 };
 
+/*
 // Listen for foreground messages
 export const onMessageListener = () =>
   new Promise((resolve) => {
     onMessage(messaging, (payload) => {
+
+      console.log(payload);
       resolve(payload);
     });
   });
+*/
+
+export const onMessageListener = (callback) => {
+  if (!messaging) return;
+
+  return onMessage(messaging, (payload) => {
+    console.log("Foreground message received:", payload);
+    callback(payload);
+  });
+};

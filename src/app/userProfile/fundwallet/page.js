@@ -15,6 +15,8 @@ import ProtectedRoute from "@/app/component/protect";
 import { useSelector } from "react-redux";
 import { useMutation } from "@tanstack/react-query";
 import getErrorMessage from "@/app/component/error";
+//import NotificationManager from "@/components/NotificationManager.jsx"
+//src/components
 
 const FundWalletPage = () => {
   const router = useRouter();
@@ -173,6 +175,7 @@ const FundWalletPage = () => {
   return (
     <ProtectedRoute>
       <div className="flex flex-col h-screen bg-amber-50">
+
         {/* Fixed Header */}
         <div className="bg-gradient-to-r from-amber-600 to-amber-500 text-white px-4 py-3 fixed w-full top-0 z-10">
           <div className="flex items-center space-x-3">
@@ -419,7 +422,10 @@ const FundWalletPage = () => {
               </>
             )}
           </div>
+
+
         </div>
+
 
         {/* Fixed Footer with Generate Account Button */}
         <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-amber-100 p-4 shadow-lg">
@@ -453,6 +459,7 @@ const FundWalletPage = () => {
               </button>
             )}
           </div>
+
         </div>
       </div>
     </ProtectedRoute>

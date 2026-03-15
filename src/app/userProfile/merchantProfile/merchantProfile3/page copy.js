@@ -19,11 +19,11 @@ const VERIFICATION_STEPS = {
   UPLOADING: "uploading",
   COMPLETE: "complete",
 };
+//                  src="/scannedface.jpg"
 
-const CHECK_KEYS = { FACE: "face", EYES: "eyes", NOSE: "nose", LIGHT: "light", HUMAN: "human", FORWARD: "forward" };
+const CHECK_KEYS = { FACE: "face", EYES: "eyes", NOSE: "nose", LIGHT: "light", HUMAN: "human" };
 
-//const MODEL_URL = "https://cdn.jsdelivr.net/npm/@vladmandic/face-api/model";
-      const MODEL_URL = "/models";
+const MODEL_URL = "https://cdn.jsdelivr.net/npm/@vladmandic/face-api/model";
 
 // ─── Landmark index groups ────────────────────────────────────────────────────
 const LM = {
@@ -66,53 +66,6 @@ function isHumanLikeFace(detection) {
   if (!detection?.expressions) return false;
   const sum = Object.values(detection.expressions).reduce((a, b) => a + b, 0);
   return sum > 0.4;
-}
-
-// ─── Head pose check using landmark geometry ──────────────────────────────────
-// Returns { facingForward, yawOk, pitchOk, reason }
-// Yaw  : nose tip should sit close to midpoint between the two eye-corner pairs
-// Pitch: nose tip should sit between the eye midpoint and the mouth midpoint
-function checkHeadPose(positions) {
-  if (!positions || positions.length < 68) return { facingForward: false, reason: "No landmarks" };
-
-  // Key points
-  const leftEyeInner  = positions[39];  // inner corner left eye
-  const rightEyeInner = positions[42];  // inner corner right eye
-  const leftEyeOuter  = positions[36];
-  const rightEyeOuter = positions[45];
-  const noseTip       = positions[30];
-  const noseBase      = positions[33];
-  const mouthLeft     = positions[48];
-  const mouthRight    = positions[54];
-  const chin          = positions[8];
-
-  // ── Yaw (left/right turn) ──────────────────────────────────────────────────
-  // Measure how centred the nose tip is between the two eye outer corners
-  const eyeMidX = (leftEyeOuter.x + rightEyeOuter.x) / 2;
-  const eyeWidth = Math.abs(rightEyeOuter.x - leftEyeOuter.x);
-  const noseMidOffsetX = (noseTip.x - eyeMidX) / eyeWidth; // –1..+1
-  const yawOk = Math.abs(noseMidOffsetX) < 0.18;           // ±18% of eye-width
-
-  // ── Pitch (up/down tilt) ───────────────────────────────────────────────────
-  // Nose tip Y should be between the eye midline and the mouth midline
-  const eyeMidY   = (leftEyeOuter.y + rightEyeOuter.y) / 2;
-  const mouthMidY = (mouthLeft.y + mouthRight.y) / 2;
-  const faceH     = mouthMidY - eyeMidY;
-  const nosePctY  = (noseTip.y - eyeMidY) / faceH; // 0 = eye level, 1 = mouth level
-  const pitchOk   = nosePctY > 0.35 && nosePctY < 0.75;   // looking too far up/down
-
-  // ── Roll (head tilt) ──────────────────────────────────────────────────────
-  const eyeDY  = rightEyeOuter.y - leftEyeOuter.y;
-  const eyeDX  = rightEyeOuter.x - leftEyeOuter.x;
-  const rollDeg = Math.abs(Math.atan2(eyeDY, eyeDX) * (180 / Math.PI));
-  const rollOk  = rollDeg < 12;
-
-  let reason = "";
-  if (!yawOk)  reason = noseMidOffsetX < 0 ? "Turn your face right" : "Turn your face left";
-  else if (!pitchOk) reason = nosePctY < 0.35 ? "Lower your chin slightly" : "Raise your chin slightly";
-  else if (!rollOk)  reason = "Straighten your head — don't tilt";
-
-  return { facingForward: yawOk && pitchOk && rollOk, yawOk, pitchOk, rollOk, reason };
 }
 
 // ─── Canvas drawing ───────────────────────────────────────────────────────────
@@ -287,7 +240,6 @@ const FaceVerification = () => {
     [CHECK_KEYS.NOSE]: false,
     [CHECK_KEYS.LIGHT]: false,
     [CHECK_KEYS.HUMAN]: false,
-    [CHECK_KEYS.FORWARD]: false,
   });
   const [modelsLoaded, setModelsLoaded] = useState(false);
   const [capturedImage, setCapturedImage] = useState(null);
@@ -365,8 +317,6 @@ const FaceVerification = () => {
       const eyesOk = leftEye.length === 6 && rightEye.length === 6;
       const noseOk = nose.length > 0;
       const humanOk = isHumanLikeFace(det);
-      const headPose = checkHeadPose(positions);
-      const forwardOk = headPose.facingForward;
 
       const cx = box.x + box.width / 2;
       const cy = box.y + box.height / 2;
@@ -381,16 +331,15 @@ const FaceVerification = () => {
         nose: noseOk,
         light: lightCheck.ok,
         human: humanOk,
-        forward: forwardOk,
       };
       setChecks(newChecks);
 
       const allGood =
-        eyesOk && noseOk && lightCheck.ok && humanOk && forwardOk && goodSize && centeredX && centeredY;
+        eyesOk && noseOk && lightCheck.ok && humanOk && goodSize && centeredX && centeredY;
 
       drawOverlay(canvas, video, det, allGood);
 
-      // Instruction message — head pose takes priority once basics are met
+      // Instruction message
       let msg = "";
       let status = "warn";
       if (!lightCheck.ok) {
@@ -407,10 +356,6 @@ const FaceVerification = () => {
         msg = cy < vh / 2 ? "Lower your face a bit" : "Raise your face a bit";
       } else if (!eyesOk) {
         msg = "Make sure both eyes are clearly visible";
-      } else if (!forwardOk) {
-        // Give the specific head pose correction
-        msg = headPose.reason || "Look straight at the camera";
-        status = "bad";
       } else if (!humanOk) {
         msg = "Look naturally at the camera";
       } else {
@@ -551,7 +496,7 @@ const FaceVerification = () => {
                 overflow: "hidden", background: "#fef3c7",
               }}>
                 <img
-                 src="/scannedface.jpg"
+                  src="verifyface.jpg"
                   alt="Face verification illustration"
                   style={{ width: "100%", height: "100%", objectFit: "cover" }}
                 />
@@ -658,12 +603,11 @@ const FaceVerification = () => {
               {/* Check pills */}
               {currentStep === VERIFICATION_STEPS.POSITIONING && (
                 <div style={{ display: "flex", gap: 6, marginBottom: 14 }}>
-                  <CheckPill label="Face"    icon="👤" pass={checks.face} />
-                  <CheckPill label="Eyes"    icon="👁" pass={checks.eyes} />
-                  <CheckPill label="Nose"    icon="👃" pass={checks.nose} />
-                  <CheckPill label="Light"   icon="☀️" pass={checks.light} />
-                  <CheckPill label="Forward" icon="🎯" pass={checks.forward} />
-                  <CheckPill label="Human"   icon="✓"  pass={checks.human} />
+                  <CheckPill label="Face" icon="👤" pass={checks.face} />
+                  <CheckPill label="Eyes" icon="👁" pass={checks.eyes} />
+                  <CheckPill label="Nose" icon="👃" pass={checks.nose} />
+                  <CheckPill label="Light" icon="☀️" pass={checks.light} />
+                  <CheckPill label="Human" icon="✓" pass={checks.human} />
                 </div>
               )}
 

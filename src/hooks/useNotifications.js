@@ -22,9 +22,10 @@ export const useNotifications = () => {
     };
 
     initNotifications();
-
+/*
     // Listen for foreground messages
     const unsubscribe = onMessageListener().then((payload) => {
+      console.log("Received notification:", payload)
       setNotification(payload);
       // Play sound and vibrate for foreground notifications
       playNotificationSound();
@@ -41,6 +42,26 @@ export const useNotifications = () => {
         });
       }
     });
+    */
+
+    const unsubscribe = onMessageListener((payload) => {
+    console.log("Received notification: 4", payload);
+
+      if(payload?.data?.event==="GENERATE_ACCOUNT_VIRTUAL"){
+        return
+      }
+  setNotification(payload);
+  playNotificationSound();
+  vibrateDevice();
+
+  if (Notification.permission === "granted") {
+    new Notification(payload.notification.title, {
+      body: payload.notification.body,
+      vibrate: [200, 100, 200, 100, 200],
+      requireInteraction: true,
+    });
+  }
+});
 
     return () => {
       if (typeof unsubscribe === "function") {
