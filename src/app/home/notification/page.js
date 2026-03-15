@@ -458,7 +458,7 @@ const NotificationPage = () => {
               <div className="h-16 w-16 rounded-full bg-amber-100 flex items-center justify-center">
                 <Bell className="h-8 w-8 text-amber-400" />
               </div>
-              <p className="font-medium text-amber-900">You're all caught up!</p>
+              <p className="font-medium text-amber-900">You are all caught up!</p>
               <p className="text-sm text-amber-600 text-center max-w-xs">
                 No notifications right now. Check back later.
               </p>

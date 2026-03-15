@@ -639,7 +639,7 @@ const HistoryPage = () => {
               {searchTerm && (
                 <span className="flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold"
                   style={{ background: C.surface, color: C.textSub, border: `1px solid ${C.border}` }}>
-                  "{searchTerm}" <button onClick={() => setSearchTerm("")}><X className="w-3 h-3" /></button>
+                  {searchTerm} <button onClick={() => setSearchTerm("")}><X className="w-3 h-3" /></button>
                 </span>
               )}
               {(dateRange.start || dateRange.end) && (

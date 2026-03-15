@@ -558,7 +558,7 @@ const FaceVerification = () => {
               </div>
               <h2 style={{ fontSize: 20, fontWeight: 600, color: "#1c1917", marginBottom: 8 }}>Face Verification</h2>
               <p style={{ fontSize: 14, color: "#78716c", marginBottom: 20, lineHeight: 1.6 }}>
-                We'll scan your face to verify your identity. Ensure you're in a well-lit area.
+                We will scan your face to verify your identity. Ensure you are in a well-lit area.
               </p>
               <div style={{
                 background: "#fef3c7", borderRadius: 12, padding: 14,
