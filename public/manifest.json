@@ -1,8 +1,8 @@
 {
   "name": "Fidopoint",
   "short_name": "Fidopoint",
-  "theme_color": "#7a8a00",
-  "background_color": "#36b300",
+  "theme_color": "#ffffff",
+  "background_color": "#ffffff",
   "display": "standalone",
   "orientation": "portrait",
   "id": "8",
