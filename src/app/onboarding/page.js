@@ -4,309 +4,135 @@ import React, { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { useAuthRedirect } from "@/hooks/useAuthRedirect";
-
-import {
-  getDecryptedData,
-} from "../../utils/encryption";
-
-import { ConstructionIcon, Volume2, VolumeX } from "lucide-react";
-
-const title = "Leave Beyond Expectation. Order Smarter, Leave Better";
 
 const introSlides = [
   {
     title: "Leave Beyond Expectation. Order Smarter, Leave Better",
-    description:
-      "Order money at your comfort zone without stress with fintread",
+    description: "Order money at your comfort zone without stress with fidopoint",
     image: "splash1.png",
-    audio:
-      "Welcome to Fintread. Live beyond expectation. Order smarter, live better.",
+    highlight: "Order Smarter",
   },
   {
     title: "Unlock Convenience Order in tap, Enjoy in a Snap",
-    description:
-      "Order money at your comfort zone without stress with fintread",
+    description: "Order money at your comfort zone without stress with fidopoint",
     image: "splash2.png",
-    audio: "Unlock convenience. Order in a tap, enjoy in a snap.",
+    highlight: "Unlock Convenience",
   },
   {
     title: "Turn Your Spare Time Into Money By Becoming a Merchant",
-    description:
-      "Order money at your comfort zone without stress with fintread",
+    description: "Order money at your comfort zone without stress with fidopoint",
     image: "splash3.png",
-    audio:
-      "Turn your spare time into money by becoming a merchant with Fintread.",
+    highlight: "Becoming a Merchant",
   },
 ];
 
-export default function Home() {
-  useAuthRedirect();
+// Animated "Unlock Convenience" text that cycles through words
+const UnlockConvenienceAnimator = () => {
+  const words = ["Convenience", "Freedom", "Speed", "Simplicity"];
+  const [index, setIndex] = useState(0);
 
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setIndex((prev) => (prev + 1) % words.length);
+    }, 2000);
+    return () => clearInterval(interval);
+  }, []);
+
+  return (
+    <div
+      style={{
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        gap: "8px",
+        fontFamily: "'Playfair Display', Georgia, serif",
+        fontSize: "13px",
+        color: "#9A7B2E",
+        letterSpacing: "0.08em",
+        textTransform: "uppercase",
+        marginTop: "4px",
+      }}
+    >
+      <span style={{ color: "#888", fontFamily: "Georgia, serif", fontStyle: "italic" }}>Unlock</span>
+      <AnimatePresence mode="wait">
+        <motion.span
+          key={index}
+          initial={{ opacity: 0, y: 10, filter: "blur(4px)" }}
+          animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
+          exit={{ opacity: 0, y: -10, filter: "blur(4px)" }}
+          transition={{ duration: 0.45, ease: "easeOut" }}
+          style={{
+            color: "#B8922A",
+            fontWeight: "700",
+            borderBottom: "1.5px solid #D4AF37",
+            paddingBottom: "1px",
+          }}
+        >
+          {words[index]}
+        </motion.span>
+      </AnimatePresence>
+    </div>
+  );
+};
+
+export default function Home() {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [direction, setDirection] = useState(0);
   const [autoPlayEnabled, setAutoPlayEnabled] = useState(true);
   const [isOverlayVisible, setOverlayVisible] = useState(true);
   const [isOverlayVisible2, setOverlayVisible2] = useState(true);
-  const [permissionGranted, setPermissionGranted] = useState(false);
-  const [permissionError, setPermissionError] = useState(null);
-  const [isMuted, setIsMuted] = useState(false);
-  const [voices, setVoices] = useState([]);
-  const [selectedVoice, setSelectedVoice] = useState(null);
-
-  const synth = useRef(null);
-  const utteranceRef = useRef(null);
-
   const router = useRouter();
 
   const slideVariants = {
-    enter: (direction) => ({
-      x: direction > 0 ? 1000 : -1000,
-      opacity: 0,
-    }),
-    center: {
-      zIndex: 0,
-      x: 0,
-      opacity: 1,
-    },
-    exit: (direction) => ({
-      zIndex: 0,
-      x: direction < 0 ? 1000 : -1000,
-      opacity: 0,
-    }),
+    enter: (direction) => ({ x: direction > 0 ? 1000 : -1000, opacity: 0 }),
+    center: { zIndex: 0, x: 0, opacity: 1 },
+    exit: (direction) => ({ zIndex: 0, x: direction < 0 ? 1000 : -1000, opacity: 0 }),
   };
 
   const swipeConfidenceThreshold = 5000;
-  const swipePower = (offset, velocity) => {
-    return Math.abs(offset) * velocity;
-  };
-
-
-    
-  useEffect(() => {
-   // const storedEmail = getDecryptedData("emailEncrypt");
-
-    console.log("storedEmail");
-    console.log("storedEmail");
-    console.log("storedEmail");
-    console.log("storedEmail");
-
-
-  }, [router]);
-
-  useEffect(() => {
-    fetch("api/auth?apiType=ping");
-
-    setTimeout(() => {
-      fetch("api/auth?apiType=ping");
-    }, 3000);
-  });
+  const swipePower = (offset, velocity) => Math.abs(offset) * velocity;
 
   const paginate = (newDirection) => {
     let newIndex = currentIndex + newDirection;
-
-    // Handle looping
-    if (newIndex < 0) {
-      newIndex = introSlides.length - 1;
-    } else if (newIndex >= introSlides.length) {
-      newIndex = 0;
-    }
-
+    if (newIndex < 0) newIndex = introSlides.length - 1;
+    else if (newIndex >= introSlides.length) newIndex = 0;
     setDirection(newDirection);
     setCurrentIndex(newIndex);
   };
 
   useEffect(() => {
-    // Initialize speech synthesis with permission check
-    if (typeof window !== "undefined") {
-      synth.current = window.speechSynthesis;
-
-      // Check if the browser supports speech synthesis
-      if (!synth.current) {
-        setPermissionError("Speech synthesis is not supported in this browser");
-        setIsMuted(true);
-        return;
-      }
-
-      const getVoices = () => {
-        const availableVoices = synth.current.getVoices();
-        console.log("Available voices:", availableVoices);
-        setVoices(availableVoices);
-        setSelectedVoice(
-          availableVoices.find((voice) => voice.default) || availableVoices[0]
-        );
-      };
-
-      // Ensure voices are loaded
-      if (synth.current.onvoiceschanged !== undefined) {
-        synth.current.onvoiceschanged = getVoices;
-      } else {
-        getVoices();
-      }
-
-      // Request permission for audio playback
-      const requestPermission = async () => {
-        try {
-          // Try to get audio permission
-          const result = await navigator.permissions.query({
-            name: "notifications",
-          });
-
-          if (result.state === "granted") {
-            setPermissionGranted(true);
-          } else if (result.state === "prompt") {
-            // We need to trigger speech on user interaction
-            setPermissionGranted(false);
-          } else {
-            setPermissionError("Permission denied for audio playback");
-            setIsMuted(true);
-          }
-        } catch (error) {
-          // Fall back to a user interaction requirement
-          console.log(
-            "Permission API not supported, will require user interaction"
-          );
-          setPermissionGranted(false);
-        }
-      };
-
-      requestPermission();
-    }
-  }, []);
-
-  const playAudio = (text) => {
-    return;
-    console.log(synth.current);
-    console.log(isMuted);
-
-    if (synth.current && !isMuted) {
-      try {
-        // Cancel any ongoing speech
-        //synth.current.cancel();
-        console.log("test test ", selectedVoice);
-
-        // Create new utterance
-        utteranceRef.current = new SpeechSynthesisUtterance(text);
-        utteranceRef.current.rate = 1.0;
-        utteranceRef.current.pitch = 1.0;
-        utteranceRef.current.voice = selectedVoice;
-
-        // Add error handling
-        utteranceRef.current.onerror = (event) => {
-          console.error("Speech synthesis error:", event);
-
-          setPermissionError("Error playing audio. Please try again.");
-        };
-
-        // Handle the first user interaction
-        if (!permissionGranted) {
-          setPermissionGranted(true);
-        }
-
-        // Play the speech
-        synth.current.speak(utteranceRef.current);
-      } catch (error) {
-        console.error("Speech synthesis error:", error);
-        setPermissionError("Error initializing audio playback");
-        setIsMuted(true);
-      }
-    }
-  };
-
-  const toggleMute = () => {
-    setIsMuted((prev) => {
-      if (!prev) {
-        // If we're muting, cancel any ongoing speech
-        //synth.current?.cancel();
-      }
-      return !prev;
-    });
-  };
-
-  useEffect(() => {
-    setTimeout(() => {
-      if (!isMuted) {
-        console.log("ddddddddddd");
-        ///playAudio(title);
-      }
-    }, 40000);
-  }, [isMuted]);
-
-  useEffect(() => {
-    // Play audio when slide changes
-
-    setTimeout(() => {
-      if (!isOverlayVisible2 && !isMuted) {
-        //playAudio(introSlides[currentIndex].audio);
-      }
-    }, 40000);
-  }, [currentIndex, isOverlayVisible2, isMuted]);
-
-  useEffect(() => {
-    return () => {
-      if (synth.current) {
-        synth.current.cancel();
-      }
-    };
-  }, []);
-
-  useEffect(() => {
     if (!autoPlayEnabled) return;
-
-    const timer = setInterval(() => {
-      paginate(1); // This will use the looping logic we already have in the paginate function
-    }, 10000);
-
-    const timer2 = setTimeout(() => {
-      setOverlayVisible(false);
-    }, 3000);
-
-    const timer3 = setTimeout(() => {
-      setOverlayVisible2(false);
-    }, 4000);
-
+    const timer = setInterval(() => paginate(1), 10000);
+    const timer2 = setTimeout(() => setOverlayVisible(false), 3000);
+    const timer3 = setTimeout(() => setOverlayVisible2(false), 4000);
     return () => {
       clearInterval(timer);
-      clearInterval(timer2);
-      clearInterval(timer3);
+      clearTimeout(timer2);
+      clearTimeout(timer3);
     };
   }, [currentIndex, autoPlayEnabled]);
 
   useEffect(() => {
-    fetch("api/auth?apiType=ping");
-    setTimeout(() => {
-      fetch("api/auth?apiType=ping");
-    }, 3000);
-  }, [router]);
-
-  useEffect(() => {
-    // Prefetch routes for better performance
-    router.prefetch("sign-up");
-  });
+    router.prefetch?.("sign-up");
+  }, []);
 
   return (
     <>
       {isOverlayVisible2 ? (
         <Overlay isVisible={isOverlayVisible} />
       ) : (
-        <div className="fixed inset-0 bg-gradient-to-b  bg-white">
-          <div className="relative h-full w-full overflow-hidden">
-            <motion.button
-              className="absolute top-6 right-6 z-50 p-2 rounded-full bg-white shadow-lg hover:bg-gray-50 transition-colors"
-              onClick={toggleMute}
-              whileTap={{ scale: 0.95 }}
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ delay: 0.5 }}
-            >
-              {/*isMuted ? (
-                <VolumeX className="w-6 h-6 text-gray-600" />
-              ) : (
-                <Volume2 className="w-6 h-6 text-gray-600" />
-              )*/}
-            </motion.button>
+        <div
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: "#FFFFFF",
+            fontFamily: "'DM Sans', sans-serif",
+          }}
+        >
+          <div style={{ position: "relative", height: "100%", width: "100%", overflow: "hidden" }}>
 
-            <div className="h-[10%] w-full">
+            {/* Top image area */}
+            <div style={{ height: "60%", width: "100%", position: "relative" }}>
               <AnimatePresence initial={false} custom={direction}>
                 <motion.div
                   key={currentIndex}
@@ -324,30 +150,49 @@ export default function Home() {
                   dragElastic={1}
                   onDragEnd={(e, { offset, velocity }) => {
                     const swipe = swipePower(offset.x, velocity.x);
-                    if (swipe < -swipeConfidenceThreshold) {
-                      paginate(1);
-                    } else if (swipe > swipeConfidenceThreshold) {
-                      paginate(-1);
-                    }
+                    if (swipe < -swipeConfidenceThreshold) paginate(1);
+                    else if (swipe > swipeConfidenceThreshold) paginate(-1);
                   }}
-                  className="absolute h-full w-full flex justify-center"
+                  style={{
+                    position: "absolute",
+                    height: "100%",
+                    width: "100%",
+                    display: "flex",
+                    justifyContent: "center",
+                    alignItems: "center",
+                  }}
                 >
-                  <div className="relative h-64 w-64">
-                    <motion.img
-                      src={introSlides[currentIndex].image}
-                      alt={introSlides[currentIndex].title}
-                      className="h-full w-full object-cover rounded-2xl"
-                      style={{ marginTop: "30%" }}
-                      initial={{ scale: 0.8, opacity: 0 }}
-                      animate={{ scale: 1, opacity: 1 }}
-                      transition={{ delay: 0.2 }}
-                    />
-                  </div>
+                  <motion.img
+                    src={introSlides[currentIndex].image}
+                    alt={introSlides[currentIndex].title}
+                    style={{
+                      width: "220px",
+                      height: "220px",
+                      objectFit: "cover",
+                      borderRadius: "20px",
+                    }}
+                    initial={{ scale: 0.85, opacity: 0 }}
+                    animate={{ scale: 1, opacity: 1 }}
+                    transition={{ delay: 0.2 }}
+                  />
                 </motion.div>
               </AnimatePresence>
             </div>
 
-            <div className="absolute bottom-0 h-[40%] w-full bg-white rounded-t-[32px] px-6">
+            {/* Bottom card */}
+            <div
+              style={{
+                position: "absolute",
+                bottom: 0,
+                height: "44%",
+                width: "100%",
+                background: "#FFFFFF",
+                borderTopLeftRadius: "32px",
+                borderTopRightRadius: "32px",
+                padding: "24px 24px 0",
+                boxShadow: "0 -4px 30px rgba(0,0,0,0.06)",
+              }}
+            >
               <AnimatePresence mode="wait">
                 <motion.div
                   key={currentIndex}
@@ -355,125 +200,147 @@ export default function Home() {
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: -20 }}
                   transition={{ duration: 0.3 }}
-                  className="space-y-1"
+                  style={{ textAlign: "center" }}
                 >
-                  <h2 className="text-2xl font-bold text-center text-black">
+                  <h2
+                    style={{
+                      fontSize: "20px",
+                      fontWeight: "700",
+                      color: "#111",
+                      lineHeight: "1.35",
+                      margin: "0 0 8px",
+                      fontFamily: "'Playfair Display', Georgia, serif",
+                    }}
+                  >
                     {introSlides[currentIndex].title}
                   </h2>
-                  <p className="text-center text-gray-600">
+                  <p style={{ fontSize: "13px", color: "#888", margin: 0 }}>
                     {introSlides[currentIndex].description}
                   </p>
                 </motion.div>
               </AnimatePresence>
 
-              {/* Navigation Dots */}
-              <div className="absolute bottom-24 left-0 w-full flex justify-center space-x-3">
-                {introSlides.map((_, index) => (
+              {/* Animated unlock convenience */}
+              <div style={{ marginTop: "12px" }}>
+                <UnlockConvenienceAnimator />
+              </div>
+
+              {/* Dots */}
+              <div
+                style={{
+                  position: "absolute",
+                  bottom: "84px",
+                  left: 0,
+                  width: "100%",
+                  display: "flex",
+                  justifyContent: "center",
+                  gap: "10px",
+                }}
+              >
+                {introSlides.map((_, i) => (
                   <motion.div
-                    key={index}
-                    className={`h-2 rounded-full ${
-                      index === currentIndex
-                        ? "w-6 bg-black"
-                        : "w-2 bg-gray-300"
-                    }`}
+                    key={i}
                     onClick={() => {
-                      setDirection(index > currentIndex ? 1 : -1);
-                      setCurrentIndex(index);
+                      setDirection(i > currentIndex ? 1 : -1);
+                      setCurrentIndex(i);
+                    }}
+                    style={{
+                      height: "8px",
+                      borderRadius: "4px",
+                      background: i === currentIndex ? "#B8922A" : "#DDD",
+                      width: i === currentIndex ? "24px" : "8px",
+                      cursor: "pointer",
+                      transition: "all 0.3s ease",
                     }}
                     whileTap={{ scale: 0.9 }}
                   />
                 ))}
               </div>
 
-              {/* Navigation Buttons */}
-              <div className="absolute bottom-8 left-0 w-full px-6">
-                <div className="flex gap-4 items-center justify-between">
-                  {currentIndex > 0 && (
-                    <motion.button
-                      initial={{ opacity: 0 }}
-                      animate={{ opacity: 1 }}
-                      onClick={() => {
-                        console.log(
-                          "Back button clicked, current index:",
-                          currentIndex
-                        );
-                        paginate(-1);
-                      }}
-                      className="flex-1 text-center py-4 text-gray-500 "
-                      style={{ zIndex: 10 }}
-                    >
-                      Back
-                    </motion.button>
-                  )}
+              {/* Buttons */}
+              <div
+                style={{
+                  position: "absolute",
+                  bottom: "24px",
+                  left: 0,
+                  width: "100%",
+                  padding: "0 24px",
+                  display: "flex",
+                  gap: "12px",
+                  alignItems: "center",
+                }}
+              >
+                {currentIndex > 0 && (
+                  <motion.button
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    onClick={() => paginate(-1)}
+                    style={{
+                      flex: 1,
+                      padding: "14px",
+                      border: "1.5px solid #D4AF37",
+                      borderRadius: "999px",
+                      background: "transparent",
+                      color: "#9A7B2E",
+                      fontWeight: "600",
+                      fontSize: "15px",
+                      cursor: "pointer",
+                    }}
+                  >
+                    Back
+                  </motion.button>
+                )}
 
-                  {currentIndex < introSlides.length - 1 ? (
-                    <motion.button
-                      whileTap={{ scale: 0.95 }}
-                      onClick={() => paginate(1)}
-                      className="flex-1 rounded-full bg- py-4 text-gray-500 font-semibold"
-                    >
-                      Next
-                    </motion.button>
-                  ) : (
-                    <Link
-                      //onClick={() => router.push('/auth/sign-up')}
-                      href="/sign-up-selection"
-                      className="flex-1 text-center rounded-full bg-primary-600 py-3 text-white font-semibold"
-                    >
-                      Get Started
-                    </Link>
-                  )}
-                </div>
+                {currentIndex < introSlides.length - 1 ? (
+                  <motion.button
+                    whileTap={{ scale: 0.97 }}
+                    onClick={() => paginate(1)}
+                    style={{
+                      flex: 1,
+                      padding: "14px",
+                      borderRadius: "999px",
+                      background: "linear-gradient(135deg, #D4AF37, #9A7B2E)",
+                      color: "#fff",
+                      fontWeight: "700",
+                      fontSize: "15px",
+                      border: "none",
+                      cursor: "pointer",
+                      boxShadow: "0 4px 16px rgba(180,140,40,0.25)",
+                    }}
+                  >
+                    Next
+                  </motion.button>
+                ) : (
+                  <Link
+                    href="/sign-up-selection"
+                    style={{
+                      flex: 1,
+                      display: "block",
+                      textAlign: "center",
+                      padding: "14px",
+                      borderRadius: "999px",
+                      background: "linear-gradient(135deg, #D4AF37, #9A7B2E)",
+                      color: "#fff",
+                      fontWeight: "700",
+                      fontSize: "15px",
+                      textDecoration: "none",
+                      boxShadow: "0 4px 16px rgba(180,140,40,0.25)",
+                    }}
+                  >
+                    Get Started
+                  </Link>
+                )}
               </div>
             </div>
           </div>
-        </div>
-      )}
-
-      {permissionError && (
-        <div className="absolute top-16 right-6 z-50 p-2 bg-red-100 text-red-600 rounded-md text-sm">
-          {permissionError}
         </div>
       )}
     </>
   );
 }
 
+// ── Splash Overlay ──────────────────────────────────────────────────────────
 const Overlay = ({ isVisible }) => {
-  const imageVariants = {
-    initial: {
-      scale: 0.8,
-      opacity: 0,
-      y: 50,
-    },
-    animate: {
-      scale: 1,
-      opacity: 1,
-      y: 0,
-      transition: {
-        duration: 0.8,
-        ease: "easeOut",
-        delay: 0.2,
-      },
-    },
-    exit: {
-      scale: 1.2,
-      opacity: 0,
-      y: -30,
-      transition: {
-        duration: 0.4,
-        ease: "easeIn",
-      },
-    },
-    hover: {
-      scale: 1.05,
-      transition: {
-        duration: 0.3,
-        ease: "easeInOut",
-      },
-    },
-  };
-
   return (
     <motion.div
       initial={{ opacity: 0 }}
@@ -482,30 +349,79 @@ const Overlay = ({ isVisible }) => {
       transition={{ duration: 0.5 }}
       style={{
         position: "fixed",
-        top: 0,
-        left: 0,
-        width: "100vw",
-        height: "100vh",
-        backgroundColor: "rgba(0, 0, 0, 0.5)",
-        display: isVisible ? "block" : "none",
-        zIndex: 1000,
-        background: "white",
-        color: "black",
+        inset: 0,
+        background: "#FFFFFF",
+        display: "flex",
         alignItems: "center",
         justifyContent: "center",
-        display: "flex",
+        zIndex: 1000,
       }}
     >
-      <motion.img
-        src={
-          "https://res.cloudinary.com/dvznn9s4g/image/upload/v1740400115/official_vbhxec.jpg"
-        }
-        alt={"logo"}
-        className="w-48  h-18"
-        variants={imageVariants}
-        initial="initial"
-        animate="animate"
+      {/* Gold ring pulse behind logo */}
+      <motion.div
+        animate={{
+          scale: [1, 1.15, 1],
+          opacity: [0.35, 0.6, 0.35],
+        }}
+        transition={{ repeat: Infinity, duration: 2.2, ease: "easeInOut" }}
+        style={{
+          position: "absolute",
+          width: "96px",
+          height: "96px",
+          borderRadius: "50%",
+          border: "2px solid #D4AF37",
+        }}
       />
+
+      {/* Logo container with gold border */}
+      <motion.div
+        initial={{ scale: 0.7, opacity: 0 }}
+        animate={{ scale: 1, opacity: 1 }}
+        transition={{ duration: 0.7, ease: "easeOut", delay: 0.2 }}
+        style={{
+          width: "72px",
+          height: "72px",
+          borderRadius: "50%",
+          border: "2.5px solid #D4AF37",
+          padding: "10px",
+          background: "#fff",
+          boxShadow: "0 0 24px rgba(212,175,55,0.25), 0 2px 12px rgba(0,0,0,0.08)",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          position: "relative",
+          zIndex: 2,
+        }}
+      >
+        <img
+          src="https://res.cloudinary.com/dvznn9s4g/image/upload/v1740400115/official_vbhxec.jpg"
+          alt="Fidopoint logo"
+          style={{
+            width: "100%",
+            height: "100%",
+            objectFit: "contain",
+            borderRadius: "50%",
+          }}
+        />
+      </motion.div>
+
+      {/* Brand name below */}
+      <motion.p
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.7, duration: 0.5 }}
+        style={{
+          position: "absolute",
+          bottom: "calc(50% - 80px)",
+          fontFamily: "'Playfair Display', Georgia, serif",
+          fontSize: "13px",
+          letterSpacing: "0.2em",
+          color: "#B8922A",
+          textTransform: "uppercase",
+        }}
+      >
+        Fidopoint
+      </motion.p>
     </motion.div>
   );
 };
