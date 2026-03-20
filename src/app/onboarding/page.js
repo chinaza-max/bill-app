@@ -118,7 +118,7 @@ export default function Home() {
 
   return (
     <>
-      {isOverlayVisible2 ? (
+      {false ? (
         <Overlay isVisible={isOverlayVisible} />
       ) : (
         <div
