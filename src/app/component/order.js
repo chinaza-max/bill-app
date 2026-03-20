@@ -20,9 +20,6 @@ import {
   Flag,
   Clock,
   Navigation,
-  PhoneOff,
-  Mic,
-  MicOff,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useRouter, useParams } from "next/navigation";
@@ -30,10 +27,8 @@ import { Html5Qrcode } from "html5-qrcode";
 import ProtectedRoute from "@/app/component/protect";
 import { useSelector } from "react-redux";
 import useRequest from "@/hooks/useRequest";
-import { useIncomingCall } from "@/hooks/useIncomingCall";
-import { useAgoraCall } from "@/hooks/useAgoraCall";
-//import { useSocket } from "@/app/c"; // ← shared socket
-import { useSocket } from "@/components/call/CallLayout"; // ← new import
+import { useSocket } from "@/components/call/CallLayout";
+import { useCall } from "@/components/call/CallProvider";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // MINI HOOKS
@@ -93,10 +88,7 @@ const LeafletMap = ({ orderData }) => {
         document.head.appendChild(link);
       }
 
-      if (mapRef.current) {
-        mapRef.current.remove();
-        mapRef.current = null;
-      }
+      if (mapRef.current) { mapRef.current.remove(); mapRef.current = null; }
 
       const source      = orderData.userDetails.sourceCoordinate;
       const destination = orderData.userDetails.destinationCoordinate;
@@ -117,7 +109,6 @@ const LeafletMap = ({ orderData }) => {
                </div>`,
         iconSize: [40, 40], iconAnchor: [20, 40],
       });
-
       L.marker([parseFloat(source.lat), parseFloat(source.lng)], { icon: sourceIcon }).addTo(newMap);
 
       const createDestinationIcon = (isVisible) => L.divIcon({
@@ -364,241 +355,6 @@ const OrderStatusBadge = ({ status, startTime, endTime }) => {
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
-// AUDIO CALL MODAL
-// ─────────────────────────────────────────────────────────────────────────────
-
-const AudioCallModal = ({ isOpen, onClose, orderId, otherUserName, otherUserAvatar, isIncoming, onAccept, socket }) => {
-  const accessToken = useSelector((state) => state.user.accessToken);
-  const userId      = useSelector((state) => state.user.user?.user?.id ?? null);
-
-  const {
-    joinCall, leaveCall, toggleMute,
-    inCall, isMuted, callStatus,
-    remoteUsers, error, callDuration, formatDuration,
-  } = useAgoraCall(accessToken);
-
-  const hasJoined = useRef(false);
-
-  useEffect(() => {
-    if (isOpen && orderId && userId && !isIncoming && !hasJoined.current) {
-      hasJoined.current = true;
-      joinCall(String(orderId), userId);
-    }
-    if (!isOpen) hasJoined.current = false;
-  }, [isOpen, orderId, userId, isIncoming]);
-
-  const handleAccept = () => {
-    hasJoined.current = true;
-    joinCall(String(orderId), userId);
-    onAccept?.();
-  };
-
-  const handleClose = async () => {
-    await leaveCall();
-    if (socket) socket.emit("callEnded", { orderId, userId });
-    onClose();
-  };
-
-  const statusLabel = {
-    idle:       "Initializing…",
-    connecting: "Connecting…",
-    ringing:    "Ringing…",
-    connected:  remoteUsers.length > 0 ? formatDuration(callDuration) : "Waiting for other party…",
-    ended:      "Call Ended",
-  }[callStatus] ?? "…";
-
-  const statusColor = {
-    idle:       "text-amber-300",
-    connecting: "text-amber-300",
-    ringing:    "text-amber-200",
-    connected:  remoteUsers.length > 0 ? "text-green-400" : "text-amber-200",
-    ended:      "text-red-400",
-  }[callStatus] ?? "text-amber-300";
-
-  return (
-    <AnimatePresence>
-      {isOpen && (
-        <motion.div
-          initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-          className="fixed inset-0 z-[100] flex items-center justify-center p-4"
-          style={{ background: "rgba(0,0,0,0.85)" }}
-        >
-          <motion.div
-            initial={{ scale: 0.85, y: 40, opacity: 0 }}
-            animate={{ scale: 1,    y: 0,  opacity: 1 }}
-            exit={{    scale: 0.85, y: 40, opacity: 0 }}
-            transition={{ type: "spring", damping: 20, stiffness: 260 }}
-            className="relative w-full max-w-sm rounded-3xl overflow-hidden shadow-2xl"
-            style={{ background: "linear-gradient(160deg, #92400e 0%, #78350f 40%, #1c0a00 100%)" }}
-          >
-            <div className="absolute inset-0 pointer-events-none overflow-hidden">
-              <div className="absolute -top-16 -right-16 w-64 h-64 rounded-full" style={{ background: "rgba(251,191,36,0.08)" }} />
-              <div className="absolute -bottom-20 -left-20 w-72 h-72 rounded-full" style={{ background: "rgba(251,191,36,0.06)" }} />
-            </div>
-
-            {callStatus !== "connected" && (
-              <button onClick={handleClose}
-                className="absolute top-4 right-4 z-10 w-8 h-8 rounded-full flex items-center justify-center"
-                style={{ background: "rgba(255,255,255,0.12)" }}>
-                <X className="w-4 h-4 text-white/70" />
-              </button>
-            )}
-
-            <div className="relative z-10 flex flex-col items-center px-8 pt-12 pb-10">
-              <div className="relative mb-6">
-                {(callStatus === "ringing" || callStatus === "connecting") && (
-                  <>
-                    <motion.div className="absolute inset-0 rounded-full border-2 border-amber-400/40"
-                      animate={{ scale: [1, 1.5], opacity: [0.6, 0] }}
-                      transition={{ repeat: Infinity, duration: 1.8 }}
-                      style={{ margin: "-12px" }} />
-                    <motion.div className="absolute inset-0 rounded-full border-2 border-amber-400/30"
-                      animate={{ scale: [1, 1.8], opacity: [0.5, 0] }}
-                      transition={{ repeat: Infinity, duration: 1.8, delay: 0.4 }}
-                      style={{ margin: "-12px" }} />
-                  </>
-                )}
-                {callStatus === "connected" && remoteUsers.length > 0 && (
-                  <motion.div className="absolute inset-0 rounded-full border-2 border-green-400/50"
-                    animate={{ scale: [1, 1.15], opacity: [0.7, 0] }}
-                    transition={{ repeat: Infinity, duration: 2 }}
-                    style={{ margin: "-6px" }} />
-                )}
-                <div className="w-24 h-24 rounded-full overflow-hidden border-2 border-amber-400/40 shadow-xl">
-                  <img src={otherUserAvatar || "/default-avatar.png"} alt={otherUserName}
-                    className="w-full h-full object-cover"
-                    onError={(e) => { e.currentTarget.src = "/default-avatar.png"; }} />
-                </div>
-              </div>
-
-              <h2 className="text-xl font-semibold text-white mb-1">{otherUserName || "Unknown"}</h2>
-              <p className={`text-sm font-medium mb-2 ${statusColor}`}>{statusLabel}</p>
-
-              {callStatus === "connected" && remoteUsers.length > 0 && (
-                <div className="flex items-end space-x-1 mb-6 h-6">
-                  {[0.4, 0.7, 1, 0.7, 0.4, 0.6, 0.9, 0.6, 0.4].map((h, i) => (
-                    <motion.div key={i} className="w-1 rounded-full bg-green-400"
-                      animate={{ scaleY: [h, 1, h * 0.5, 1, h] }}
-                      transition={{ repeat: Infinity, duration: 1.2, delay: i * 0.1 }}
-                      style={{ height: "100%", transformOrigin: "bottom" }} />
-                  ))}
-                </div>
-              )}
-
-              {error && (
-                <div className="w-full mb-4 px-3 py-2 rounded-xl text-sm text-red-300 text-center"
-                  style={{ background: "rgba(239,68,68,0.15)" }}>{error}</div>
-              )}
-
-              <p className="text-xs text-amber-500/60 mb-6">Order #{orderId}</p>
-
-              {isIncoming && !inCall ? (
-                <div className="flex items-center justify-center space-x-10 w-full">
-                  <div className="flex flex-col items-center space-y-2">
-                    <button onClick={handleClose} className="w-16 h-16 rounded-full flex items-center justify-center shadow-lg"
-                      style={{ background: "rgba(239,68,68,0.9)" }}>
-                      <PhoneOff className="w-7 h-7 text-white" />
-                    </button>
-                    <span className="text-xs text-white/50">Decline</span>
-                  </div>
-                  <div className="flex flex-col items-center space-y-2">
-                    <motion.button onClick={handleAccept}
-                      animate={{ scale: [1, 1.08, 1] }} transition={{ repeat: Infinity, duration: 1.2 }}
-                      className="w-16 h-16 rounded-full flex items-center justify-center shadow-lg"
-                      style={{ background: "rgba(34,197,94,0.9)" }}>
-                      <Phone className="w-7 h-7 text-white" />
-                    </motion.button>
-                    <span className="text-xs text-white/50">Accept</span>
-                  </div>
-                </div>
-              ) : (
-                <div className="flex items-center justify-center space-x-8 w-full">
-                  <div className="flex flex-col items-center space-y-2">
-                    <button onClick={toggleMute} disabled={!inCall}
-                      className="w-14 h-14 rounded-full flex items-center justify-center disabled:opacity-40"
-                      style={{ background: isMuted ? "rgba(239,68,68,0.8)" : "rgba(255,255,255,0.15)" }}>
-                      {isMuted ? <MicOff className="w-6 h-6 text-white" /> : <Mic className="w-6 h-6 text-white" />}
-                    </button>
-                    <span className="text-xs text-white/50">{isMuted ? "Unmute" : "Mute"}</span>
-                  </div>
-                  <div className="flex flex-col items-center space-y-2">
-                    <button onClick={handleClose} className="w-16 h-16 rounded-full flex items-center justify-center shadow-xl"
-                      style={{ background: "rgba(239,68,68,0.9)" }}>
-                      <PhoneOff className="w-7 h-7 text-white" />
-                    </button>
-                    <span className="text-xs text-white/50">End</span>
-                  </div>
-                </div>
-              )}
-            </div>
-          </motion.div>
-        </motion.div>
-      )}
-    </AnimatePresence>
-  );
-};
-
-// ─────────────────────────────────────────────────────────────────────────────
-// INCOMING CALL BANNER
-// ─────────────────────────────────────────────────────────────────────────────
-
-const IncomingCallBanner = ({ incomingCall, onAccept, onDecline }) => (
-  <AnimatePresence>
-    {incomingCall && (
-      <motion.div
-        initial={{ y: -120, opacity: 0 }}
-        animate={{ y: 0,    opacity: 1 }}
-        exit={{    y: -120, opacity: 0 }}
-        transition={{ type: "spring", damping: 22, stiffness: 300 }}
-        className="fixed top-0 left-0 right-0 z-[200] px-3 pt-2"
-      >
-        <div className="flex items-center justify-between rounded-2xl px-4 py-3 shadow-2xl"
-          style={{ background: "linear-gradient(135deg, #92400e, #451a03)", border: "1px solid rgba(251,191,36,0.25)" }}>
-          <div className="flex items-center space-x-3">
-            <div className="relative flex-shrink-0">
-              <div className="w-11 h-11 rounded-full overflow-hidden border-2 border-amber-400/40">
-                <img src={incomingCall.callerAvatar || "/default-avatar.png"} alt={incomingCall.callerName}
-                  className="w-full h-full object-cover"
-                  onError={(e) => { e.currentTarget.src = "/default-avatar.png"; }} />
-              </div>
-              <motion.div className="absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full bg-green-400 border border-white"
-                animate={{ scale: [1, 1.5, 1] }} transition={{ repeat: Infinity, duration: 1 }} />
-            </div>
-            <div>
-              <p className="text-xs text-amber-300/70 leading-none mb-0.5">
-                Incoming call · Order #{incomingCall.orderId}
-              </p>
-              <p className="text-sm font-semibold text-white leading-tight">
-                {incomingCall.callerName || "Unknown"}
-              </p>
-            </div>
-          </div>
-          <div className="flex items-center space-x-3">
-            <div className="flex flex-col items-center space-y-1">
-              <button onClick={onDecline}
-                className="w-11 h-11 rounded-full flex items-center justify-center active:scale-90 transition-transform"
-                style={{ background: "rgba(239,68,68,0.85)" }}>
-                <PhoneOff className="w-5 h-5 text-white" />
-              </button>
-              <span className="text-[10px] text-white/40">Decline</span>
-            </div>
-            <div className="flex flex-col items-center space-y-1">
-              <motion.button onClick={onAccept}
-                animate={{ scale: [1, 1.12, 1] }} transition={{ repeat: Infinity, duration: 0.9 }}
-                className="w-11 h-11 rounded-full flex items-center justify-center active:scale-90"
-                style={{ background: "rgba(34,197,94,0.9)" }}>
-                <Phone className="w-5 h-5 text-white" />
-              </motion.button>
-              <span className="text-[10px] text-white/40">Accept</span>
-            </div>
-          </div>
-        </div>
-      </motion.div>
-    )}
-  </AnimatePresence>
-);
-
-// ─────────────────────────────────────────────────────────────────────────────
 // MODAL
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -632,17 +388,17 @@ const OrderTrackingPage = () => {
   const [userType,             setUserType]             = useState("");
   const [showSuccessModal,     setShowSuccessModal]     = useState(false);
   const [successMessage,       setSuccessMessage]       = useState("");
-  const [showCallModal,        setShowCallModal]        = useState(false);
-  const [isIncomingCall,       setIsIncomingCall]       = useState(false);
-  const [activeCallData,       setActiveCallData]       = useState(null);
 
   // ── Redux ───────────────────────────────────────────────────────────────────
   const accessToken = useSelector((state) => state.user.accessToken);
   const userId      = useSelector((state) => state.user.user?.user?.id ?? null);
   const user        = useSelector((state) => state.user.user?.user);
 
-  // ── Shared socket from layout ───────────────────────────────────────────────
-  const socket = useSocket(); // ← ONE socket used everywhere
+  // ── Shared socket + global call state from layout ───────────────────────────
+  const socket = useSocket();
+  const { startCall, activeCall } = useCall();
+  // ↑ AudioCallModal lives globally in IncomingCallModal (CallLayout)
+  // ↑ No local call state needed — CallProvider owns it all
 
   const {
     data: OrderDetails,
@@ -657,42 +413,27 @@ const OrderTrackingPage = () => {
   const router    = useRouter();
   const orderData = OrderDetails?.data?.data?.orderDetails;
 
-  // ── useIncomingCall — uses same socket ──────────────────────────────────────
-  const { incomingCall, clearIncomingCall, declineCall } = useIncomingCall(
-    socket, userId, orderId
-  );
-
-  const handleAcceptIncomingCall = () => {
-    setActiveCallData({
-      otherUserName:   incomingCall.callerName,
-      otherUserAvatar: incomingCall.callerAvatar,
-    });
-    setIsIncomingCall(true);
-    setShowCallModal(true);
-    clearIncomingCall();
-  };
-
-  const handleDeclineIncomingCall = () => declineCall();
-
-  // ── Outgoing call ───────────────────────────────────────────────────────────
+  // ── Outgoing call — uses global CallProvider ────────────────────────────────
   const handleStartCall = () => {
+    // Guard: already in a call
+    if (activeCall) {
+      console.warn("Already in a call");
+      return;
+    }
     if (!socket) {
       console.warn("Socket not ready");
       return;
     }
-    setIsIncomingCall(false);
-    setActiveCallData({
+
+    startCall({
+      orderId:         orderData?.id,
       otherUserName:   orderData?.userDetails?.displayname,
       otherUserAvatar: orderData?.userDetails?.avatar,
-    });
-    setShowCallModal(true);
-
-    socket.emit("initiateCall", {
-      orderId:      orderData?.id,
-      callerId:     userId,
-      callerName:   user?.firstName || "User",
-      callerAvatar: user?.imageUrl  || "",
-      receiverId:   isMerchant ? orderData?.clientId : orderData?.merchantId,
+      myName:          user?.firstName || "User",
+      myAvatar:        user?.imageUrl  || "",
+      receiverId:      isMerchant
+                         ? orderData?.clientId
+                         : orderData?.merchantId,
     });
   };
 
@@ -714,7 +455,6 @@ const OrderTrackingPage = () => {
   useEffect(() => {
     if (!socket || !orderData?.id) return;
 
-    // Join the order room with the shared socket
     socket.emit("joinOrderRoom", {
       orderId:  orderData.id,
       userType: userType,
@@ -735,38 +475,18 @@ const OrderTrackingPage = () => {
     };
 
     const onOrderStatusUpdate = (data) => {
-      if (data.orderId === orderData.id) refreshOrder();
+      if (String(data.orderId) === String(orderData.id)) refreshOrder();
     };
 
-    const onCallEnded = (data) => {
-      if (String(data.orderId) === String(orderData.id)) {
-        setShowCallModal(false);
-        setIsIncomingCall(false);
-        setActiveCallData(null);
-        clearIncomingCall();
-      }
-    };
-
-    const onCallDeclined = (data) => {
-      if (String(data.orderId) === String(orderData.id)) {
-        setShowCallModal(false);
-        setActiveCallData(null);
-      }
-    };
-
-    socket.on("qrScanSuccess",    onQrScanSuccess);
+    socket.on("qrScanSuccess",     onQrScanSuccess);
     socket.on("orderStatusUpdate", onOrderStatusUpdate);
-    socket.on("callEnded",         onCallEnded);
-    socket.on("callDeclined",      onCallDeclined);
 
-    // ── Cleanup listeners only — do NOT disconnect the shared socket ──────────
     return () => {
-      socket.off("qrScanSuccess",    onQrScanSuccess);
+      socket.off("qrScanSuccess",     onQrScanSuccess);
       socket.off("orderStatusUpdate", onOrderStatusUpdate);
-      socket.off("callEnded",         onCallEnded);
-      socket.off("callDeclined",      onCallDeclined);
     };
   }, [socket, orderData?.id, userType]);
+  // ↑ callEnded and callDeclined are now handled by CallProvider — removed here
 
   // ── Fetch order ─────────────────────────────────────────────────────────────
   useEffect(() => {
@@ -839,12 +559,25 @@ const OrderTrackingPage = () => {
     <ProtectedRoute>
       <Toaster position="top-right" richColors />
 
-      {/* Incoming call banner */}
-      <IncomingCallBanner
-        incomingCall={incomingCall}
-        onAccept={handleAcceptIncomingCall}
-        onDecline={handleDeclineIncomingCall}
-      />
+      {/* ── Active call indicator — tap to reopen modal ─────────────────────── */}
+      <AnimatePresence>
+        {activeCall && (
+          <motion.div
+            initial={{ y: -60, opacity: 0 }}
+            animate={{ y: 0,   opacity: 1 }}
+            exit={{    y: -60, opacity: 0 }}
+            className="fixed top-0 left-0 right-0 z-[150] px-3 pt-2 pointer-events-none"
+          >
+            <div className="bg-green-600 text-white px-4 py-2 rounded-2xl flex items-center justify-center space-x-2 shadow-lg pointer-events-auto"
+              onClick={() => {/* GlobalAudioCallModal is always visible when activeCall exists */}}>
+              <div className="w-2 h-2 rounded-full bg-white animate-pulse" />
+              <span className="text-sm font-medium">
+                Call in progress · {activeCall.otherUserName || "Unknown"}
+              </span>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       <div className="flex flex-col h-screen bg-amber-50" style={{ paddingBottom: "700px" }}>
 
@@ -908,13 +641,24 @@ const OrderTrackingPage = () => {
               </div>
 
               <div className="flex space-x-3">
-                <button onClick={handleStartCall}
-                  className="p-2 bg-amber-100 rounded-full text-amber-600 hover:bg-amber-200 transition-colors"
-                  title="Start audio call">
+                {/* Phone button — disabled if already in call */}
+                <button
+                  onClick={handleStartCall}
+                  disabled={!!activeCall}
+                  className={`p-2 rounded-full transition-colors ${
+                    activeCall
+                      ? "bg-green-100 text-green-600 cursor-not-allowed"
+                      : "bg-amber-100 text-amber-600 hover:bg-amber-200"
+                  }`}
+                  title={activeCall ? "Call in progress" : "Start audio call"}
+                >
                   <Phone className="h-5 w-5" />
                 </button>
+
                 <button
-                  onClick={() => router.push(`/orders/${orderData?.id}/${Math.min(orderData?.clientId, orderData?.merchantId)}-${Math.max(orderData?.clientId, orderData?.merchantId)}room/chat`)}
+                  onClick={() => router.push(
+                    `/orders/${orderData?.id}/${Math.min(orderData?.clientId, orderData?.merchantId)}-${Math.max(orderData?.clientId, orderData?.merchantId)}room/chat`
+                  )}
                   className="p-2 bg-amber-100 rounded-full text-amber-600 hover:bg-amber-200">
                   <MessageCircle className="h-5 w-5" />
                 </button>
@@ -923,7 +667,7 @@ const OrderTrackingPage = () => {
 
             {/* Order Summary */}
             <div className="space-y-2 mb-2">
-              <div className="flex justify-between items-center p3 bg-amber-50 rounded-lg">
+              <div className="flex justify-between items-center p-3 bg-amber-50 rounded-lg">
                 <div className="bg-amber-50 rounded-lg mb-2 w-full pl-2 pr-2 pb-1 pt-2">
                   <div className="flex items-center space-x-2 mb-3">
                     <Receipt className="h-5 w-5 text-amber-600" />
@@ -1074,21 +818,10 @@ const OrderTrackingPage = () => {
           </button>
         </div>
 
-        {/* Audio Call Modal */}
-        <AudioCallModal
-          isOpen={showCallModal}
-          onClose={() => {
-            setShowCallModal(false);
-            setIsIncomingCall(false);
-            setActiveCallData(null);
-          }}
-          orderId={orderData?.id}
-          otherUserName={activeCallData?.otherUserName}
-          otherUserAvatar={activeCallData?.otherUserAvatar}
-          isIncoming={isIncomingCall}
-          onAccept={() => setIsIncomingCall(false)}
-          socket={socket}
-        />
+        {/* ── NO AudioCallModal here anymore ───────────────────────────────────
+            It lives globally in:
+            CallLayout → IncomingCallModal → GlobalAudioCallModal
+            and persists across all page navigation                           */}
 
       </div>
     </ProtectedRoute>
