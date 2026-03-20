@@ -27,13 +27,19 @@ const LOCKOUT_DURATION = 30 * 60 * 1000;
 const MAX_ATTEMPTS = 7;
 const RESET_BUTTON_THRESHOLD = 3;
 
-// ─── Resolve destination based on localStorage 'who' ─────────────────────────
-const resolveDestination = () => {
+// ─── Resolve destination based on merchantActivated flag ─────────────────────
+const resolveDestinationFromUser = (merchantActivated) => {
+  if (merchantActivated) return '/userProfile/merchantProfile/merchantHome';
+  return '/home';
+};
+
+// ─── Fallback: resolve from localStorage 'who' if user object unavailable ────
+const resolveDestinationFromStorage = () => {
   if (typeof window === 'undefined') return null;
   const who = localStorage.getItem('who');
-  if (!who) return null;                                        // not set → go to login
-  if (who === 'client') return '/home';                        // client → home
-  return '/userProfile/merchantProfile/merchantHome';          // merchant → merchant home
+  if (!who) return null;
+  if (who === 'client') return '/home';
+  return '/userProfile/merchantProfile/merchantHome';
 };
 
 const SecureLogin = () => {
@@ -47,24 +53,28 @@ const SecureLogin = () => {
   const [isResetting, setIsResetting] = useState(false);
   const [resetSuccess, setResetSuccess] = useState(false);
   const [resetError, setResetError] = useState(null);
+  const [noEmailError, setNoEmailError] = useState(false);
+  const [resolvedDestination, setResolvedDestination] = useState(null); // ← store destination from success cb
 
   const router   = useRouter();
   const dispatch = useDispatch();
 
-  // ── On mount: if 'who' is not set → redirect to sign-in immediately ───────
+  // ── On mount: if no email in storage → redirect to sign-in ───────────────
   useEffect(() => {
-    const destination = resolveDestination();
-    if (destination === null) {
-      // 'who' not in localStorage — send to login
+    const storedEmail = getDecryptedData("emailEncrypt");
+    if (!storedEmail) {
+      // No email found — user must sign in first
       router.replace('/sign-in');
     }
   }, []);
 
   const { mutate, isLoading, isError, error, isSuccess, reset } =
     useEnterPassCode(async (data) => {
+      const user = data.data.data.modifiedUser;
+
       dispatch(
         setUser({
-          user: data.data.data.modifiedUser,
+          user,
           accessToken: data.data.data.accessToken,
           isAuthenticated: true,
         })
@@ -77,26 +87,34 @@ const SecureLogin = () => {
       );
 
       const details = {
-        emailAddress: data.data.data.modifiedUser.emailAddress,
-        firstName: data.data.data.modifiedUser.firstName,
-        lastName: data.data.data.modifiedUser.lastName,
-        phoneNumber: data.data.data.modifiedUser.phoneNumber,
-        imageUrl: data.data.data.modifiedUser.imageUrl,
-        merchantActivated: data.data.data.modifiedUser.merchantActivated,
+        emailAddress: user.emailAddress,
+        firstName:    user.firstName,
+        lastName:     user.lastName,
+        phoneNumber:  user.phoneNumber,
+        imageUrl:     user.imageUrl,
+        merchantActivated: user.merchantActivated,
       };
 
       localStorage.setItem("user", JSON.stringify(details));
 
+      // ✅ Always set 'who' from actual API response — not from pre-existing storage
+      const isMerchant = user.merchantActivated;
+      localStorage.setItem('who', isMerchant ? 'merchant' : 'client');
+
       const stateData = {
         isPasscodeEntered: true,
-        isAuthenticated: true,
-        accessToken: data.data.data.accessToken,
+        isAuthenticated:   true,
+        accessToken:       data.data.data.accessToken,
       };
 
       const encryptedDatas = encryptUserData(stateData);
       localStorage.setItem("userData", encryptedDatas);
 
-      // Reset attempts on successful login
+      // ✅ Resolve destination HERE while we still have user data
+      const destination = resolveDestinationFromUser(isMerchant);
+      setResolvedDestination(destination);
+
+      // Reset failed attempts on successful login
       setAttempts(0);
       localStorage.removeItem("pinAttempts");
       localStorage.removeItem("lockoutEndTime");
@@ -104,7 +122,7 @@ const SecureLogin = () => {
 
   // Load attempts and lockout state from localStorage
   useEffect(() => {
-    const storedAttempts  = localStorage.getItem("pinAttempts");
+    const storedAttempts    = localStorage.getItem("pinAttempts");
     const storedLockoutTime = localStorage.getItem("lockoutEndTime");
 
     if (storedAttempts) {
@@ -149,29 +167,25 @@ const SecureLogin = () => {
     return () => clearInterval(interval);
   }, [isLockedOut, lockoutEndTime]);
 
-  // ── On success: route based on 'who' in localStorage ─────────────────────
+  // ── On success: route using destination resolved in the success callback ──
   useEffect(() => {
-    if (isSuccess) {
-      const destination = resolveDestination();
-      if (destination === null) {
-        // 'who' missing even after login — fallback to sign-in
-        router.replace('/sign-in');
-      } else {
-        router.push(destination);
-      }
+    if (isSuccess && resolvedDestination) {
+      router.push(resolvedDestination);
     }
-  }, [isSuccess]);
+  }, [isSuccess, resolvedDestination]);
 
   useEffect(() => {
     randomizeNumbers();
   }, []);
 
   useEffect(() => {
-    setTimeout(() => {
-      reset();
-      setIsSubmitting(false);
-    }, 10000);
-  }, [error]);
+    if (isError) {
+      setTimeout(() => {
+        reset();
+        setIsSubmitting(false);
+      }, 10000);
+    }
+  }, [error, isError]);
 
   // Auto-submit when PIN is complete
   useEffect(() => {
@@ -234,6 +248,8 @@ const SecureLogin = () => {
 
     if (!storedEmail) {
       setResetError("No email found. Please sign in again.");
+      // Redirect to sign-in after a short delay so the user sees the error
+      setTimeout(() => { router.replace('/sign-in'); }, 2500);
       return;
     }
 
@@ -243,7 +259,7 @@ const SecureLogin = () => {
 
     try {
       const response = await fetch('/api/auth', {
-        method: 'POST',
+        method:  'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           emailOrPhone: storedEmail,
@@ -260,8 +276,8 @@ const SecureLogin = () => {
       } else {
         setResetError(data.message || "Failed to send reset OTP. Please try again.");
       }
-    } catch (error) {
-      console.error("Reset PIN error:", error);
+    } catch (err) {
+      console.error("Reset PIN error:", err);
       setResetError("Network error. Please check your connection and try again.");
     } finally {
       setIsResetting(false);
@@ -272,27 +288,30 @@ const SecureLogin = () => {
     if (pin.length !== 4 || isSubmitting || isLoading || isLockedOut) return;
 
     setIsSubmitting(true);
+    setNoEmailError(false);
 
     const storedEmail = getDecryptedData("emailEncrypt");
 
-    if (storedEmail) {
-      try {
-        mutate({ passCode: pin, emailAddress: storedEmail });
-      } catch (error) {
-        console.error("Decryption or submission error:", error);
-        setIsSubmitting(false);
-      } finally {
-        setTimeout(() => {
-          if (!isSuccess) {
-            randomizeNumbers();
-            setPin("");
-          }
-        }, 1000);
-      }
-    } else {
-      console.warn("No encrypted email found in storage");
+    if (!storedEmail) {
+      // ✅ Email missing from storage — redirect to sign-in with a visible error
+      setNoEmailError(true);
       setIsSubmitting(false);
-      return null;
+      setTimeout(() => { router.replace('/sign-in'); }, 2500);
+      return;
+    }
+
+    try {
+      mutate({ passCode: pin, emailAddress: storedEmail });
+    } catch (err) {
+      console.error("Submission error:", err);
+      setIsSubmitting(false);
+    } finally {
+      setTimeout(() => {
+        if (!isSuccess) {
+          randomizeNumbers();
+          setPin("");
+        }
+      }, 1000);
     }
   };
 
@@ -358,6 +377,17 @@ const SecureLogin = () => {
         className="bg-white rounded-lg shadow-sm border border-gray-100 p-6 w-full max-w-sm"
         style={{ position: "absolute", bottom: "50px" }}
       >
+        {/* No Email Error Alert */}
+        {noEmailError && (
+          <Alert variant="destructive" className="mb-6 border-red-500">
+            <AlertCircle className="h-4 w-4" />
+            <AlertTitle>Session Expired</AlertTitle>
+            <AlertDescription>
+              Your session data was cleared. Redirecting you to sign in...
+            </AlertDescription>
+          </Alert>
+        )}
+
         {/* Lockout Alert */}
         {isLockedOut && (
           <Alert variant="destructive" className="mb-6 border-red-500">

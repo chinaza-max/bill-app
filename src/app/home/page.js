@@ -2,7 +2,7 @@
 
 import { LocationStatusIndicator, LocationStatusBadge } from '../component/LocationStatusIndicator';
 
-import React, { useEffect, useState, useRef, useMemo } from "react";
+import React, { useEffect, useState, useRef, useMemo, useCallback } from "react";
 import {
   Bell,
   ChevronDown,
@@ -79,7 +79,6 @@ const ErrorDisplay = ({ message }) => (
 const FIRST_NAMES = ["Amina","Chukwudi","Fatima","Emeka","Ngozi","Tunde","Aisha","Kelechi","Blessing","Usman","Adaeze","Seun","Halima","Tobi","Chisom","Musa","Yetunde","Ifeanyi","Zainab","Babatunde","Chiamaka","Abdullahi","Sola","Chinyere","Ahmed","Folake","Obinna","Rukayat","Gbenga","Nneka"];
 const LAST_NAMES  = ["Okafor","Adeyemi","Ibrahim","Nwosu","Bello","Eze","Lawal","Obi","Yusuf","Adeleke","Nwachukwu","Suleiman","Okonkwo","Abubakar","Dike","Omotayo","Garba","Onuoha","Aliyu","Fashola"];
 
-// 4 action types — placed, completed, order_completed (amber), cancelled
 const ACTIONS = [
   { type: "placed",          label: "just placed an order of",    icon: Clock,        color: "#f59e0b" },
   { type: "completed",       label: "just completed an order of", icon: CheckCircle2, color: "#16a34a" },
@@ -88,31 +87,15 @@ const ACTIONS = [
 ];
 
 const randomBetween = (min, max) => Math.floor(Math.random() * (max - min + 1)) + min;
-
-const randomName = () =>
-  `${FIRST_NAMES[randomBetween(0, FIRST_NAMES.length - 1)]} ${LAST_NAMES[randomBetween(0, LAST_NAMES.length - 1)][0]}.`;
-
-// Generates amounts in steps of ₦100 between ₦1,000 and ₦20,000 — hard capped
-const randomAmount = () => {
-  const raw = randomBetween(10, 200) * 100;          // 1,000 – 20,000
-  const capped = Math.min(raw, 20000);               // hard cap at ₦20,000
-  return `₦${capped.toLocaleString("en-NG")}`;
-};
-
-const randomAction = () => ACTIONS[randomBetween(0, ACTIONS.length - 1)];
-
-const generateFeed = (count = 20) =>
-  Array.from({ length: count }, (_, i) => ({
-    id: i,
-    name: randomName(),
-    amount: randomAmount(),
-    action: randomAction(),
-  }));
+const randomName    = () => `${FIRST_NAMES[randomBetween(0, FIRST_NAMES.length - 1)]} ${LAST_NAMES[randomBetween(0, LAST_NAMES.length - 1)][0]}.`;
+const randomAmount  = () => `₦${Math.min(randomBetween(10, 200) * 100, 20000).toLocaleString("en-NG")}`;
+const randomAction  = () => ACTIONS[randomBetween(0, ACTIONS.length - 1)];
+const generateFeed  = (count = 20) => Array.from({ length: count }, (_, i) => ({ id: i, name: randomName(), amount: randomAmount(), action: randomAction() }));
 
 const LiveActivityTicker = () => {
-  const [feed, setFeed] = useState(() => generateFeed(20));
+  const [feed, setFeed]               = useState(() => generateFeed(20));
   const [currentIndex, setCurrentIndex] = useState(0);
-  const [visible, setVisible] = useState(true);
+  const [visible, setVisible]         = useState(true);
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -120,7 +103,7 @@ const LiveActivityTicker = () => {
       setTimeout(() => {
         setCurrentIndex((prev) => {
           const next = (prev + 1) % feed.length;
-          if (next === 0) setFeed(generateFeed(20)); // regenerate on full loop
+          if (next === 0) setFeed(generateFeed(20));
           return next;
         });
         setVisible(true);
@@ -135,21 +118,11 @@ const LiveActivityTicker = () => {
   return (
     <div
       className="mx-4 mb-3 overflow-hidden rounded-xl px-3 py-2 flex items-center gap-2"
-      style={{
-        background: "rgba(251,191,36,0.08)",
-        border: "1px solid rgba(251,191,36,0.22)",
-      }}
+      style={{ background: "rgba(251,191,36,0.08)", border: "1px solid rgba(251,191,36,0.22)" }}
     >
-      {/* Pulsing dot — color matches action type */}
       <span className="relative flex-shrink-0">
-        <span
-          className="absolute inline-flex h-full w-full rounded-full animate-ping opacity-60"
-          style={{ background: item.action.color }}
-        />
-        <span
-          className="relative inline-flex rounded-full h-2 w-2"
-          style={{ background: item.action.color }}
-        />
+        <span className="absolute inline-flex h-full w-full rounded-full animate-ping opacity-60" style={{ background: item.action.color }} />
+        <span className="relative inline-flex rounded-full h-2 w-2" style={{ background: item.action.color }} />
       </span>
 
       <AnimatePresence mode="wait">
@@ -172,7 +145,6 @@ const LiveActivityTicker = () => {
         )}
       </AnimatePresence>
 
-      {/* LIVE badge */}
       <span
         className="ml-auto flex-shrink-0 text-[9px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded-full"
         style={{ background: "rgba(220,38,38,0.12)", color: "#dc2626", border: "1px solid rgba(220,38,38,0.25)" }}
@@ -187,13 +159,16 @@ const LiveActivityTicker = () => {
 const MobileApp = () => {
   const [userType, setUserType]                               = useState("Client");
   const [activeTab, setActiveTab]                             = useState("home");
-  const [fullName, setFullName]                               = useState("");
+  const [firstName, setFirstName]                             = useState("");
   const [imageUrl, setImageUrl]                               = useState("");
   const [isDropdownOpen, setIsDropdownOpen]                   = useState(false);
   const [walletBalance, setWalletBalance]                     = useState(0);
   const [isBalanceVisible, setIsBalanceVisible]               = useState(false);
   const [showPulseAnimation, setShowPulseAnimation]           = useState(false);
   const [hasInteractedWithSwitch, setHasInteractedWithSwitch] = useState(false);
+
+  // ── Real unread notification count ───────────────────────────────────────
+  const [unreadCount, setUnreadCount] = useState(0);
 
   const { token } = useNotifications();
   const [numberOfOrder, setNumberOfOrder] = useState(0);
@@ -227,14 +202,40 @@ const MobileApp = () => {
     refetchOnWindowFocus: false,
   });
 
-  const [notifications] = useState([
-    { id: 1, message: "New transaction received", read: false },
-    { id: 2, message: "Promotion available",      read: false },
-    { id: 3, message: "Account update",           read: true  },
-  ]);
-
   const router   = useRouter();
   const pathname = usePathname();
+
+  // ── Fetch unread notification count ──────────────────────────────────────
+  const fetchUnreadCount = useCallback(async () => {
+    if (!accessToken) return;
+    try {
+      const userType = typeof window !== 'undefined' && localStorage.getItem('who') === 'client'
+        ? 'CLIENT'
+        : 'MERCHANT';
+
+      const queryParams = new URLSearchParams({
+        apiType:   'notificationCountUnread',
+        user_type: userType,
+        token:     accessToken,
+      }).toString();
+
+      const response = await fetch(`/api/user?${queryParams}`, {
+        method:  'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization:  `Bearer ${accessToken}`,
+        },
+      });
+
+      if (!response.ok) return;
+
+      const json  = await response.json();
+      const count = json?.data?.data?.unreadCount ?? 0;
+      setUnreadCount(Number(count));
+    } catch {
+      // non-critical — fail silently
+    }
+  }, [accessToken]);
 
   useEffect(() => {
     if (typeof window !== "undefined") {
@@ -242,6 +243,11 @@ const MobileApp = () => {
     }
     (async () => { await getCurrentLocation(); })();
   }, []);
+
+  // fetch unread count once accessToken is available
+  useEffect(() => {
+    if (accessToken) fetchUnreadCount();
+  }, [accessToken, fetchUnreadCount]);
 
   useEffect(() => {
     if (token && accessToken) {
@@ -302,7 +308,8 @@ const MobileApp = () => {
       try {
         const user = data2.user.user;
         setImageUrl(user.imageUrl);
-        setFullName(`${user.firstName} ${user.lastName}`);
+        // store only firstName — handles long full names gracefully
+        setFirstName(user.firstName || "");
         let walletData = { current: 0, previous: 0 };
         const raw = user.walletBalance;
         if (typeof raw === "string") walletData = JSON.parse(raw);
@@ -346,7 +353,7 @@ const MobileApp = () => {
   const renderTransactionsSection = () => {
     if (isLoading) return <LoadingSpinner />;
     if (isError)   return <ErrorDisplay message={error?.message || "Failed to load transactions"} />;
-    if (recentTransactions.length === 0) return <EmptyTransactionState   handleTabChange={handleTabChange}/>;
+    if (recentTransactions.length === 0) return <EmptyTransactionState handleTabChange={handleTabChange} />;
 
     return (
       <div className="space-y-3">
@@ -403,8 +410,10 @@ const MobileApp = () => {
         {/* ── Top Navigation ── */}
         <div className="px-4 py-3 bg-gradient-to-r from-amber-600 to-amber-500 text-white">
           <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-3">
-              <div className="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center">
+
+            {/* Left — avatar + name */}
+            <div className="flex items-center space-x-2 min-w-0 flex-1 mr-2">
+              <div className="w-9 h-9 rounded-full bg-white/20 flex-shrink-0 flex items-center justify-center">
                 <img
                   onClick={() => handleTabChange("userProfile")}
                   src={imageUrl || "/default-avatar.png"}
@@ -413,33 +422,40 @@ const MobileApp = () => {
                   onError={(e) => { e.target.onerror = null; e.target.src = "/default-avatar.png"; }}
                 />
               </div>
-              <div className="flex items-center space-x-2">
-                <div>
-                  <p className="text-sm">Welcome</p>
-                  <p className="font-semibold">{fullName || "User"}</p>
-                </div>
-                <LocationStatusBadge status={locationStatus} size="sm" />
+              <div className="min-w-0">
+                <p className="text-xs text-white/70 leading-none">Welcome</p>
+                <p className="font-semibold text-sm leading-tight truncate max-w-[110px]">
+                  {firstName || "User"}
+                </p>
               </div>
+              <LocationStatusBadge status={locationStatus} size="sm" />
             </div>
 
-            <div className="flex items-center space-x-4">
+            {/* Right — bell + role switcher */}
+            <div className="flex items-center space-x-3 flex-shrink-0">
+
+              {/* Bell with real unread count */}
               <div className="relative">
-                <Bell className="h-6 w-6 cursor-pointer" onClick={() => router.push("/home/notification")} />
-                {notifications.filter((n) => !n.read).length > 0 && (
-                  <span className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full text-xs w-5 h-5 flex items-center justify-center">
-                    {notifications.filter((n) => !n.read).length}
+                <Bell
+                  className="h-5 w-5 cursor-pointer"
+                  onClick={() => router.push("/home/notification")}
+                />
+                {unreadCount > 0 && (
+                  <span className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full text-[9px] font-bold min-w-[16px] h-4 px-0.5 flex items-center justify-center">
+                    {unreadCount > 99 ? "99+" : unreadCount}
                   </span>
                 )}
               </div>
 
+              {/* Role switcher */}
               <div className="relative" ref={dropdownRef}>
                 <button
                   onClick={() => { setIsDropdownOpen(!isDropdownOpen); handleSwitchInteraction(); }}
-                  className="flex items-center space-x-1 text-white hover:bg-amber-600 px-3 py-1.5 rounded relative overflow-hidden"
+                  className="flex items-center space-x-1 text-white hover:bg-amber-600 px-2.5 py-1.5 rounded relative overflow-hidden"
                 >
                   <AttentionAnimation isVisible={showPulseAnimation} duration={2} />
-                  <span className="relative z-10">{userType}</span>
-                  <ChevronDown className="h-4 w-4 relative z-10" />
+                  <span className="relative z-10 text-sm">{userType}</span>
+                  <ChevronDown className="h-3.5 w-3.5 relative z-10" />
                 </button>
 
                 <AnimatePresence>
@@ -470,22 +486,20 @@ const MobileApp = () => {
             </div>
           </div>
 
-          <div className="mt-3">
+          <div className="mt-2">
             <LocationStatusIndicator status={locationStatus} accuracy={currentAccuracy} lastUpdate={lastLocationUpdate} />
           </div>
         </div>
 
         {/* ── Main Content ── */}
         <div className="flex-1 overflow-auto">
-
-          {/* Wallet Balance Card */}
           <WalletBalanceCard
             balance={walletBalance}
             isVisible={isBalanceVisible}
             onToggleVisibility={toggleBalanceVisibility}
           />
 
-          {/* ── Place New Order — gold CTA ── */}
+          {/* ── Place New Order ── */}
           <div className="px-4 pb-3 pt-1">
             <motion.button
               whileTap={{ scale: 0.97 }}
@@ -493,7 +507,6 @@ const MobileApp = () => {
               className="w-full relative overflow-hidden rounded-2xl shadow-md"
               style={{ background: "linear-gradient(135deg, #92400e 0%, #b45309 40%, #d97706 75%, #f59e0b 100%)" }}
             >
-              {/* shimmer sweep */}
               <motion.div
                 className="absolute inset-0 -skew-x-12 pointer-events-none"
                 style={{ background: "linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.12) 50%, transparent 100%)" }}
@@ -532,7 +545,6 @@ const MobileApp = () => {
             </motion.button>
           </div>
 
-          {/* ── Live Activity Ticker ── */}
           <LiveActivityTicker />
 
           {/* ── Transactions ── */}

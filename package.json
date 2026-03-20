@@ -20,6 +20,7 @@
     "@reduxjs/toolkit": "^2.5.1",
     "@tanstack/react-query": "^5.66.0",
     "@tanstack/react-query-devtools": "^5.66.0",
+    "agora-rtc-sdk-ng": "^4.24.2",
     "axios": "^1.7.9",
     "canvas": "^3.0.0",
     "class-variance-authority": "^0.7.0",

@@ -504,6 +504,13 @@ export async function GET(req) {
         });
         break;
 
+      case "agoraToken":
+        response = await axiosInstance.get("/user/agora/token", {
+          headers,
+          params: additionalParams,
+        });
+        break;
+
       case "getGeneralTransaction":
         response = await axiosInstance.get("/user/getGeneralTransaction", {
           headers,

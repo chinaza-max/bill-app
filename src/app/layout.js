@@ -4,7 +4,13 @@ import Providers from "./providers";
 import ProvidersRedux from "./providers-redux";
 import { Toaster } from "sonner";
 import LocationProvider from "./component/LocationProvider";
-import NotificationManager from "@/components/NotificationManager.jsx"
+import NotificationManager from "@/components/NotificationManager.jsx";
+import CallLayout from "@/components/call/CallLayout"; // ← new import
+
+// ── remove these two lines entirely ──
+// import { CallProvider } from "@/components/call/CallProvider";
+// import { io } from "socket.io-client";
+// const layoutSocket = io("https://fidopoint.onrender.com");
 
 const geistSans = localFont({
   src: "./fonts/GeistVF.woff",
@@ -16,17 +22,6 @@ const geistMono = localFont({
   variable: "--font-geist-mono",
   weight: "100 900",
 });
-
-/*
-export const viewport = {
-  themeColor: '#000000',
-  viewportFit: 'cover',
-  width: 'device-width',
-  initialScale: 1,
-  minimumScale: 1,
-  maximumScale: 1,
-  userScalable: false,
-}*/
 
 const APP_NAME = "Fidopoint";
 const APP_DEFAULT_TITLE = "Fido PWA App";
@@ -45,7 +40,6 @@ export const metadata = {
     capable: true,
     statusBarStyle: "default",
     title: APP_DEFAULT_TITLE,
-    // startUpImage: [],
   },
   formatDetection: {
     telephone: false,
@@ -73,24 +67,20 @@ export const viewport = {
   themeColor: "#FFFFFF",
 };
 
-
-
-// Then in app/layout.js
 export default function RootLayout({ children }) {
   return (
     <html lang="en">
-      <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
-      >
+      <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
         <Toaster position="top-right" richColors />
-              <NotificationManager />
-
+        <NotificationManager />
         <ProvidersRedux>
-          <Providers>
-            <LocationProvider>
-              {children}
-            </LocationProvider>
-          </Providers>
+          <CallLayout>           {/* ← replaces CallProvider + socket */}
+            <Providers>
+              <LocationProvider>
+                {children}
+              </LocationProvider>
+            </Providers>
+          </CallLayout>
         </ProvidersRedux>
       </body>
     </html>
