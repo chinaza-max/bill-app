@@ -1,8 +1,8 @@
 import axios from "axios";
 const axiosInstance = axios.create({
-  baseURL: "https://fidopoint.onrender.com/api/v1",
+  baseURL: process.env.API_BASE_URL,
   headers: {
-    "Content-Type": "application/json", // default content-type for the API requests
+    "Content-Type": "application/json",
   },
 });
 //https://chatgpt.com/c/67d576fe-025c-8009-869b-d6463722826f
