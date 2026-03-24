@@ -73,7 +73,7 @@ const UnlockConvenienceAnimator = () => {
       </AnimatePresence>
     </div>
   );
-};//
+};
 
 export default function Home() {
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -82,6 +82,25 @@ export default function Home() {
   const [isOverlayVisible, setOverlayVisible] = useState(true);
   const [isOverlayVisible2, setOverlayVisible2] = useState(true);
   const router = useRouter();
+
+  // ── localStorage routing logic ──────────────────────────────────────────
+  useEffect(() => {
+    const validationEmail = localStorage.getItem("validationEmail");
+
+    if (validationEmail && validationEmail.trim() !== "") {
+      // validationEmail exists and is not empty → go to secureInput
+      router.replace("/secureInput");
+      return;
+    }
+
+    // validationEmail is absent or empty → check emailEncrypt
+    const emailEncrypt = localStorage.getItem("emailEncrypt");
+    if (emailEncrypt && emailEncrypt.trim() !== "") {
+      // emailEncrypt found → go to sign-in
+      router.replace("/sign-in");
+    }
+  }, []);
+  // ────────────────────────────────────────────────────────────────────────
 
   const slideVariants = {
     enter: (direction) => ({ x: direction > 0 ? 1000 : -1000, opacity: 0 }),

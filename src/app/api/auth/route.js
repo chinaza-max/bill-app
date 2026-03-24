@@ -1,4 +1,12 @@
 import axios from "axios";
+
+console.log("process.env.API_BASE_URL")
+
+console.log(process.env.API_BASE_URL)
+console.log("process.env.API_BASE_URL")
+console.log("process.env.API_BASE_URL")
+console.log("process.env.API_BASE_URL")
+
 const axiosInstance = axios.create({
   baseURL: "https://fidopoint.onrender.com/api/v1", 
   headers: {
