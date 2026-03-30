@@ -518,6 +518,15 @@ export async function GET(req) {
         });
         break;
 
+        
+
+      case "pendingOrder":
+        response = await axiosInstance.get("/user/merchant/pendingOrders", {
+          headers,
+          params: additionalParams,
+        });
+        break;
+
       case "notification":
         response = await axiosInstance.get("/user/notification", {
           headers,

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import ProtectedRoute from "@/app/component/protect";
 
@@ -16,47 +16,36 @@ import useRequest from "@/hooks/useRequest";
 import { useSelector } from "react-redux";
 
 /* ══════════════════════════════════════════════════
-   DESIGN TOKENS  — blends with home page
-   Home uses: bg-amber-50, from-amber-600 to-amber-500,
-              white cards, text-amber-900, text-amber-600
-   We mirror those exactly and extend with a slightly
-   richer dark-gold for accents so the sheet feels premium
-   without being a jarring dark mode.
+   DESIGN TOKENS
 ══════════════════════════════════════════════════ */
 const C = {
-  // Page & surfaces  — matches bg-amber-50 of home
-  pageBg:    "#FFFBF0",   // amber-50
-  cardBg:    "#FFFFFF",   // white cards, same as home tx cards
-  surface:   "#FEF3C7",   // amber-100 — elevated / inner areas
-  surfaceHi: "#FDE68A",   // amber-200 — borders, dividers
+  pageBg:    "#FFFBF0",
+  cardBg:    "#FFFFFF",
+  surface:   "#FEF3C7",
+  surfaceHi: "#FDE68A",
 
-  // Header gradient — matches home's from-amber-600 to-amber-500
-  headerFrom: "#D97706",  // amber-600
-  headerTo:   "#F59E0B",  // amber-500
+  headerFrom: "#D97706",
+  headerTo:   "#F59E0B",
 
-  // Gold accent (slightly deeper for sheet CTA)
-  gold:       "#B45309",  // amber-700 — primary buttons
-  goldLight:  "#D97706",  // amber-600
-  goldText:   "#92400E",  // amber-800 — headings on light bg
+  gold:       "#B45309",
+  goldLight:  "#D97706",
+  goldText:   "#92400E",
 
-  // Status colours
-  green:      "#16A34A",  // green-600
-  greenLight: "#22C55E",  // green-500
-  greenTint:  "#DCFCE7",  // green-100
+  green:      "#16A34A",
+  greenLight: "#22C55E",
+  greenTint:  "#DCFCE7",
 
-  red:        "#DC2626",  // red-600
-  redLight:   "#EF4444",  // red-500
-  redTint:    "#FEE2E2",  // red-100
+  red:        "#DC2626",
+  redLight:   "#EF4444",
+  redTint:    "#FEE2E2",
 
-  // Typography
-  textMain:   "#78350F",  // amber-900
-  textSub:    "#B45309",  // amber-700
-  textMuted:  "#D97706",  // amber-600
-  textLight:  "#F59E0B",  // amber-500
+  textMain:   "#78350F",
+  textSub:    "#B45309",
+  textMuted:  "#D97706",
+  textLight:  "#F59E0B",
 
-  // Borders
-  border:     "#FDE68A",  // amber-200
-  borderMid:  "#FCD34D",  // amber-300
+  border:     "#FDE68A",
+  borderMid:  "#FCD34D",
 };
 
 /* ── helpers ── */
@@ -75,6 +64,79 @@ const statusMeta = (s) => {
 };
 
 const fmt = (n) => Number(n).toLocaleString("en-NG");
+
+/* ── load jsPDF dynamically ── */
+const loadJsPDF = () =>
+  new Promise((resolve, reject) => {
+    if (window.jspdf) { resolve(); return; }
+    const script = document.createElement("script");
+    script.src = "https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js";
+    script.onload = () => resolve();
+    script.onerror = reject;
+    document.head.appendChild(script);
+  });
+
+/* ── generate & share PDF receipt ── */
+const sharePdfReceipt = async (lines, title) => {
+  await loadJsPDF();
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({ unit: "mm", format: "a6" });
+
+  const pageW = doc.internal.pageSize.getWidth();
+  let y = 14;
+
+  // Header bar
+  doc.setFillColor(217, 119, 6);
+  doc.roundedRect(6, y - 6, pageW - 12, 18, 3, 3, "F");
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(13);
+  doc.setTextColor(255, 255, 255);
+  doc.text(title, pageW / 2, y + 4, { align: "center" });
+  y += 20;
+
+  // Divider
+  doc.setDrawColor(253, 211, 77);
+  doc.setLineWidth(0.4);
+  doc.line(6, y, pageW - 6, y);
+  y += 6;
+
+  // Rows
+  lines.forEach(({ label, value }) => {
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(7.5);
+    doc.setTextColor(180, 83, 9);
+    doc.text(label.toUpperCase(), 8, y);
+
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(9);
+    doc.setTextColor(120, 53, 15);
+    doc.text(String(value), pageW - 8, y, { align: "right" });
+    y += 8;
+
+    doc.setDrawColor(254, 243, 199);
+    doc.setLineWidth(0.2);
+    doc.line(8, y - 2, pageW - 8, y - 2);
+  });
+
+  y += 4;
+  doc.setFont("helvetica", "italic");
+  doc.setFontSize(7);
+  doc.setTextColor(217, 119, 6);
+  doc.text("Powered by your App — Keep this receipt for your records.", pageW / 2, y, { align: "center" });
+
+  const pdfBlob = doc.output("blob");
+  const pdfFile = new File([pdfBlob], `${title.replace(/\s+/g, "_")}.pdf`, { type: "application/pdf" });
+
+  if (navigator.canShare && navigator.canShare({ files: [pdfFile] })) {
+    await navigator.share({ title, files: [pdfFile] });
+  } else {
+    // Fallback: download
+    const url = URL.createObjectURL(pdfBlob);
+    const a = document.createElement("a");
+    a.href = url; a.download = pdfFile.name; a.click();
+    URL.revokeObjectURL(url);
+  }
+};
 
 /* ── backdrop ── */
 const Backdrop = ({ onClose }) => (
@@ -116,14 +178,26 @@ const GoldBtn = ({ onClick, children, className = "" }) => (
 ══════════════════════════════════════════════════ */
 const TransactionSheet = ({ tx, onClose }) => {
   const [copied, setCopied] = useState(false);
+  const [sharing, setSharing] = useState(false);
   const sm   = statusMeta(tx.paymentStatus);
   const isIn = tx.type === "incoming";
 
   const copy = (v) => { navigator.clipboard.writeText(v); setCopied(true); setTimeout(() => setCopied(false), 2000); };
+
   const share = async () => {
-    const text = `Transaction Receipt\n\nTitle: ${tx.title}\nAmount: ₦${fmt(tx.amount)}\nType: ${tx.type}\nStatus: ${tx.paymentStatus}\nDate: ${format(new Date(tx.timestamp), "dd MMM yyyy, HH:mm")}\nRef: ${tx.id}`;
-    if (navigator.share) await navigator.share({ title: "Transaction Receipt", text });
-    else copy(text);
+    setSharing(true);
+    try {
+      await sharePdfReceipt([
+        { label: "Title",  value: tx.title },
+        { label: "Amount", value: `₦${fmt(tx.amount)}` },
+        { label: "Type",   value: tx.type },
+        { label: "Status", value: tx.paymentStatus },
+        { label: "Date",   value: format(new Date(tx.timestamp), "dd MMM yyyy, HH:mm") },
+        { label: "Ref",    value: tx.id },
+      ], "Transaction Receipt");
+    } finally {
+      setSharing(false);
+    }
   };
 
   return (
@@ -138,12 +212,10 @@ const TransactionSheet = ({ tx, onClose }) => {
         boxShadow: "0 -8px 40px rgba(120,53,15,0.18)",
       }}>
 
-      {/* pill */}
       <div className="flex justify-center pt-3 pb-1">
         <div className="w-10 h-1 rounded-full" style={{ background: C.borderMid }} />
       </div>
 
-      {/* header */}
       <div className="flex items-center justify-between px-5 py-3">
         <span className="font-black text-base" style={{ color: C.textMain }}>Transaction Details</span>
         <button onClick={onClose} className="p-2 rounded-full transition"
@@ -152,17 +224,13 @@ const TransactionSheet = ({ tx, onClose }) => {
         </button>
       </div>
 
-      {/* hero card */}
       <div className="mx-4 mb-4 rounded-2xl p-5 flex flex-col items-center text-center"
         style={{
           background: `linear-gradient(135deg, ${C.headerFrom}, ${C.headerTo})`,
           boxShadow: `0 4px 20px ${C.gold}33`,
         }}>
         <div className="w-16 h-16 rounded-full flex items-center justify-center mb-3"
-          style={{
-            background: "rgba(255,255,255,0.2)",
-            border: "2px solid rgba(255,255,255,0.4)",
-          }}>
+          style={{ background: "rgba(255,255,255,0.2)", border: "2px solid rgba(255,255,255,0.4)" }}>
           {isIn
             ? <ArrowDownLeft className="w-7 h-7 text-white" />
             : <ArrowUpRight  className="w-7 h-7 text-white" />}
@@ -179,7 +247,6 @@ const TransactionSheet = ({ tx, onClose }) => {
         </div>
       </div>
 
-      {/* detail rows */}
       <div className="mx-4 rounded-2xl overflow-hidden mb-4"
         style={{ border: `1px solid ${C.border}`, background: C.cardBg }}>
         <DRow label="Title" value={tx.title} />
@@ -207,7 +274,10 @@ const TransactionSheet = ({ tx, onClose }) => {
 
       <div className="px-4 pb-8">
         <GoldBtn onClick={share} className="w-full">
-          <Share2 className="w-5 h-5" /> Share Receipt
+          {sharing
+            ? <RefreshCcw className="w-5 h-5 animate-spin" />
+            : <Share2 className="w-5 h-5" />}
+          {sharing ? "Generating PDF…" : "Share Receipt"}
         </GoldBtn>
       </div>
     </motion.div>
@@ -219,14 +289,27 @@ const TransactionSheet = ({ tx, onClose }) => {
 ══════════════════════════════════════════════════ */
 const OrderSheet = ({ order, onClose }) => {
   const [copied, setCopied] = useState(false);
+  const [sharing, setSharing] = useState(false);
   const osm = statusMeta(order.orderStatus);
   const psm = statusMeta(order.paymentStatus);
 
   const copy = (v) => { navigator.clipboard.writeText(v); setCopied(true); setTimeout(() => setCopied(false), 2000); };
+
   const share = async () => {
-    const text = `Order Receipt\n\nMerchant: ${order.merchantName}\nOrder Amount: ₦${fmt(order.orderAmount)}\nTotal Paid: ₦${fmt(order.amount)}\nOrder Status: ${order.orderStatus}\nPayment Status: ${order.paymentStatus}\nDate: ${format(new Date(order.timestamp), "dd MMM yyyy, HH:mm")}\nRef: ${order.transactionId}`;
-    if (navigator.share) await navigator.share({ title: "Order Receipt", text });
-    else copy(text);
+    setSharing(true);
+    try {
+      await sharePdfReceipt([
+        { label: "Merchant",       value: order.merchantName },
+        { label: "Order Amount",   value: `₦${fmt(order.orderAmount)}` },
+        { label: "Total Paid",     value: `₦${fmt(order.amount)}` },
+        { label: "Order Status",   value: order.orderStatus },
+        { label: "Payment Status", value: order.paymentStatus },
+        { label: "Date",           value: format(new Date(order.timestamp), "dd MMM yyyy, HH:mm") },
+        { label: "Ref",            value: order.transactionId },
+      ], "Order Receipt");
+    } finally {
+      setSharing(false);
+    }
   };
 
   return (
@@ -251,7 +334,6 @@ const OrderSheet = ({ order, onClose }) => {
         </button>
       </div>
 
-      {/* merchant hero */}
       <div className="mx-4 mb-4 rounded-2xl p-5 flex flex-col items-center text-center"
         style={{
           background: `linear-gradient(135deg, ${C.headerFrom}, ${C.headerTo})`,
@@ -307,7 +389,10 @@ const OrderSheet = ({ order, onClose }) => {
           <Flag className="w-4 h-4" /> Report
         </button>
         <GoldBtn onClick={share} className="flex-[2]">
-          <Share2 className="w-4 h-4" /> Share Receipt
+          {sharing
+            ? <RefreshCcw className="w-4 h-4 animate-spin" />
+            : <Share2 className="w-4 h-4" />}
+          {sharing ? "Generating…" : "Share Receipt"}
         </GoldBtn>
       </div>
     </motion.div>
@@ -315,7 +400,7 @@ const OrderSheet = ({ order, onClose }) => {
 };
 
 /* ══════════════════════════════════════════════════
-   TX CARD  — matches home's "bg-white p-4 rounded-lg shadow-sm"
+   TX CARD
 ══════════════════════════════════════════════════ */
 const TxCard = ({ tx, onClick, delay = 0 }) => {
   const sm   = statusMeta(tx.paymentStatus);
@@ -331,7 +416,6 @@ const TxCard = ({ tx, onClick, delay = 0 }) => {
       onMouseEnter={e => e.currentTarget.style.borderColor = C.borderMid}
       onMouseLeave={e => e.currentTarget.style.borderColor = C.border}
     >
-      {/* icon */}
       <div className="w-11 h-11 rounded-xl flex items-center justify-center shrink-0"
         style={{ background: isIn ? C.greenTint : C.surface }}>
         {isIn
@@ -339,7 +423,6 @@ const TxCard = ({ tx, onClick, delay = 0 }) => {
           : <ArrowUpRight  className="w-5 h-5" style={{ color: C.goldText }} />}
       </div>
 
-      {/* info */}
       <div className="flex-1 min-w-0">
         <p className="text-sm font-bold truncate" style={{ color: C.textMain }}>{tx.title}</p>
         <div className="flex items-center gap-1.5 mt-0.5">
@@ -350,7 +433,6 @@ const TxCard = ({ tx, onClick, delay = 0 }) => {
         </div>
       </div>
 
-      {/* amount */}
       <p className="text-sm font-black shrink-0"
         style={{ color: isIn ? C.green : C.textMain }}>
         {isIn ? "+" : "−"}₦{fmt(tx.amount)}
@@ -435,6 +517,10 @@ const HistoryPage = () => {
   const [searchTerm,     setSearchTerm]     = useState("");
   const [selectedTx,     setSelectedTx]     = useState(null);
   const [selectedOrder,  setSelectedOrder]  = useState(null);
+  const [searchBarH, setSearchBarH] = useState(68);
+  const [headerH,    setHeaderH]    = useState(116);
+  const searchBarRef = useRef(null);
+  const headerRef    = useRef(null);
   const itemsPerPage = 15;
   const accessToken = useSelector((s) => s.user.accessToken);
 
@@ -447,6 +533,26 @@ const HistoryPage = () => {
       getAllTransaction(`/api/user?${new URLSearchParams({ token: accessToken, apiType: "getGeneralTransaction" })}`);
     }
   }, [accessToken]);
+
+  // Measure header height
+  useEffect(() => {
+    if (!headerRef.current) return;
+    const ro = new ResizeObserver(() => {
+      if (headerRef.current) setHeaderH(headerRef.current.offsetHeight);
+    });
+    ro.observe(headerRef.current);
+    return () => ro.disconnect();
+  }, []);
+
+  // Measure search bar height
+  useEffect(() => {
+    if (!searchBarRef.current) return;
+    const ro = new ResizeObserver(() => {
+      if (searchBarRef.current) setSearchBarH(searchBarRef.current.offsetHeight);
+    });
+    ro.observe(searchBarRef.current);
+    return () => ro.disconnect();
+  }, []);
 
   const processOrderData = (d) => {
     if (!Array.isArray(d)) return [];
@@ -500,7 +606,9 @@ const HistoryPage = () => {
   const paged      = filtered.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
   const sheetOpen  = selectedTx !== null || selectedOrder !== null;
 
-  /* loading */
+  /* ── Dynamic top offset for the list = measured header + measured search bar + 8px gap ── */
+  const listTop = headerH + searchBarH + 8;
+
   if (loadingTx || loadingOrder) {
     return (
       <ProtectedRoute>
@@ -516,14 +624,12 @@ const HistoryPage = () => {
 
   return (
     <ProtectedRoute>
-      {/* page bg = amber-50, same as home */}
       <div className="flex flex-col h-screen" style={{ background: C.pageBg }}>
 
-        {/* ══ FIXED HEADER — mirrors home's from-amber-600 to-amber-500 ══ */}
-        <div className="fixed top-0 left-0 right-0 z-20 shadow-md"
+        {/* ══ FIXED HEADER ══ */}
+        <div ref={headerRef} className="fixed top-0 left-0 right-0 z-20 shadow-md"
           style={{ background: `linear-gradient(to right, ${C.headerFrom}, ${C.headerTo})` }}>
 
-          {/* title row */}
           <div className="flex items-center gap-3 px-4 pt-5 pb-2">
             <button onClick={() => router.back()}
               className="p-2 rounded-xl transition"
@@ -537,7 +643,6 @@ const HistoryPage = () => {
             </div>
           </div>
 
-          {/* tabs — white active tab matches home pattern */}
           <div className="flex px-4 gap-2 pb-1">
             {[
               { key: "transactions", icon: <Wallet      className="w-3.5 h-3.5" />, count: transactions.length },
@@ -565,9 +670,12 @@ const HistoryPage = () => {
           </div>
         </div>
 
-        {/* ══ SEARCH BAR — below header, white bg ══ */}
-        <div className="fixed z-10 left-0 right-0 bg-white px-4 py-3 shadow-sm"
-          style={{ top: 112, borderBottom: `1px solid ${C.border}` }}>
+        {/* ══ SEARCH BAR — measured with ref so list knows exact height ══ */}
+        <div
+          ref={searchBarRef}
+          className="fixed z-10 left-0 right-0 bg-white px-4 py-3 shadow-sm"
+          style={{ top: headerH, borderBottom: `1px solid ${C.border}` }}>
+
           <div className="flex items-center gap-2">
             <div className="relative flex-1">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4" style={{ color: C.textMuted }} />
@@ -599,7 +707,6 @@ const HistoryPage = () => {
             </button>
           </div>
 
-          {/* date picker */}
           <AnimatePresence>
             {showDatePicker && (
               <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }}
@@ -633,7 +740,6 @@ const HistoryPage = () => {
             )}
           </AnimatePresence>
 
-          {/* active filter pills */}
           {(searchTerm || dateRange.start || dateRange.end) && (
             <div className="flex flex-wrap gap-2 mt-2">
               {searchTerm && (
@@ -659,8 +765,11 @@ const HistoryPage = () => {
           )}
         </div>
 
-        {/* ══ SCROLLABLE LIST ══ */}
-        <div className="flex-1 overflow-auto pt-[200px] px-4 pb-8">
+        {/* ══ SCROLLABLE LIST — top padding driven by measured header+searchbar ══ */}
+        <div
+          className="flex-1 overflow-auto px-4 pb-8 mt-5"
+          style={{ paddingTop: listTop }}
+        >
           {activeTab === "transactions" ? (
             transactions.length === 0
               ? <EmptyState type="transactions" onAction={() => router.push("/")} />
@@ -691,7 +800,6 @@ const HistoryPage = () => {
                   ))
           )}
 
-          {/* pagination */}
           {totalPages > 1 && (
             <div className="flex items-center justify-center gap-3 mt-6">
               <button onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
