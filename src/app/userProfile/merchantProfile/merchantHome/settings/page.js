@@ -178,6 +178,7 @@ const SettingsPage = () => {
       "/userProfile/merchantProfile/merchantHome/settings/settingUpAccount"
     );
   };
+  
 
   const handleNavigateToWithdrawal = () => {
     router.push("/userProfile/withdraw");

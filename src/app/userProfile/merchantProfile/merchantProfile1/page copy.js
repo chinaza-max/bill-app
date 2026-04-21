@@ -27,41 +27,8 @@ const STEPS = [
 ];
 const CURRENT_STEP_INDEX = 1;
 
-// ─── Verification Settings Fetcher ────────────────────────────────────────────
-const fetchVerificationSettings = async (accessToken) => {
-  if (!accessToken) throw new Error("No access token");
-  const queryParams = new URLSearchParams({
-    token: accessToken,
-    apiType: "getVerificationSettings",
-  }).toString();
-  const response = await fetch(`/api/user?${queryParams}`, {
-    method: "GET",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${accessToken}`,
-    },
-  });
-  if (!response.ok) {
-    const errorData = await response.json().catch(() => null);
-    throw new Error(errorData?.message || `Error: ${response.status}`);
-  }
-  const json = await response.json();
-  // Normalise — support both flat and nested response shapes
-  const setting =
-    json?.data?.data ??
-    json?.data ??
-    json ??
-    {};
-  return {
-    ninVerificationEnabled:  setting.ninVerificationEnabled  ?? true,
-    ninImageUploadEnabled:   setting.ninImageUploadEnabled   ?? true,
-    nameVerificationEnabled: setting.nameVerificationEnabled ?? true,
-    faceVerificationEnabled: setting.faceVerificationEnabled ?? true,
-  };
-};
-
-// ─── Reusable navigator (now async — fetches settings before routing) ─────────
-export const navigateToNextStep = async (router, userData, accessToken, overrides = {}, method = "replace") => {
+// ─── Reusable navigator ───────────────────────────────────────────────────────
+export const navigateToNextStep = (router, userData, overrides = {}, method = "replace") => {
   const merged = { ...userData, ...overrides };
   const {
     isNinVerified,
@@ -71,53 +38,13 @@ export const navigateToNextStep = async (router, userData, accessToken, override
     MerchantProfile,
   } = merged;
 
-  // Fetch verification settings; fall back to all-enabled on any error
-  let settings = {
-    ninVerificationEnabled:  true,
-    ninImageUploadEnabled:   true,
-    nameVerificationEnabled: true,
-    faceVerificationEnabled: true,
-  };
-  try {
-    settings = await fetchVerificationSettings(accessToken);
-  } catch {
-    // Non-critical — proceed with safe defaults (all verifications required)
-  }
-
-  const {
-    ninVerificationEnabled,
-    ninImageUploadEnabled,
-    nameVerificationEnabled,
-    faceVerificationEnabled,
-  } = settings;
-
   const nav = method === "push" ? router.push.bind(router) : router.replace.bind(router);
 
-  // Step 1 — NIN verification (skip if disabled)
-  if (ninVerificationEnabled && !isNinVerified) {
-    nav("/userProfile/merchantProfile");
-    return;
-  }
+  if (!isNinVerified)            { nav("/userProfile/merchantProfile");                        return; }
+  if (!isninImageVerified)       { nav("/userProfile/merchantProfile/merchantProfile1");        return; }
+  if (!isDisplayNameMerchantSet) { nav("/userProfile/merchantProfile/merchantProfile2");        return; }
+  if (!isFaceVerified)           { nav("/userProfile/merchantProfile/merchantProfile3");        return; }
 
-  // Step 2 — NIN image upload (skip if disabled)
-  if (ninImageUploadEnabled && !isninImageVerified) {
-    nav("/userProfile/merchantProfile/merchantProfile1");
-    return;
-  }
-
-  // Step 3 — Display name / name verification (skip if disabled)
-  if (nameVerificationEnabled && !isDisplayNameMerchantSet) {
-    nav("/userProfile/merchantProfile/merchantProfile2");
-    return;
-  }
-
-  // Step 4 — Face verification (skip if disabled)
-  if (faceVerificationEnabled && !isFaceVerified) {
-    nav("/userProfile/merchantProfile/merchantProfile3");
-    return;
-  }
-
-  // Account status checks — always enforced regardless of settings
   const s = MerchantProfile?.accountStatus;
   if (s === "processing")     nav("/userProfile/merchantProfile/merchantProfile4");
   else if (s === "rejected")  nav("/userProfile/merchantProfile/merchantProfile5");
@@ -186,20 +113,21 @@ const MerchantNINUploadPage = () => {
   const [showPreviewModal, setShowPreviewModal] = useState(false);
 
   // ─── Mount guard ──────────────────────────────────────────────────────────
-  // Fetches verification settings so disabled steps are skipped even here.
+  // Because we update Redux BEFORE navigating (see onSuccess), this guard
+  // always reads up-to-date flags — no hydration delay or lock needed.
   useEffect(() => {
     if (!userData) return;
     const { isNinVerified, isninImageVerified } = userData;
 
     if (!isNinVerified) {
-      navigateToNextStep(router, userData, accessToken, {}, "replace");
+      navigateToNextStep(router, userData, {}, "replace");
       return;
     }
     if (isninImageVerified) {
-      navigateToNextStep(router, userData, accessToken, {}, "replace");
+      navigateToNextStep(router, userData, {}, "replace");
     }
     // isNinVerified=true & isninImageVerified=false → stay ✓
-  }, [userData, router, accessToken]);
+  }, [userData, router]);
 
   // ─── Upload mutation ──────────────────────────────────────────────────────
   const uploadNINMutation = useMutation({
@@ -238,9 +166,8 @@ const MerchantNINUploadPage = () => {
       navigateToNextStep(
         router,
         { ...userDataRef.current, isninImageVerified: true },
-        accessToken,
         {},
-        "push",
+        "push"
       );
     },
     onError: (error) => {

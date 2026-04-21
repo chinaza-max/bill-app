@@ -1,8 +1,79 @@
 "use client";
 
 import Link from "next/link";
+import { useEffect, useState } from "react";
+import { useSelector } from "react-redux";
+import { useRouter } from "next/navigation";
+
+const fetchVerificationSettings = async (accessToken) => {
+  if (!accessToken) throw new Error("No access token");
+  const queryParams = new URLSearchParams({
+    token: accessToken,
+    apiType: "getVerificationSettings",
+  }).toString();
+  const response = await fetch(`/api/user?${queryParams}`, {
+    method: "GET",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${accessToken}`,
+    },
+  });
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => null);
+    throw new Error(errorData?.message || `Error: ${response.status}`);
+  }
+  const json = await response.json();
+  const setting =
+    json?.data?.data ??
+    json?.data ??
+    json ??
+    {};
+  return {
+    ninVerificationEnabled:  setting.ninVerificationEnabled  ?? true,
+    ninImageUploadEnabled:   setting.ninImageUploadEnabled   ?? true,
+    nameVerificationEnabled: setting.nameVerificationEnabled ?? true,
+    faceVerificationEnabled: setting.faceVerificationEnabled ?? true,
+  };
+};
 
 export default function MerchantReviewPage() {
+  const router = useRouter();
+  const accessToken = useSelector((state) => state.user.accessToken);
+  const myUserData = useSelector((state) => state.user.user);
+  const userData = myUserData?.user;
+
+  const [settings, setSettings] = useState(null);
+  const [loadingSettings, setLoadingSettings] = useState(true);
+
+  useEffect(() => {
+    if (!accessToken) return;
+    fetchVerificationSettings(accessToken)
+      .then((s) => setSettings(s))
+      .catch(() =>
+        setSettings({
+          ninVerificationEnabled:  true,
+          ninImageUploadEnabled:   true,
+          nameVerificationEnabled: true,
+          faceVerificationEnabled: true,
+        })
+      )
+      .finally(() => setLoadingSettings(false));
+  }, [accessToken]);
+
+  // Redirect away if face verification is disabled (not needed on this page)
+  // or if account status no longer maps to "processing"
+  useEffect(() => {
+    if (!userData || loadingSettings || !settings) return;
+    const { MerchantProfile } = userData;
+    const status = MerchantProfile?.accountStatus;
+    if (status !== "processing") {
+      // Not in processing state — redirect appropriately
+      if (status === "rejected")  router.replace("/userProfile/merchantProfile/merchantProfile5");
+      else if (status === "suspended") router.replace("/userProfile/merchantProfile/merchantProfile6");
+      else if (status === "approved" || !status) router.replace("/userProfile/merchantProfile/merchantHome");
+    }
+  }, [userData, settings, loadingSettings, router]);
+
   return (
     <div className="flex flex-col min-h-screen bg-gray-50">
       {/* Fixed Navigation Bar with Amber Gradient */}

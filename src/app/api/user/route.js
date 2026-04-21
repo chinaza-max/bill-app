@@ -605,6 +605,17 @@ export async function GET(req) {
 
 
 
+        case "getVerificationSettings":
+        response = await axiosInstance.get("/user/getVerificationSettings", {
+          headers,
+          params: additionalParams,
+        });
+        break;
+
+
+
+
+
         
 
       case "getMerchantProfile":

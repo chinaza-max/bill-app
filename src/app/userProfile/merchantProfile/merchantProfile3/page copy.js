@@ -16,8 +16,8 @@ const VERIFICATION_STEPS = {
   LOADING_MODELS: "loading_models",
   CAMERA_SETUP:   "camera_setup",
   POSITIONING:    "positioning",
-  STABILIZING:    "stabilizing",
-  PREVIEW:        "preview",
+  STABILIZING:    "stabilizing",   // ← NEW: counting down stability frames
+  PREVIEW:        "preview",       // ← NEW: user reviews captured image
   UPLOADING:      "uploading",
   COMPLETE:       "complete",
 };
@@ -82,6 +82,10 @@ function checkHeadPose(positions) {
   return { facingForward: yawOk && pitchOk && rollOk, yawOk, pitchOk, rollOk, reason };
 }
 
+/**
+ * Checks how much face landmarks have moved between two frames.
+ * Returns true if the face is stable (not blurry / in motion).
+ */
 function isFaceStable(prevPositions, currPositions, threshold = 3.5) {
   if (!prevPositions || !currPositions || prevPositions.length !== currPositions.length) return false;
   let totalMovement = 0;
@@ -102,6 +106,7 @@ function drawOverlay(canvas, video, detection, allGood, stabilityCount = 0) {
   const w = canvas.width, h = canvas.height;
   const cx = w / 2, cy = h * 0.42, rx = w * 0.28, ry = h * 0.35;
 
+  // Oval outline
   ctx.save();
   const isStabilizing = stabilityCount > 0 && stabilityCount < STABLE_FRAMES_NEEDED;
   const ovalColor = isStabilizing ? "#3b82f6" : allGood ? "#22c55e" : "#f59e0b";
@@ -115,6 +120,7 @@ function drawOverlay(canvas, video, detection, allGood, stabilityCount = 0) {
   }
   ctx.restore();
 
+  // Stability progress arc (blue ring showing countdown)
   if (isStabilizing) {
     const progress = stabilityCount / STABLE_FRAMES_NEEDED;
     ctx.save();
@@ -125,6 +131,7 @@ function drawOverlay(canvas, video, detection, allGood, stabilityCount = 0) {
     ctx.restore();
   }
 
+  // Corner brackets
   const bc = isStabilizing ? "#3b82f6" : allGood ? "#22c55e" : "#d97706";
   [[cx-rx*0.72,cy-ry*0.88,1,1],[cx+rx*0.72,cy-ry*0.88,-1,1],[cx-rx*0.72,cy+ry*0.88,1,-1],[cx+rx*0.72,cy+ry*0.88,-1,-1]].forEach(([x,y,dx,dy]) => {
     ctx.save(); ctx.strokeStyle = bc; ctx.lineWidth = 4; ctx.lineCap = "round";
@@ -158,97 +165,14 @@ const STEPS = [
 ];
 const CURRENT_STEP_INDEX = 3;
 
-// ─── Verification Settings Fetcher ────────────────────────────────────────────
-const fetchVerificationSettings = async (accessToken) => {
-  if (!accessToken) throw new Error("No access token");
-  const queryParams = new URLSearchParams({
-    token: accessToken,
-    apiType: "getVerificationSettings",
-  }).toString();
-  const response = await fetch(`/api/user?${queryParams}`, {
-    method: "GET",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${accessToken}`,
-    },
-  });
-  if (!response.ok) {
-    const errorData = await response.json().catch(() => null);
-    throw new Error(errorData?.message || `Error: ${response.status}`);
-  }
-  const json = await response.json();
-  // Normalise — support both flat and nested response shapes
-  const setting =
-    json?.data?.data ??
-    json?.data ??
-    json ??
-    {};
-  return {
-    ninVerificationEnabled:  setting.ninVerificationEnabled  ?? true,
-    ninImageUploadEnabled:   setting.ninImageUploadEnabled   ?? true,
-    nameVerificationEnabled: setting.nameVerificationEnabled ?? true,
-    faceVerificationEnabled: setting.faceVerificationEnabled ?? true,
-  };
-};
-
-// ─── Reusable navigator (now async — fetches settings before routing) ─────────
-export const navigateToNextStep = async (router, userData, accessToken, overrides = {}, method = "replace") => {
+export const navigateToNextStep = (router, userData, overrides = {}, method = "replace") => {
   const merged = { ...userData, ...overrides };
-  const {
-    isNinVerified,
-    isninImageVerified,
-    isDisplayNameMerchantSet,
-    isFaceVerified,
-    MerchantProfile,
-  } = merged;
-
-  // Fetch verification settings; fall back to all-enabled on any error
-  let settings = {
-    ninVerificationEnabled:  true,
-    ninImageUploadEnabled:   true,
-    nameVerificationEnabled: true,
-    faceVerificationEnabled: true,
-  };
-  try {
-    settings = await fetchVerificationSettings(accessToken);
-  } catch {
-    // Non-critical — proceed with safe defaults (all verifications required)
-  }
-
-  const {
-    ninVerificationEnabled,
-    ninImageUploadEnabled,
-    nameVerificationEnabled,
-    faceVerificationEnabled,
-  } = settings;
-
+  const { isNinVerified, isninImageVerified, isDisplayNameMerchantSet, isFaceVerified, MerchantProfile } = merged;
   const nav = method === "push" ? router.push.bind(router) : router.replace.bind(router);
-
-  // Step 1 — NIN verification (skip if disabled)
-  if (ninVerificationEnabled && !isNinVerified) {
-    nav("/userProfile/merchantProfile");
-    return;
-  }
-
-  // Step 2 — NIN image upload (skip if disabled)
-  if (ninImageUploadEnabled && !isninImageVerified) {
-    nav("/userProfile/merchantProfile/merchantProfile1");
-    return;
-  }
-
-  // Step 3 — Display name / name verification (skip if disabled)
-  if (nameVerificationEnabled && !isDisplayNameMerchantSet) {
-    nav("/userProfile/merchantProfile/merchantProfile2");
-    return;
-  }
-
-  // Step 4 — Face verification (skip if disabled)
-  if (faceVerificationEnabled && !isFaceVerified) {
-    nav("/userProfile/merchantProfile/merchantProfile3");
-    return;
-  }
-
-  // Account status checks — always enforced regardless of settings
+  if (!isNinVerified)            { nav("/userProfile/merchantProfile");                        return; }
+  if (!isninImageVerified)       { nav("/userProfile/merchantProfile/merchantProfile1");        return; }
+  if (!isDisplayNameMerchantSet) { nav("/userProfile/merchantProfile/merchantProfile2");        return; }
+  if (!isFaceVerified)           { nav("/userProfile/merchantProfile/merchantProfile3");        return; }
   const s = MerchantProfile?.accountStatus;
   if (s === "processing")     nav("/userProfile/merchantProfile/merchantProfile4");
   else if (s === "rejected")  nav("/userProfile/merchantProfile/merchantProfile5");
@@ -305,34 +229,34 @@ const FaceVerification = () => {
     userDataRef.current   = userData;
   }, [myUserData, userData]);
 
-  const videoRef          = useRef(null);
-  const canvasRef         = useRef(null);
-  const streamRef         = useRef(null);
-  const intervalRef       = useRef(null);
-  const stableCountRef    = useRef(0);
-  const prevPositionsRef  = useRef(null);
-  const capturedCanvasRef = useRef(null);
+  const videoRef         = useRef(null);
+  const canvasRef        = useRef(null);
+  const streamRef        = useRef(null);
+  const intervalRef      = useRef(null);
+  const stableCountRef   = useRef(0);          // ← consecutive stable+good frames
+  const prevPositionsRef = useRef(null);        // ← last frame's landmarks for motion diff
+  const capturedCanvasRef = useRef(null);       // ← stores the canvas at capture moment
 
   const [currentStep, setCurrentStep]       = useState(VERIFICATION_STEPS.INITIAL);
   const [error, setError]                   = useState("");
   const [instruction, setInstruction]       = useState({ msg: "Position your face in the oval", status: "warn" });
   const [checks, setChecks]                 = useState({ face:false, eyes:false, nose:false, light:false, human:false, forward:false });
   const [modelsLoaded, setModelsLoaded]     = useState(false);
-  const [capturedImage, setCapturedImage]   = useState(null);
-  const [stableProgress, setStableProgress] = useState(0);
+  const [capturedImage, setCapturedImage]   = useState(null);  // data URL for preview
+  const [stableProgress, setStableProgress] = useState(0);     // 0–STABLE_FRAMES_NEEDED
 
   // ─── Mount guard ──────────────────────────────────────────────────────────
   useEffect(() => {
     if (!userData) return;
     const { isNinVerified, isninImageVerified, isDisplayNameMerchantSet, isFaceVerified } = userData;
     if (!isNinVerified || !isninImageVerified || !isDisplayNameMerchantSet) {
-      navigateToNextStep(router, userData, accessToken, {}, "replace");
+      navigateToNextStep(router, userData, {}, "replace");
       return;
     }
     if (isFaceVerified) {
-      navigateToNextStep(router, userData, accessToken, {}, "replace");
+      navigateToNextStep(router, userData, {}, "replace");
     }
-  }, [userData, router, accessToken]);
+  }, [userData, router]);
 
   // ─── Cleanup on unmount ───────────────────────────────────────────────────
   useEffect(() => () => {
@@ -376,6 +300,10 @@ const FaceVerification = () => {
     }
   };
 
+  /**
+   * Captures the current video frame to a data URL and a canvas reference.
+   * Uses an offscreen canvas so the canvas overlay is NOT included in the photo.
+   */
   const captureCleanFrame = () => {
     const video = videoRef.current;
     if (!video) return null;
@@ -424,6 +352,7 @@ const FaceVerification = () => {
 
       const allGood = eyesOk && noseOk && lightCheck.ok && humanOk && forwardOk && goodSize && centeredX && centeredY;
 
+      // Motion / stability check
       const stable = isFaceStable(prevPositionsRef.current, positions);
       prevPositionsRef.current = positions;
 
@@ -452,12 +381,14 @@ const FaceVerification = () => {
       }
       setInstruction({ msg, status });
 
+      // Auto-capture once stable long enough
       if (stableCountRef.current >= STABLE_FRAMES_NEEDED) {
         clearInterval(intervalRef.current);
         stableCountRef.current = 0;
         const dataUrl = captureCleanFrame();
         if (dataUrl) {
           setCapturedImage(dataUrl);
+          // Stop camera tracks so preview is clean
           streamRef.current?.getTracks().forEach(t => t.stop());
           setCurrentStep(VERIFICATION_STEPS.PREVIEW);
         }
@@ -484,7 +415,7 @@ const FaceVerification = () => {
     }
   };
 
-  // ─── Retake ───────────────────────────────────────────────────────────────
+  // ─── Retake — restart camera ───────────────────────────────────────────────
   const handleRetake = async () => {
     setCapturedImage(null);
     capturedCanvasRef.current = null;
@@ -526,18 +457,12 @@ const FaceVerification = () => {
       }));
 
       setTimeout(() => {
-        navigateToNextStep(
-          router,
-          { ...userDataRef.current, isFaceVerified: true },
-          accessToken,
-          {},
-          "push",
-        );
+        navigateToNextStep(router, { ...userDataRef.current, isFaceVerified: true }, {}, "push");
       }, 1800);
 
     } catch (err) {
       setError(err.message || "Upload failed. Please try again.");
-      setCurrentStep(VERIFICATION_STEPS.PREVIEW);
+      setCurrentStep(VERIFICATION_STEPS.PREVIEW); // go back to preview so they can retry submit or retake
     }
   };
 
@@ -607,6 +532,7 @@ const FaceVerification = () => {
           {/* ── CAMERA / POSITIONING ── */}
           {[VERIFICATION_STEPS.CAMERA_SETUP, VERIFICATION_STEPS.POSITIONING].includes(currentStep) && (
             <>
+              {/* State label banner */}
               <div style={{ display:"flex", alignItems:"center", justifyContent:"center", gap:8, marginBottom:10, padding:"6px 12px", borderRadius:20, background:"#fef3c7", width:"fit-content", margin:"0 auto 10px" }}>
                 <div style={{ width:8, height:8, borderRadius:"50%", background: currentStep === VERIFICATION_STEPS.POSITIONING ? "#22c55e" : "#f59e0b", animation: currentStep === VERIFICATION_STEPS.POSITIONING ? "pulse 1.5s infinite" : "none" }} />
                 <span style={{ fontSize:12, fontWeight:600, color:"#92400e" }}>
@@ -625,6 +551,7 @@ const FaceVerification = () => {
                   </div>
                 )}
 
+                {/* Stability progress bar at bottom of camera */}
                 {currentStep === VERIFICATION_STEPS.POSITIONING && stableProgress > 0 && (
                   <div style={{ position:"absolute", bottom:0, left:0, right:0, padding:"8px 12px", background:"rgba(0,0,0,0.6)", display:"flex", flexDirection:"column", gap:4 }}>
                     <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center" }}>
@@ -640,11 +567,13 @@ const FaceVerification = () => {
 
               {currentStep === VERIFICATION_STEPS.POSITIONING && (
                 <>
+                  {/* Instruction */}
                   <div style={{ background:"rgba(28,25,23,0.78)", borderRadius:10, padding:"10px 14px", marginBottom:12, display:"flex", alignItems:"center", gap:10 }}>
                     <StatusDot status={instruction.status} />
                     <span style={{ fontSize:13, color:"white" }}>{instruction.msg}</span>
                   </div>
 
+                  {/* Check pills */}
                   <div style={{ display:"flex", gap:6, marginBottom:14 }}>
                     <CheckPill label="Face"    icon="👤" pass={checks.face} />
                     <CheckPill label="Eyes"    icon="👁"  pass={checks.eyes} />
@@ -654,11 +583,13 @@ const FaceVerification = () => {
                     <CheckPill label="Human"   icon="✓"  pass={checks.human} />
                   </div>
 
+                  {/* Auto-capture notice */}
                   <div style={{ textAlign:"center", fontSize:12, color:"#78716c", marginBottom:10, display:"flex", alignItems:"center", justifyContent:"center", gap:6 }}>
                     <span style={{ fontSize:14 }}>📸</span>
                     Photo is taken <strong>automatically</strong> once all checks pass and you are steady
                   </div>
 
+                  {/* Manual capture fallback */}
                   <Button
                     onClick={handleManualCapture}
                     disabled={!allChecksPass}
@@ -681,6 +612,7 @@ const FaceVerification = () => {
           {/* ── PREVIEW ── */}
           {currentStep === VERIFICATION_STEPS.PREVIEW && (
             <>
+              {/* Banner */}
               <div style={{ display:"flex", alignItems:"center", justifyContent:"center", gap:8, marginBottom:10, padding:"7px 14px", borderRadius:20, background:"#fef3c7", width:"fit-content", margin:"0 auto 14px" }}>
                 <span style={{ fontSize:12 }}>📸</span>
                 <span style={{ fontSize:12, fontWeight:600, color:"#92400e" }}>Photo captured — review before submitting</span>
@@ -690,6 +622,7 @@ const FaceVerification = () => {
                 {capturedImage && (
                   <Image src={capturedImage} alt="Captured face" fill style={{ objectFit:"cover", transform:"scaleX(-1)" }} />
                 )}
+                {/* Top badge */}
                 <div style={{ position:"absolute", top:12, left:"50%", transform:"translateX(-50%)", background:"rgba(0,0,0,0.65)", borderRadius:20, padding:"5px 14px", whiteSpace:"nowrap" }}>
                   <span style={{ color:"white", fontSize:12 }}>Does this look clear and sharp?</span>
                 </div>
@@ -701,6 +634,7 @@ const FaceVerification = () => {
                 </Alert>
               )}
 
+              {/* Quality tips */}
               <div style={{ background:"#f0fdf4", border:"1px solid #bbf7d0", borderRadius:12, padding:"10px 14px", marginBottom:16 }}>
                 <p style={{ fontSize:12, color:"#166534", fontWeight:600, margin:"0 0 4px" }}>✅ Your photo is good if:</p>
                 <p style={{ fontSize:12, color:"#15803d", lineHeight:1.8, margin:0 }}>
@@ -710,6 +644,7 @@ const FaceVerification = () => {
                 </p>
               </div>
 
+              {/* Action buttons */}
               <div style={{ display:"flex", gap:12 }}>
                 <Button
                   onClick={handleRetake}

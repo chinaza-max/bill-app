@@ -23,6 +23,8 @@ import {
   ChevronRight,
   Phone,
   Navigation,
+  TrendingUp,
+  Lock,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useSelector } from "react-redux";
@@ -384,6 +386,128 @@ const AdsSetupDialog = ({ onClose, onSetupAds, pricingImage }) => {
   );
 };
 
+// ─── iOS-Style Dual Balance Card ─────────────────────────────────────────────
+
+const DualBalanceCard = ({ availableBalance, escrowBalance, isVisible, onToggle, formatCurrency }) => {
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 12 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.4, ease: [0.25, 0.46, 0.45, 0.94] }}
+      className="mx-4 mt-4 rounded-2xl overflow-hidden shadow-xl"
+      style={{
+        background: "linear-gradient(135deg, #059669 0%, #065f46 60%, #022c22 100%)",
+      }}
+    >
+      {/* Subtle gloss overlay */}
+      <div
+        className="absolute inset-0 rounded-2xl pointer-events-none"
+        style={{
+          background:
+            "linear-gradient(160deg, rgba(255,255,255,0.12) 0%, rgba(255,255,255,0) 50%)",
+        }}
+      />
+
+      {/* Top row: label + eye toggle */}
+      <div className="flex items-center justify-between px-5 pt-4 pb-2">
+        <span className="text-white/60 text-xs font-medium tracking-widest uppercase">
+          Wallet Overview
+        </span>
+        <motion.button
+          whileTap={{ scale: 0.88 }}
+          onClick={onToggle}
+          className="w-7 h-7 rounded-full bg-white/15 flex items-center justify-center"
+          aria-label="Toggle visibility"
+        >
+          {isVisible ? (
+            <EyeOff className="w-3.5 h-3.5 text-white/80" />
+          ) : (
+            <Eye className="w-3.5 h-3.5 text-white/80" />
+          )}
+        </motion.button>
+      </div>
+
+      {/* Two balance columns */}
+      <div className="flex items-stretch px-4 pb-5 pt-1 gap-3">
+        {/* Available Balance */}
+        <div className="flex-1 bg-white/10 rounded-xl px-4 py-3.5 backdrop-blur-sm">
+          <div className="flex items-center gap-1.5 mb-2">
+            <div className="w-5 h-5 rounded-full bg-emerald-300/30 flex items-center justify-center">
+              <TrendingUp className="w-3 h-3 text-emerald-200" />
+            </div>
+            <span className="text-white/60 text-[11px] font-medium">Available</span>
+          </div>
+          <AnimatePresence mode="wait">
+            {isVisible ? (
+              <motion.p
+                key="available-amount"
+                initial={{ opacity: 0, y: 4 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -4 }}
+                transition={{ duration: 0.2 }}
+                className="text-white font-bold text-base leading-tight"
+              >
+                {formatCurrency(availableBalance)}
+              </motion.p>
+            ) : (
+              <motion.p
+                key="available-hidden"
+                initial={{ opacity: 0, y: 4 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -4 }}
+                transition={{ duration: 0.2 }}
+                className="text-white font-bold text-base tracking-widest"
+              >
+                ••••••
+              </motion.p>
+            )}
+          </AnimatePresence>
+          <p className="text-emerald-200/50 text-[10px] mt-1">Ready to use</p>
+        </div>
+
+        {/* Thin vertical divider */}
+        <div className="w-px bg-white/10 self-stretch my-1" />
+
+        {/* Escrow Balance */}
+        <div className="flex-1 bg-white/10 rounded-xl px-4 py-3.5 backdrop-blur-sm">
+          <div className="flex items-center gap-1.5 mb-2">
+            <div className="w-5 h-5 rounded-full bg-amber-300/30 flex items-center justify-center">
+              <Lock className="w-3 h-3 text-amber-200" />
+            </div>
+            <span className="text-white/60 text-[11px] font-medium">Escrow</span>
+          </div>
+          <AnimatePresence mode="wait">
+            {isVisible ? (
+              <motion.p
+                key="escrow-amount"
+                initial={{ opacity: 0, y: 4 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -4 }}
+                transition={{ duration: 0.2 }}
+                className="text-white font-bold text-base leading-tight"
+              >
+                {formatCurrency(escrowBalance)}
+              </motion.p>
+            ) : (
+              <motion.p
+                key="escrow-hidden"
+                initial={{ opacity: 0, y: 4 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -4 }}
+                transition={{ duration: 0.2 }}
+                className="text-white font-bold text-base tracking-widest"
+              >
+                ••••••
+              </motion.p>
+            )}
+          </AnimatePresence>
+          <p className="text-amber-200/50 text-[10px] mt-1">Held in trust</p>
+        </div>
+      </div>
+    </motion.div>
+  );
+};
+
 // ─── Main Component ───────────────────────────────────────────────────────────
 
 const MerchantApp = () => {
@@ -406,11 +530,8 @@ const MerchantApp = () => {
   });
 
   const [activeTab, setActiveTab] = useState("home");
-  const [currentSlide, setCurrentSlide] = useState(0);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [userType, setUserType] = useState("Merchant");
-  const [touchStart, setTouchStart] = useState(null);
-  const [touchEnd, setTouchEnd] = useState(null);
   const [notifications, setNotifications] = useState([
     { id: 1, message: "New transaction received", read: false },
     { id: 2, message: "Promotion available", read: false },
@@ -422,15 +543,11 @@ const MerchantApp = () => {
   const [visibleIndex, setVisibleIndex] = useState(null);
 
   const router = useRouter();
-  const intervalRef = useRef(null);
   const myUserData = useSelector((state) => state.user.user);
   const accessToken = useSelector((state) => state.user.accessToken);
 
   const {
     getCurrentLocation,
-    locationStatus,
-    currentAccuracy,
-    lastLocationUpdate,
   } = useLocationService();
 
   const [merchantCoords, setMerchantCoords] = useState(null);
@@ -596,23 +713,6 @@ const MerchantApp = () => {
     fetchPendingOrders();
   }, [fetchOrderStatistics, fetchHasMerchantAds, fetchPendingOrders]);
 
-  const minSwipeDistance = 50;
-
-  const balanceItems = [
-    {
-      id: 1,
-      title: "Available Balance",
-      amount: merchantData.Balance,
-      color: "from-green-400 to-green-600",
-    },
-    {
-      id: 2,
-      title: "Escrow Balance",
-      amount: merchantData.EscrowBalance,
-      color: "from-green-500 to-green-700",
-    },
-  ];
-
   const toggleBalanceVisibility = () => {
     const newState = !isBalanceVisible;
     setIsBalanceVisible(newState);
@@ -624,45 +724,6 @@ const MerchantApp = () => {
       style: "currency",
       currency: "NGN",
     }).format(amount);
-
-  const onTouchStart = (e) => {
-    setTouchEnd(null);
-    setTouchStart(e.targetTouches[0].clientX);
-  };
-  const onTouchMove = (e) => setTouchEnd(e.targetTouches[0].clientX);
-  const onTouchEnd = () => {
-    if (!touchStart || !touchEnd) return;
-    const distance = touchStart - touchEnd;
-    if (distance > minSwipeDistance) nextSlide();
-    if (distance < -minSwipeDistance) prevSlide();
-  };
-
-  const startInterval = useCallback(() => {
-    if (!intervalRef.current) {
-      intervalRef.current = setInterval(() => {
-        setCurrentSlide((prev) => (prev + 1) % balanceItems.length);
-      }, 6000);
-    }
-  }, [balanceItems.length]);
-
-  const stopInterval = useCallback(() => {
-    if (intervalRef.current) {
-      clearInterval(intervalRef.current);
-      intervalRef.current = null;
-    }
-  }, []);
-
-  const nextSlide = useCallback(
-    () => setCurrentSlide((prev) => (prev + 1) % balanceItems.length),
-    [balanceItems.length]
-  );
-  const prevSlide = useCallback(
-    () =>
-      setCurrentSlide(
-        (prev) => (prev - 1 + balanceItems.length) % balanceItems.length
-      ),
-    [balanceItems.length]
-  );
 
   const handleTabChange = (tab) => {
     setActiveTab(tab);
@@ -681,9 +742,7 @@ const MerchantApp = () => {
 
   useEffect(() => {
     localStorage.setItem("who", "merchant");
-    startInterval();
-    return () => stopInterval();
-  }, [startInterval, stopInterval]);
+  }, []);
 
   useEffect(() => {
     router.prefetch("userProfile/merchantProfile/merchantHome/createAds");
@@ -709,14 +768,14 @@ const MerchantApp = () => {
     <motion.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
-      className="bg-white p-4 rounded-lg shadow-sm flex flex-col items-center justify-center cursor-pointer hover:shadow-md transition-shadow"
+      className="bg-white p-4 rounded-2xl shadow-sm flex flex-col items-center justify-center cursor-pointer hover:shadow-md transition-shadow"
       onClick={onClick}
       whileHover={{ scale: 1.02 }}
-      whileTap={{ scale: 0.98 }}
+      whileTap={{ scale: 0.97 }}
     >
       <Icon className={`h-8 w-8 ${color} mb-2`} />
       <span className="text-2xl font-bold text-gray-800">{value}</span>
-      <span className="text-sm text-gray-600">{title}</span>
+      <span className="text-sm text-gray-500">{title}</span>
     </motion.div>
   );
 
@@ -766,10 +825,9 @@ const MerchantApp = () => {
         <div className="px-4 py-3 bg-gradient-to-r from-emerald-600 to-emerald-700 text-white">
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-3">
-              <div className="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center text-white">
+              <div className="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center text-white overflow-hidden">
                 <Image
                   onClick={() =>
-                    // ✅ Profile picture → merchant profile
                     router.push("/userProfile/merchantProfile/merchantHome")
                   }
                   src={formatGoogleDriveImage(
@@ -782,7 +840,7 @@ const MerchantApp = () => {
                 />
               </div>
               <div>
-                <p className="text-sm">Welcome back,</p>
+                <p className="text-sm text-white/70">Welcome back,</p>
                 <p className="font-semibold">
                   {myUserData ? myUserData?.user?.MerchantProfile.displayName : ""}
                 </p>
@@ -838,70 +896,24 @@ const MerchantApp = () => {
 
         {/* ── Main Content ── */}
         <div className="flex-1 overflow-auto">
-          {/* Balance Carousel */}
-          <div className="relative p-4">
-            <div
-              className="relative overflow-hidden rounded-lg"
-              onTouchStart={onTouchStart}
-              onTouchMove={onTouchMove}
-              onTouchEnd={onTouchEnd}
-            >
-              <AnimatePresence initial={false} mode="wait">
-                <motion.div
-                  key={`slide-${currentSlide}`}
-                  initial={{ opacity: 0, x: 100 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  exit={{ opacity: 0, x: -100 }}
-                  transition={{ duration: 0.3 }}
-                  className={`bg-gradient-to-r ${balanceItems[currentSlide].color} rounded-lg p-6 shadow-lg relative`}
-                  style={{ height: "160px" }}
-                >
-                  <div className="flex justify-between items-start">
-                    <div>
-                      <h4 className="text-lg font-semibold text-white">
-                        {balanceItems[currentSlide].title}
-                      </h4>
-                      <p className="text-2xl font-bold text-white mt-2">
-                        {isBalanceVisible
-                          ? formatCurrency(balanceItems[currentSlide].amount)
-                          : "••••••"}
-                      </p>
-                    </div>
-                    <button
-                      onClick={toggleBalanceVisibility}
-                      className="p-2 rounded-full bg-white/20"
-                    >
-                      {isBalanceVisible ? (
-                        <EyeOff className="h-6 w-6 text-white" />
-                      ) : (
-                        <Eye className="h-6 w-6 text-white" />
-                      )}
-                    </button>
-                  </div>
-                </motion.div>
-              </AnimatePresence>
-              <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex space-x-2">
-                {balanceItems.map((_, index) => (
-                  <button
-                    key={index}
-                    onClick={() => setCurrentSlide(index)}
-                    className={`w-2 h-2 rounded-full transition-all ${
-                      index === currentSlide ? "bg-white w-4" : "bg-white/50"
-                    }`}
-                  />
-                ))}
-              </div>
-            </div>
-          </div>
+
+          {/* ── iOS Dual Balance Card ── */}
+          <DualBalanceCard
+            availableBalance={merchantData.Balance}
+            escrowBalance={merchantData.EscrowBalance}
+            isVisible={isBalanceVisible}
+            onToggle={toggleBalanceVisibility}
+            formatCurrency={formatCurrency}
+          />
 
           {loadingStats && <LoadingSpinner />}
 
           {/* Order Statistics Grid */}
           <div className="p-4">
-            <h2 className="text-lg font-semibold mb-3 text-emerald-900">
+            <h2 className="text-sm font-semibold mb-3 text-emerald-900 uppercase tracking-wider">
               Order Statistics
             </h2>
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-2 gap-3">
               <StatCard
                 title="Completed"
                 value={loadingStats ? "..." : merchantData.CompletedCount}
@@ -934,7 +946,7 @@ const MerchantApp = () => {
 
             {/* Create Ad Button */}
             <motion.div
-              className="mt-6"
+              className="mt-5"
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.3 }}
@@ -942,7 +954,7 @@ const MerchantApp = () => {
               <motion.button
                 whileHover={{ scale: 1.02 }}
                 whileTap={{ scale: 0.98 }}
-                className="w-full bg-gradient-to-r from-green-600 to-emerald-700 text-white rounded-xl py-3 px-6 shadow-lg flex items-center justify-center space-x-2 relative overflow-hidden group"
+                className="w-full bg-gradient-to-r from-green-600 to-emerald-700 text-white rounded-2xl py-3.5 px-6 shadow-lg flex items-center justify-center space-x-2 relative overflow-hidden group"
                 onClick={() =>
                   handleTabChange(
                     "userProfile/merchantProfile/merchantHome/createAds"
@@ -950,8 +962,8 @@ const MerchantApp = () => {
                 }
               >
                 <motion.div className="absolute inset-0 bg-gradient-to-r from-emerald-500 to-green-600 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
-                <Package2 className="h-6 w-6" />
-                <span className="text-lg font-semibold relative z-10">
+                <Package2 className="h-5 w-5 relative z-10" />
+                <span className="text-base font-semibold relative z-10">
                   Create New Ad
                 </span>
               </motion.button>
@@ -960,11 +972,10 @@ const MerchantApp = () => {
         </div>
 
         {/* ── Bottom Navigation ── */}
-        <div className="bg-white border-t border-emerald-200">
+        <div className="bg-white border-t border-emerald-100">
           <div className="flex justify-around py-2">
             <motion.button
               whileTap={{ scale: 0.95 }}
-              // ✅ Home icon → merchant home
               onClick={() =>
                 router.push("/userProfile/merchantProfile/merchantHome")
               }

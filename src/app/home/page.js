@@ -19,6 +19,7 @@ import {
   RotateCcw,
   X,
   Check,
+  FlipHorizontal,
 } from "lucide-react";
 import {
   motion,
@@ -88,6 +89,39 @@ const fetchTransaction = async (accessToken) => {
   return response.json();
 };
 
+// ─── Verification Settings Fetcher ────────────────────────────────────────────
+const fetchVerificationSettings = async (accessToken) => {
+  if (!accessToken) throw new Error("No access token");
+  const queryParams = new URLSearchParams({
+    token: accessToken,
+    apiType: "getVerificationSettings",
+  }).toString();
+  const response = await fetch(`/api/user?${queryParams}`, {
+    method: "GET",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${accessToken}`,
+    },
+  });
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => null);
+    throw new Error(errorData?.message || `Error: ${response.status}`);
+  }
+  const json = await response.json();
+  // Normalise — support both flat and nested response shapes
+  const setting =
+    json?.data?.data ??
+    json?.data ??
+    json ??
+    {};
+  return {
+    ninVerificationEnabled:  setting.ninVerificationEnabled  ?? true,
+    ninImageUploadEnabled:   setting.ninImageUploadEnabled   ?? true,
+    nameVerificationEnabled: setting.nameVerificationEnabled ?? true,
+    faceVerificationEnabled: setting.faceVerificationEnabled ?? true,
+  };
+};
+
 // ─── Profile Picture Upload API ───────────────────────────────────────────────
 const uploadProfilePicture = async (accessToken, imageFile) => {
   const formData = new FormData();
@@ -97,10 +131,7 @@ const uploadProfilePicture = async (accessToken, imageFile) => {
 
   const response = await fetch("/api/user", {
     method: "POST",
-    headers: {
-      Authorization: `Bearer ${accessToken}`,
-      // Do NOT set Content-Type — let the browser set multipart/form-data boundary
-    },
+    headers: { Authorization: `Bearer ${accessToken}` },
     body: formData,
   });
 
@@ -190,30 +221,311 @@ const LiveActivityTicker = () => {
   );
 };
 
+// ─── In-App Camera Modal (getUserMedia — works on both mobile & desktop) ───────
+const CameraModal = ({ onCapture, onClose }) => {
+  const videoRef      = useRef(null);
+  const canvasRef     = useRef(null);
+  const streamRef     = useRef(null);
+
+  const [facingMode, setFacingMode]   = useState("user"); // "user" | "environment"
+  const [permissionErr, setPermErr]   = useState("");
+  const [ready, setReady]             = useState(false);
+  const [flash, setFlash]             = useState(false);
+
+  // ── Start / restart the camera stream ──────────────────────────────────
+  const startStream = useCallback(async (facing) => {
+    // Kill any existing stream
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach((t) => t.stop());
+      streamRef.current = null;
+    }
+    setReady(false);
+    setPermErr("");
+
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: {
+          facingMode: facing,
+          width:  { ideal: 1280 },
+          height: { ideal: 720 },
+        },
+        audio: false,
+      });
+
+      streamRef.current = stream;
+
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream;
+        // Some browsers need both onloadedmetadata + play()
+        videoRef.current.onloadedmetadata = () => {
+          videoRef.current.play().then(() => setReady(true)).catch(() => setReady(true));
+        };
+      }
+    } catch (err) {
+      if (err.name === "NotAllowedError" || err.name === "PermissionDeniedError") {
+        setPermErr("Camera permission denied. Please allow camera access in your browser/device settings, then try again.");
+      } else if (err.name === "NotFoundError" || err.name === "DevicesNotFoundError") {
+        setPermErr("No camera found on this device.");
+      } else if (err.name === "NotReadableError" || err.name === "TrackStartError") {
+        setPermErr("Camera is already in use by another app. Please close it and try again.");
+      } else {
+        setPermErr(`Camera error: ${err.message}`);
+      }
+    }
+  }, []);
+
+  // Start on mount
+  useEffect(() => {
+    startStream("user");
+    return () => {
+      if (streamRef.current) streamRef.current.getTracks().forEach((t) => t.stop());
+    };
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ── Flip camera ────────────────────────────────────────────────────────
+  const handleFlip = () => {
+    const next = facingMode === "user" ? "environment" : "user";
+    setFacingMode(next);
+    startStream(next);
+  };
+
+  // ── Shutter: draw video frame onto canvas → Blob → File ───────────────
+  const handleShutter = () => {
+    if (!videoRef.current || !canvasRef.current || !ready) return;
+
+    // Flash effect
+    setFlash(true);
+    setTimeout(() => setFlash(false), 160);
+
+    const video  = videoRef.current;
+    const canvas = canvasRef.current;
+    canvas.width  = video.videoWidth  || 640;
+    canvas.height = video.videoHeight || 480;
+
+    const ctx = canvas.getContext("2d");
+
+    // Mirror front-cam so the saved image matches what the user saw
+    if (facingMode === "user") {
+      ctx.translate(canvas.width, 0);
+      ctx.scale(-1, 1);
+    }
+
+    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+    canvas.toBlob(
+      (blob) => {
+        if (!blob) return;
+        // Stop stream before handing off
+        if (streamRef.current) {
+          streamRef.current.getTracks().forEach((t) => t.stop());
+          streamRef.current = null;
+        }
+        const file = new File([blob], `photo_${Date.now()}.jpg`, { type: "image/jpeg" });
+        onCapture(file);
+      },
+      "image/jpeg",
+      0.92,
+    );
+  };
+
+  return (
+    <div
+      style={{
+        position: "fixed", inset: 0, zIndex: 60,
+        background: "#000",
+        display: "flex", flexDirection: "column",
+      }}
+    >
+      {/* ── Top controls ── */}
+      <div style={{
+        position: "absolute", top: 0, left: 0, right: 0, zIndex: 10,
+        display: "flex", justifyContent: "space-between", alignItems: "center",
+        padding: "16px 16px 0",
+      }}>
+        {/* Close */}
+        <button
+          type="button"
+          onClick={() => {
+            if (streamRef.current) streamRef.current.getTracks().forEach((t) => t.stop());
+            onClose();
+          }}
+          style={{
+            background: "rgba(0,0,0,0.55)", border: "1px solid rgba(255,255,255,0.18)",
+            borderRadius: "50%", width: 42, height: 42,
+            display: "flex", alignItems: "center", justifyContent: "center",
+            cursor: "pointer",
+          }}
+        >
+          <X className="h-5 w-5 text-white" />
+        </button>
+
+        {/* Flip camera */}
+        <button
+          type="button"
+          onClick={handleFlip}
+          style={{
+            background: "rgba(0,0,0,0.55)", border: "1px solid rgba(255,255,255,0.18)",
+            borderRadius: "50%", width: 42, height: 42,
+            display: "flex", alignItems: "center", justifyContent: "center",
+            cursor: "pointer",
+          }}
+        >
+          <FlipHorizontal className="h-5 w-5 text-white" />
+        </button>
+      </div>
+
+      {/* ── Video area ── */}
+      <div style={{ flex: 1, position: "relative", overflow: "hidden" }}>
+
+        {/* Shutter flash */}
+        {flash && (
+          <div style={{
+            position: "absolute", inset: 0, zIndex: 8,
+            background: "#fff", opacity: 0.8,
+            pointerEvents: "none",
+          }} />
+        )}
+
+        {/* Permission / device error */}
+        {permissionErr ? (
+          <div style={{
+            position: "absolute", inset: 0,
+            display: "flex", flexDirection: "column",
+            alignItems: "center", justifyContent: "center",
+            padding: "0 32px", textAlign: "center", gap: 16,
+          }}>
+            <XCircle className="h-14 w-14 text-red-400" />
+            <p style={{ color: "#fff", fontSize: 14, lineHeight: 1.6 }}>{permissionErr}</p>
+            <button
+              type="button"
+              onClick={() => startStream(facingMode)}
+              style={{
+                padding: "10px 28px", borderRadius: 10,
+                background: "#f59e0b", border: "none",
+                fontSize: 14, fontWeight: 600, color: "#fff", cursor: "pointer",
+              }}
+            >
+              Try again
+            </button>
+          </div>
+        ) : (
+          <>
+            {/* Loading spinner */}
+            {!ready && (
+              <div style={{
+                position: "absolute", inset: 0, zIndex: 4,
+                display: "flex", flexDirection: "column",
+                alignItems: "center", justifyContent: "center", gap: 12,
+              }}>
+                <RefreshCw className="h-9 w-9 text-amber-400 animate-spin" />
+                <p style={{ color: "rgba(255,255,255,0.6)", fontSize: 13 }}>Starting camera…</p>
+              </div>
+            )}
+
+            {/* Live video */}
+            <video
+              ref={videoRef}
+              playsInline
+              muted
+              style={{
+                width: "100%", height: "100%",
+                objectFit: "cover",
+                // Mirror preview only for front cam — the captured image is also mirrored on canvas
+                transform: facingMode === "user" ? "scaleX(-1)" : "none",
+                opacity: ready ? 1 : 0,
+                transition: "opacity 0.3s ease",
+              }}
+            />
+
+            {/* Circular face-guide overlay */}
+            {ready && (
+              <div style={{
+                position: "absolute", inset: 0, zIndex: 3,
+                display: "flex", alignItems: "center", justifyContent: "center",
+                pointerEvents: "none",
+              }}>
+                <div style={{
+                  width: 210, height: 210,
+                  borderRadius: "50%",
+                  border: "2px solid rgba(255,255,255,0.4)",
+                  boxShadow: "0 0 0 9999px rgba(0,0,0,0.3)",
+                }} />
+              </div>
+            )}
+          </>
+        )}
+      </div>
+
+      {/* Hidden canvas used only to capture the frame */}
+      <canvas ref={canvasRef} style={{ display: "none" }} />
+
+      {/* ── Shutter bar ── */}
+      <div style={{
+        height: 130, background: "rgba(0,0,0,0.85)",
+        display: "flex", alignItems: "center", justifyContent: "center",
+        flexShrink: 0,
+      }}>
+        <button
+          type="button"
+          onClick={handleShutter}
+          disabled={!ready || !!permissionErr}
+          aria-label="Take photo"
+          style={{
+            width: 72, height: 72,
+            borderRadius: "50%",
+            background: ready && !permissionErr ? "#ffffff" : "rgba(255,255,255,0.25)",
+            border: "5px solid rgba(255,255,255,0.5)",
+            boxShadow: ready && !permissionErr ? "0 0 0 6px rgba(255,255,255,0.12)" : "none",
+            display: "flex", alignItems: "center", justifyContent: "center",
+            cursor: ready && !permissionErr ? "pointer" : "not-allowed",
+            transition: "all 0.15s ease",
+          }}
+        >
+          <Camera className="h-7 w-7 text-gray-800" />
+        </button>
+      </div>
+    </div>
+  );
+};
+
 // ─── Profile Picture Bottom Sheet ─────────────────────────────────────────────
 const ProfilePictureSheet = ({ onClose, onUploaded, accessToken }) => {
+  // stage: "picker" | "camera" | "preview" | "uploading" | "done" | "error"
   const [stage, setStage]               = useState("picker");
   const [previewSrc, setPreviewSrc]     = useState(null);
   const [selectedFile, setSelectedFile] = useState(null);
   const [errorMsg, setErrorMsg]         = useState("");
 
-  const cameraInputRef  = useRef(null);
   const galleryInputRef = useRef(null);
 
-  const handleFileSelected = (e) => {
+  // ── Camera captured a file ─────────────────────────────────────────────
+  const handleCameraCapture = useCallback((file) => {
+    // createObjectURL is fine here — we revoke it on retake/unmount
+    const url = URL.createObjectURL(file);
+    setPreviewSrc(url);
+    setSelectedFile(file);
+    setStage("preview");
+  }, []);
+
+  // ── Gallery file selected ──────────────────────────────────────────────
+  const handleGalleryFile = useCallback((e) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    e.target.value = "";
+    e.target.value = ""; // allow re-selection of the same file
+
+    if (!file.type.startsWith("image/")) {
+      setErrorMsg("Please select a valid image file (JPG, PNG, WEBP, etc.).");
+      setStage("error");
+      return;
+    }
 
     const reader = new FileReader();
-    reader.onload = (ev) => {
-      setPreviewSrc(ev.target.result);
-      setSelectedFile(file);
-      setStage("preview");
-    };
+    reader.onload  = (ev) => { setPreviewSrc(ev.target.result); setSelectedFile(file); setStage("preview"); };
+    reader.onerror = ()   => { setErrorMsg("Could not read file. Please try again."); setStage("error"); };
     reader.readAsDataURL(file);
-  };
+  }, []);
 
+  // ── Upload ─────────────────────────────────────────────────────────────
   const handleConfirm = async () => {
     if (!selectedFile) return;
     setStage("uploading");
@@ -233,13 +545,26 @@ const ProfilePictureSheet = ({ onClose, onUploaded, accessToken }) => {
     }
   };
 
+  // ── Retake / reset ─────────────────────────────────────────────────────
   const handleRetake = () => {
+    if (previewSrc?.startsWith("blob:")) URL.revokeObjectURL(previewSrc);
     setPreviewSrc(null);
     setSelectedFile(null);
     setErrorMsg("");
     setStage("picker");
   };
 
+  // ── If stage === "camera" render the full-screen camera modal ──────────
+  if (stage === "camera") {
+    return (
+      <CameraModal
+        onCapture={handleCameraCapture}
+        onClose={() => setStage("picker")}
+      />
+    );
+  }
+
+  // ── Otherwise render the bottom sheet ──────────────────────────────────
   return (
     <div
       style={{
@@ -249,22 +574,15 @@ const ProfilePictureSheet = ({ onClose, onUploaded, accessToken }) => {
       }}
       onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
     >
+      {/* Gallery input — no capture attribute, just opens files/photos */}
       <input
-        key="camera-input"
-        ref={cameraInputRef}
-        type="file"
-        capture="environment"
-        style={{ display: "none" }}
-        onChange={handleFileSelected}
-      />
-
-      <input
-        key="gallery-input"
         ref={galleryInputRef}
         type="file"
         accept="image/*"
         style={{ display: "none" }}
-        onChange={handleFileSelected}
+        onChange={handleGalleryFile}
+        aria-hidden="true"
+        tabIndex={-1}
       />
 
       <motion.div
@@ -286,10 +604,9 @@ const ProfilePictureSheet = ({ onClose, onUploaded, accessToken }) => {
           <div style={{ width: 36, height: 4, borderRadius: 2, background: "#e5e7eb" }} />
         </div>
 
-        {/* Close button */}
+        {/* Close */}
         <div style={{ display: "flex", justifyContent: "flex-end", padding: "4px 16px 0" }}>
-          <button
-            onClick={onClose}
+          <button type="button" onClick={onClose}
             style={{
               background: "#f3f4f6", border: "none", borderRadius: "50%",
               width: 30, height: 30, display: "flex", alignItems: "center",
@@ -300,7 +617,7 @@ const ProfilePictureSheet = ({ onClose, onUploaded, accessToken }) => {
           </button>
         </div>
 
-        {/* ── PICKER STAGE ── */}
+        {/* ── PICKER ── */}
         {stage === "picker" && (
           <div style={{ padding: "8px 24px 0" }}>
             <p style={{ fontSize: 18, fontWeight: 500, color: "#78350f", marginBottom: 4 }}>
@@ -311,43 +628,45 @@ const ProfilePictureSheet = ({ onClose, onUploaded, accessToken }) => {
             </p>
 
             <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+
+              {/* Take photo — opens in-app camera via getUserMedia */}
               <button
-                onClick={() => cameraInputRef.current?.click()}
+                type="button"
+                onClick={() => setStage("camera")}
                 style={{
                   display: "flex", alignItems: "center", gap: 14,
                   padding: "14px 16px", borderRadius: 14,
                   background: "linear-gradient(135deg, #fef3c7, #fde68a)",
                   border: "1px solid #fbbf24",
-                  cursor: "pointer",
+                  cursor: "pointer", width: "100%",
                 }}
               >
                 <div style={{
-                  width: 42, height: 42, borderRadius: 12,
-                  background: "#f59e0b", display: "flex",
-                  alignItems: "center", justifyContent: "center",
+                  width: 42, height: 42, borderRadius: 12, background: "#f59e0b",
+                  display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0,
                 }}>
                   <Camera className="h-5 w-5 text-white" />
                 </div>
                 <div style={{ textAlign: "left" }}>
                   <p style={{ fontSize: 14, fontWeight: 500, color: "#78350f", margin: 0 }}>Take a photo</p>
-                  <p style={{ fontSize: 12, color: "#a16207", margin: 0 }}>Opens your camera directly</p>
+                  <p style={{ fontSize: 12, color: "#a16207", margin: 0 }}>Opens live camera view</p>
                 </div>
               </button>
 
+              {/* Upload from gallery */}
               <button
+                type="button"
                 onClick={() => galleryInputRef.current?.click()}
                 style={{
                   display: "flex", alignItems: "center", gap: 14,
                   padding: "14px 16px", borderRadius: 14,
-                  background: "#f9fafb",
-                  border: "1px solid #e5e7eb",
-                  cursor: "pointer",
+                  background: "#f9fafb", border: "1px solid #e5e7eb",
+                  cursor: "pointer", width: "100%",
                 }}
               >
                 <div style={{
-                  width: 42, height: 42, borderRadius: 12,
-                  background: "#b45309", display: "flex",
-                  alignItems: "center", justifyContent: "center",
+                  width: 42, height: 42, borderRadius: 12, background: "#b45309",
+                  display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0,
                 }}>
                   <Upload className="h-5 w-5 text-white" />
                 </div>
@@ -358,8 +677,7 @@ const ProfilePictureSheet = ({ onClose, onUploaded, accessToken }) => {
               </button>
             </div>
 
-            <button
-              onClick={onClose}
+            <button type="button" onClick={onClose}
               style={{
                 width: "100%", marginTop: 20, padding: "10px 0",
                 background: "none", border: "none",
@@ -371,75 +689,54 @@ const ProfilePictureSheet = ({ onClose, onUploaded, accessToken }) => {
           </div>
         )}
 
-        {/* ── PREVIEW STAGE ── */}
+        {/* ── PREVIEW ── */}
         {stage === "preview" && previewSrc && (
           <div style={{ padding: "8px 24px 0", textAlign: "center" }}>
-            <p style={{ fontSize: 18, fontWeight: 500, color: "#78350f", marginBottom: 4 }}>
-              Looks good?
-            </p>
-            <p style={{ fontSize: 13, color: "#a16207", marginBottom: 20 }}>
-              Preview your photo before saving it.
-            </p>
+            <p style={{ fontSize: 18, fontWeight: 500, color: "#78350f", marginBottom: 4 }}>Looks good?</p>
+            <p style={{ fontSize: 13, color: "#a16207", marginBottom: 20 }}>Preview your photo before saving it.</p>
 
             <div style={{ display: "flex", justifyContent: "center", marginBottom: 24 }}>
               <div style={{
-                width: 140, height: 140, borderRadius: "50%",
-                overflow: "hidden",
-                border: "4px solid #f59e0b",
-                boxShadow: "0 0 0 4px #fef3c7",
+                width: 140, height: 140, borderRadius: "50%", overflow: "hidden",
+                border: "4px solid #f59e0b", boxShadow: "0 0 0 4px #fef3c7",
               }}>
-                <img
-                  src={previewSrc}
-                  alt="Preview"
-                  style={{ width: "100%", height: "100%", objectFit: "cover" }}
-                />
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={previewSrc} alt="Preview" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
               </div>
             </div>
 
             <div style={{ display: "flex", gap: 10 }}>
-              <button
-                onClick={handleRetake}
+              <button type="button" onClick={handleRetake}
                 style={{
-                  flex: 1, display: "flex", alignItems: "center",
-                  justifyContent: "center", gap: 6,
+                  flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 6,
                   padding: "12px 0", borderRadius: 12,
                   background: "#f3f4f6", border: "1px solid #e5e7eb",
-                  fontSize: 14, fontWeight: 500, color: "#374151",
-                  cursor: "pointer",
+                  fontSize: 14, fontWeight: 500, color: "#374151", cursor: "pointer",
                 }}
               >
-                <RotateCcw className="h-4 w-4" />
-                Retake
+                <RotateCcw className="h-4 w-4" /> Retake
               </button>
-
-              <button
-                onClick={handleConfirm}
+              <button type="button" onClick={handleConfirm}
                 style={{
-                  flex: 2, display: "flex", alignItems: "center",
-                  justifyContent: "center", gap: 6,
+                  flex: 2, display: "flex", alignItems: "center", justifyContent: "center", gap: 6,
                   padding: "12px 0", borderRadius: 12,
-                  background: "linear-gradient(135deg, #92400e, #d97706)",
-                  border: "none",
-                  fontSize: 14, fontWeight: 500, color: "#fff",
-                  cursor: "pointer",
+                  background: "linear-gradient(135deg, #92400e, #d97706)", border: "none",
+                  fontSize: 14, fontWeight: 500, color: "#fff", cursor: "pointer",
                 }}
               >
-                <Check className="h-4 w-4" />
-                Save photo
+                <Check className="h-4 w-4" /> Save photo
               </button>
             </div>
           </div>
         )}
 
-        {/* ── UPLOADING STAGE ── */}
+        {/* ── UPLOADING ── */}
         {stage === "uploading" && (
           <div style={{ padding: "24px 24px 0", textAlign: "center" }}>
             {previewSrc && (
               <div style={{ display: "flex", justifyContent: "center", marginBottom: 20 }}>
-                <div style={{
-                  width: 100, height: 100, borderRadius: "50%",
-                  overflow: "hidden", border: "3px solid #f59e0b", opacity: 0.7,
-                }}>
+                <div style={{ width: 100, height: 100, borderRadius: "50%", overflow: "hidden", border: "3px solid #f59e0b", opacity: 0.7 }}>
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img src={previewSrc} alt="Uploading" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
                 </div>
               </div>
@@ -452,14 +749,12 @@ const ProfilePictureSheet = ({ onClose, onUploaded, accessToken }) => {
           </div>
         )}
 
-        {/* ── DONE STAGE ── */}
+        {/* ── DONE ── */}
         {stage === "done" && (
           <div style={{ padding: "24px 24px 0", textAlign: "center" }}>
             <div style={{
-              width: 64, height: 64, borderRadius: "50%",
-              background: "#dcfce7", display: "flex",
-              alignItems: "center", justifyContent: "center",
-              margin: "0 auto 12px",
+              width: 64, height: 64, borderRadius: "50%", background: "#dcfce7",
+              display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 12px",
             }}>
               <CheckCircle2 className="h-8 w-8 text-green-600" />
             </div>
@@ -468,40 +763,24 @@ const ProfilePictureSheet = ({ onClose, onUploaded, accessToken }) => {
           </div>
         )}
 
-        {/* ── ERROR STAGE ── */}
+        {/* ── ERROR ── */}
         {stage === "error" && (
           <div style={{ padding: "8px 24px 0", textAlign: "center" }}>
             <div style={{
-              width: 64, height: 64, borderRadius: "50%",
-              background: "#fee2e2", display: "flex",
-              alignItems: "center", justifyContent: "center",
-              margin: "0 auto 12px",
+              width: 64, height: 64, borderRadius: "50%", background: "#fee2e2",
+              display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 12px",
             }}>
               <XCircle className="h-8 w-8 text-red-500" />
             </div>
             <p style={{ fontSize: 15, fontWeight: 500, color: "#b91c1c", marginBottom: 6 }}>Upload failed</p>
             <p style={{ fontSize: 12, color: "#6b7280", marginBottom: 20 }}>{errorMsg}</p>
             <div style={{ display: "flex", gap: 10 }}>
-              <button
-                onClick={handleRetake}
-                style={{
-                  flex: 1, padding: "11px 0", borderRadius: 12,
-                  background: "#f3f4f6", border: "1px solid #e5e7eb",
-                  fontSize: 14, fontWeight: 500, color: "#374151", cursor: "pointer",
-                }}
-              >
-                Try again
-              </button>
-              <button
-                onClick={onClose}
-                style={{
-                  flex: 1, padding: "11px 0", borderRadius: 12,
-                  background: "none", border: "1px solid #e5e7eb",
-                  fontSize: 14, color: "#9ca3af", cursor: "pointer",
-                }}
-              >
-                Cancel
-              </button>
+              <button type="button" onClick={handleRetake}
+                style={{ flex: 1, padding: "11px 0", borderRadius: 12, background: "#f3f4f6", border: "1px solid #e5e7eb", fontSize: 14, fontWeight: 500, color: "#374151", cursor: "pointer" }}
+              >Try again</button>
+              <button type="button" onClick={onClose}
+                style={{ flex: 1, padding: "11px 0", borderRadius: 12, background: "none", border: "1px solid #e5e7eb", fontSize: 14, color: "#9ca3af", cursor: "pointer" }}
+              >Cancel</button>
             </div>
           </div>
         )}
@@ -523,9 +802,11 @@ const MobileApp = () => {
   const [hasInteractedWithSwitch, setHasInteractedWithSwitch] = useState(false);
   const [unreadCount, setUnreadCount]                         = useState(0);
 
-  // ─── Profile picture prompt state ─────────────────────────────────────────
   const [showProfileSheet, setShowProfileSheet] = useState(false);
   const profilePromptTimerRef = useRef(null);
+
+  // ── Merchant navigation loading state ─────────────────────────────────
+  const [isMerchantNavLoading, setIsMerchantNavLoading] = useState(false);
 
   const { token }                  = useNotifications();
   const [numberOfOrder, setNumberOfOrder] = useState(0);
@@ -552,7 +833,6 @@ const MobileApp = () => {
   const router   = useRouter();
   const pathname = usePathname();
 
-  // ─── Profile query ────────────────────────────────────────────────────────
   const {
     data: profileData,
     refetch: refetchProfile,
@@ -567,7 +847,6 @@ const MobileApp = () => {
     retry: 1,
   });
 
-  // ─── Transactions query ───────────────────────────────────────────────────
   const {
     data: transactionData,
     isError,
@@ -584,7 +863,6 @@ const MobileApp = () => {
     keepPreviousData: true,
   });
 
-  // ─── visibilitychange ─────────────────────────────────────────────────────
   useEffect(() => {
     const handleVisibility = () => {
       if (document.visibilityState === "visible" && accessToken) {
@@ -597,7 +875,6 @@ const MobileApp = () => {
     return () => document.removeEventListener("visibilitychange", handleVisibility);
   }, [accessToken]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // ─── Unread count ─────────────────────────────────────────────────────────
   const fetchUnreadCount = useCallback(async () => {
     if (!accessToken) return;
     try {
@@ -660,7 +937,6 @@ const MobileApp = () => {
 
   const toggleBalanceVisibility = () => setIsBalanceVisible((v) => !v);
 
-  // ─── Sync profile data + trigger profile picture prompt ───────────────────
   useEffect(() => {
     const freshUser =
       profileData?.data?.data ??
@@ -679,18 +955,13 @@ const MobileApp = () => {
       setWalletBalance(walletData?.current ?? walletData?.previous ?? 0);
     } catch { setWalletBalance(0); }
 
-    // Only prompt if imageUrlUpdated is explicitly false
     const imageUrlUpdated = user.imageUrlUpdated;
     if (imageUrlUpdated === false) {
       if (profilePromptTimerRef.current) clearTimeout(profilePromptTimerRef.current);
-      profilePromptTimerRef.current = setTimeout(() => {
-        setShowProfileSheet(true);
-      }, 7000);
+      profilePromptTimerRef.current = setTimeout(() => setShowProfileSheet(true), 7000);
     }
 
-    return () => {
-      if (profilePromptTimerRef.current) clearTimeout(profilePromptTimerRef.current);
-    };
+    return () => { if (profilePromptTimerRef.current) clearTimeout(profilePromptTimerRef.current); };
   }, [profileData, data2.user]);
 
   useEffect(() => {
@@ -706,18 +977,63 @@ const MobileApp = () => {
 
   const handleTabChange = (tab) => { setActiveTab(tab); router.push(`/${tab}`); };
 
-  const moveToMerchant = () => {
+  // ─── moveToMerchant — fetches verification settings and skips disabled steps ──
+  const moveToMerchant = useCallback(async () => {
     const u = myUserData?.user;
-    if (!u?.isNinVerified)            return router.push("/userProfile/merchantProfile");
-    if (!u?.isninImageVerified) return router.push("/userProfile/merchantProfile/merchantProfile1");
-    if (!u?.isDisplayNameMerchantSet) return router.push("/userProfile/merchantProfile/merchantProfile2");
-    if (!u?.isFaceVerified)           return router.push("/userProfile/merchantProfile/merchantProfile3");
+
+    // Fetch verification settings from API; fall back to all-enabled on error
+    let settings = {
+      ninVerificationEnabled:  true,
+      ninImageUploadEnabled:   true,
+      nameVerificationEnabled: true,
+      faceVerificationEnabled: true,
+    };
+
+    setIsMerchantNavLoading(true);
+    try {
+      settings = await fetchVerificationSettings(accessToken);
+    } catch {
+      // Non-critical — proceed with defaults (all verifications required)
+    } finally {
+      setIsMerchantNavLoading(false);
+    }
+
+    const {
+      ninVerificationEnabled,
+      ninImageUploadEnabled,
+      nameVerificationEnabled,
+      faceVerificationEnabled,
+    } = settings;
+
+    console.log("Verification settings:", settings);
+    // Step 1 — NIN verification (skip if disabled)
+    if (ninVerificationEnabled && !u?.isNinVerified) {
+      return router.push("/userProfile/merchantProfile");
+    }
+
+    // Step 2 — NIN image upload (skip if disabled)
+    if (ninImageUploadEnabled && !u?.isninImageVerified) {
+      return router.push("/userProfile/merchantProfile/merchantProfile1");
+    }
+
+    // Step 3 — Display name / name verification (skip if disabled)
+    if (nameVerificationEnabled && !u?.isDisplayNameMerchantSet) {
+      return router.push("/userProfile/merchantProfile/merchantProfile2");
+    }
+
+    // Step 4 — Face verification (skip if disabled)
+    if (faceVerificationEnabled && !u?.isFaceVerified) {
+      return router.push("/userProfile/merchantProfile/merchantProfile3");
+    }
+
+    // Account status checks — always enforced regardless of settings
     const s = u?.MerchantProfile?.accountStatus;
-    if (s === "processing")           return router.push("/userProfile/merchantProfile/merchantProfile4");
-    if (s === "rejected")             return router.push("/userProfile/merchantProfile/merchantProfile5");
-    if (s === "suspended")            return router.push("/userProfile/merchantProfile/merchantProfile6");
+    if (s === "processing") return router.push("/userProfile/merchantProfile/merchantProfile4");
+    if (s === "rejected")   return router.push("/userProfile/merchantProfile/merchantProfile5");
+    if (s === "suspended")  return router.push("/userProfile/merchantProfile/merchantProfile6");
+
     return router.push("/userProfile/merchantProfile/merchantHome");
-  };
+  }, [accessToken, myUserData, router]);
 
   useEffect(() => {
     [
@@ -747,7 +1063,6 @@ const MobileApp = () => {
     refetchTransactions();
   }, [refetchProfile, refetchTransactions]);
 
-  // ─── Called when the sheet completes a successful upload ──────────────────
   const handleProfileUploaded = useCallback((newUrl) => {
     if (newUrl) setImageUrl(newUrl);
     setShowProfileSheet(false);
@@ -755,12 +1070,8 @@ const MobileApp = () => {
   }, [refetchProfile]);
 
   const renderTransactionsSection = () => {
-    if (!transactionData && isError) {
-      return <EmptyTransactionState handleTabChange={handleTabChange} />;
-    }
-    if (recentTransactions.length === 0) {
-      return <EmptyTransactionState handleTabChange={handleTabChange} />;
-    }
+    if (!transactionData && isError) return <EmptyTransactionState handleTabChange={handleTabChange} />;
+    if (recentTransactions.length === 0) return <EmptyTransactionState handleTabChange={handleTabChange} />;
 
     return (
       <div className="space-y-3">
@@ -814,11 +1125,8 @@ const MobileApp = () => {
         {/* ── Top Navigation ── */}
         <div className="px-4 py-3 bg-gradient-to-r from-amber-600 to-amber-500 text-white">
           <div className="flex items-center justify-between">
-
-            {/* Left — avatar + name */}
             <div className="flex items-center space-x-2 min-w-0 flex-1 mr-2">
               <div className="w-9 h-9 rounded-full bg-white/20 flex-shrink-0 flex items-center justify-center relative">
-                {/* ── FIXED: use next/image + formatGoogleDriveImage (same as merchant home) ── */}
                 <Image
                   onClick={() => handleTabChange("userProfile")}
                   src={formatGoogleDriveImage(imageUrl)}
@@ -827,9 +1135,9 @@ const MobileApp = () => {
                   height={36}
                   className="w-full h-full object-cover rounded-full cursor-pointer"
                 />
-                {/* Small camera badge on avatar */}
-                {showProfileSheet === false && (
+                {!showProfileSheet && (
                   <button
+                    type="button"
                     onClick={() => setShowProfileSheet(true)}
                     className="absolute -bottom-0.5 -right-0.5 w-4 h-4 rounded-full bg-amber-300 flex items-center justify-center border border-amber-600"
                     title="Add profile photo"
@@ -840,35 +1148,18 @@ const MobileApp = () => {
               </div>
               <div className="min-w-0">
                 <p className="text-xs text-white/70 leading-none">Welcome</p>
-                <p className="font-semibold text-sm leading-tight truncate max-w-[110px]">
-                  {firstName || "User"}
-                </p>
+                <p className="font-semibold text-sm leading-tight truncate max-w-[110px]">{firstName || "User"}</p>
               </div>
               <LocationStatusBadge status={locationStatus} size="sm" />
             </div>
 
-            {/* Right — refresh + bell + role switcher */}
             <div className="flex items-center space-x-3 flex-shrink-0">
-
-              <motion.button
-                whileTap={{ scale: 0.82 }}
-                onClick={handleManualRefresh}
-                title="Refresh balance"
-              >
-                <RefreshCw
-                  className={`h-5 w-5 transition-colors ${
-                    isProfileFetching
-                      ? "text-white animate-spin"
-                      : "text-white/70 hover:text-white"
-                  }`}
-                />
+              <motion.button whileTap={{ scale: 0.82 }} onClick={handleManualRefresh} title="Refresh balance">
+                <RefreshCw className={`h-5 w-5 transition-colors ${isProfileFetching ? "text-white animate-spin" : "text-white/70 hover:text-white"}`} />
               </motion.button>
 
               <div className="relative">
-                <Bell
-                  className="h-5 w-5 cursor-pointer"
-                  onClick={() => router.push("/home/notification")}
-                />
+                <Bell className="h-5 w-5 cursor-pointer" onClick={() => router.push("/home/notification")} />
                 {unreadCount > 0 && (
                   <span className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full text-[9px] font-bold min-w-[16px] h-4 px-0.5 flex items-center justify-center">
                     {unreadCount > 99 ? "99+" : unreadCount}
@@ -880,19 +1171,21 @@ const MobileApp = () => {
                 <button
                   onClick={() => { setIsDropdownOpen(!isDropdownOpen); handleSwitchInteraction(); }}
                   className="flex items-center space-x-1 text-white hover:bg-amber-600 px-2.5 py-1.5 rounded relative overflow-hidden"
+                  disabled={isMerchantNavLoading}
                 >
                   <AttentionAnimation isVisible={showPulseAnimation} duration={2} />
                   <span className="relative z-10 text-sm">{userType}</span>
-                  <ChevronDown className="h-3.5 w-3.5 relative z-10" />
+                  {isMerchantNavLoading
+                    ? <RefreshCw className="h-3.5 w-3.5 relative z-10 animate-spin" />
+                    : <ChevronDown className="h-3.5 w-3.5 relative z-10" />
+                  }
                 </button>
 
                 <AnimatePresence>
                   {isDropdownOpen && (
                     <motion.div
-                      initial={{ opacity: 0, y: -10 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      exit={{ opacity: 0, y: -10 }}
-                      transition={{ duration: 0.2 }}
+                      initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -10 }} transition={{ duration: 0.2 }}
                       className="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg py-1 z-10"
                     >
                       <button
@@ -903,15 +1196,16 @@ const MobileApp = () => {
                           moveToMerchant();
                         }}
                         className="block px-4 py-2 text-sm text-gray-700 hover:bg-amber-50 w-full text-left"
+                        disabled={isMerchantNavLoading}
                       >
-                        Merchant
+                        {isMerchantNavLoading ? (
+                          <span className="flex items-center gap-2">
+                            <RefreshCw className="h-3 w-3 animate-spin" /> Checking…
+                          </span>
+                        ) : "Merchant"}
                       </button>
                       <button
-                        onClick={() => {
-                          setUserType("Client");
-                          setIsDropdownOpen(false);
-                          handleSwitchInteraction();
-                        }}
+                        onClick={() => { setUserType("Client"); setIsDropdownOpen(false); handleSwitchInteraction(); }}
                         className="block px-4 py-2 text-sm text-gray-700 hover:bg-amber-50 w-full text-left"
                       >
                         Client
@@ -924,11 +1218,7 @@ const MobileApp = () => {
           </div>
 
           <div className="mt-2">
-            <LocationStatusIndicator
-              status={locationStatus}
-              accuracy={currentAccuracy}
-              lastUpdate={lastLocationUpdate}
-            />
+            <LocationStatusIndicator status={locationStatus} accuracy={currentAccuracy} lastUpdate={lastLocationUpdate} />
           </div>
         </div>
 
@@ -952,36 +1242,22 @@ const MobileApp = () => {
               <motion.div
                 className="absolute inset-0 -skew-x-12 pointer-events-none"
                 style={{ background: "linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.12) 50%, transparent 100%)" }}
-                initial={{ x: "-100%" }}
-                animate={{ x: "220%" }}
+                initial={{ x: "-100%" }} animate={{ x: "220%" }}
                 transition={{ duration: 1.6, delay: 0.4, ease: "easeInOut" }}
               />
-              <div
-                className="absolute inset-0 pointer-events-none"
-                style={{ backgroundImage: "radial-gradient(circle at 88% 18%, rgba(255,255,255,0.18) 0%, transparent 50%)" }}
-              />
+              <div className="absolute inset-0 pointer-events-none" style={{ backgroundImage: "radial-gradient(circle at 88% 18%, rgba(255,255,255,0.18) 0%, transparent 50%)" }} />
               <div className="relative z-10 flex items-center justify-between px-5 py-4">
                 <div className="flex items-center gap-3">
-                  <div
-                    className="flex items-center justify-center w-10 h-10 rounded-xl"
-                    style={{ background: "rgba(255,255,255,0.15)", border: "1px solid rgba(255,255,255,0.25)" }}
-                  >
+                  <div className="flex items-center justify-center w-10 h-10 rounded-xl" style={{ background: "rgba(255,255,255,0.15)", border: "1px solid rgba(255,255,255,0.25)" }}>
                     <ShoppingBag className="h-5 w-5 text-white" />
                   </div>
                   <div className="text-left">
                     <p className="text-white font-bold text-base leading-tight">Place New Order</p>
-                    <p className="text-xs mt-0.5" style={{ color: "rgba(255,255,255,0.65)" }}>
-                      Fast &amp; secure P2P transaction
-                    </p>
+                    <p className="text-xs mt-0.5" style={{ color: "rgba(255,255,255,0.65)" }}>Fast &amp; secure P2P transaction</p>
                   </div>
                 </div>
-                <div
-                  className="flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-bold"
-                  style={{ background: "rgba(255,255,255,0.18)", border: "1px solid rgba(255,255,255,0.3)", color: "#fff" }}
-                >
-                  <Zap className="h-3 w-3" />
-                  <span>Start</span>
-                  <ArrowRight className="h-3 w-3" />
+                <div className="flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-bold" style={{ background: "rgba(255,255,255,0.18)", border: "1px solid rgba(255,255,255,0.3)", color: "#fff" }}>
+                  <Zap className="h-3 w-3" /><span>Start</span><ArrowRight className="h-3 w-3" />
                 </div>
               </div>
             </motion.button>
@@ -993,12 +1269,7 @@ const MobileApp = () => {
             <div className="flex justify-between items-center mb-3">
               <h2 className="text-lg font-semibold text-amber-900">Recent Transactions</h2>
               {recentTransactions.length > 0 && (
-                <button
-                  onClick={() => router.push("/history")}
-                  className="text-sm text-amber-600 hover:text-amber-700"
-                >
-                  View All
-                </button>
+                <button onClick={() => router.push("/history")} className="text-sm text-amber-600 hover:text-amber-700">View All</button>
               )}
             </div>
             {renderTransactionsSection()}
@@ -1014,7 +1285,6 @@ const MobileApp = () => {
           />
         )}
 
-        {/* ── Profile Picture Bottom Sheet ── */}
         <AnimatePresence>
           {showProfileSheet && (
             <ProfilePictureSheet
@@ -1025,11 +1295,7 @@ const MobileApp = () => {
           )}
         </AnimatePresence>
 
-        <BottomNav
-          handleTabChangeP={handleTabChange}
-          activeTabP={activeTab}
-          pendingP={numberOfOrder}
-        />
+        <BottomNav handleTabChangeP={handleTabChange} activeTabP={activeTab} pendingP={numberOfOrder} />
       </div>
     </ProtectedRoute>
   );
