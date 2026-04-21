@@ -1,6 +1,6 @@
 import axios from "axios";
 const axiosInstance = axios.create({
-  baseURL: "https://fidopoint.onrender.com/api/v1",
+  baseURL: "http://localhost:5000/api/v1",
   headers: {
     "Content-Type": "application/json", // default content-type for the API requests
   },
@@ -80,14 +80,6 @@ export async function POST(req) {
 
         break;
       
-      case "setWithdrawalBank":
-        response = await axiosInstance.post("/user/setPin", requestData, {
-          headers: {
-            Authorization: `Bearer ${accessToken}`,
-          },
-        });
-
-        break;
 
       case "orderAcceptOrCancel":
         response = await axiosInstance.post(
@@ -111,7 +103,23 @@ export async function POST(req) {
 
         break;
 
+        
+
       case "submitSupportRequest":
+        response = await axiosInstance.post(
+          "/user/submitUserMessage",
+          requestData,
+          {
+            headers: {
+              Authorization: `Bearer ${accessToken}`,
+            },
+          }
+        );
+
+        break;
+
+
+    case "complaintType":
         response = await axiosInstance.post(
           "/user/submitUserMessage",
           requestData,
@@ -190,9 +198,7 @@ export async function POST(req) {
 
         break;
 
-      
-
-         case "setWithdrawalBank":
+        case "setWithdrawalBank":
         response = await axiosInstance.post(
           "/user/setWithdrawalBank",
           requestData,
@@ -290,6 +296,34 @@ export async function POST(req) {
           "/user/updateMerchantProfile",
           externalFormData,
           config
+        );
+        break;
+
+
+      
+
+      case "updateUserProfileWithImage":
+        const config1 = {
+          headers: { Authorization: `Bearer ${accessToken}` },
+        };
+        config1.headers["Content-Type"] = "multipart/form-data";
+        response = await axiosInstance.post(
+          "/user/updateProfile",
+          externalFormData,
+          config1
+        );
+
+        break;
+
+      case "uploadNIN":
+        const config2={
+          headers: { Authorization: `Bearer ${accessToken}` },
+        }
+        config2.headers["Content-Type"] = "multipart/form-data";
+        response = await axiosInstance.post(
+          "/user/uploadNIN",
+          externalFormData,
+          config2
         );
 
         break;
@@ -632,12 +666,6 @@ export async function GET(req) {
         });
         break;
 
-      case "bank-details":
-        response = await axiosInstance.get("/user/bank-details", {
-          headers,
-          params: additionalParams,
-        });
-        break;
 
       default:
         return new Response(

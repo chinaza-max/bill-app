@@ -1,6 +1,6 @@
 "use client";
 import { toast, Toaster } from "sonner";
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import QRCode from "qrcode";
 import { XCircle } from "lucide-react";
 
@@ -20,6 +20,8 @@ import {
   Flag,
   Clock,
   Navigation,
+  Send,
+  Loader2,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useRouter, useParams } from "next/navigation";
@@ -29,6 +31,89 @@ import { useSelector } from "react-redux";
 import useRequest from "@/hooks/useRequest";
 import { useSocket } from "@/components/call/CallLayout";
 import { useCall } from "@/components/call/CallProvider";
+
+// ─────────────────────────────────────────────────────────────────────────────
+// ONBOARDING TOOLTIP
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * QROnboardingTooltip
+ *
+ * Shows a small animated tooltip anchored beneath the header icon on the
+ * user's FIRST visit. Persisted in localStorage so it never shows again
+ * after being dismissed.
+ *
+ * Props:
+ *   isMerchant  – boolean, controls copy and icon shown
+ *   onDismiss   – called when the user explicitly closes the tooltip
+ */
+const QROnboardingTooltip = ({ isMerchant, onDismiss }) => {
+  const heading = isMerchant
+    ? "Scan customer QR code"
+    : "View your order QR code";
+
+  const body = isMerchant
+    ? "Tap the scan icon to open the camera and verify the customer's barcode at delivery."
+    : "Tap the QR icon to display your barcode. Show it to the merchant to complete your order.";
+
+  const Icon = isMerchant ? ScanLine : QrCode;
+
+  return (
+    <AnimatePresence>
+      <motion.div
+        key="qr-onboarding-tooltip"
+        initial={{ opacity: 0, y: -6, scale: 0.96 }}
+        animate={{ opacity: 1, y: 0,  scale: 1 }}
+        exit={{    opacity: 0, y: -6, scale: 0.96 }}
+        transition={{ type: "spring", stiffness: 340, damping: 28 }}
+        // Position: fixed, just below the header (header is ~56 px tall + 8 px gap)
+        className="fixed top-[68px] right-3 z-[200] w-64 rounded-2xl bg-white shadow-xl border border-amber-100"
+        style={{ pointerEvents: "auto" }}
+      >
+        {/* Caret pointing up toward the icon */}
+        <div
+          className="absolute -top-2 right-5 w-4 h-4 bg-white border-l border-t border-amber-100 rotate-45 rounded-tl-sm"
+          aria-hidden="true"
+        />
+
+        <div className="p-4 pt-5">
+          {/* Icon + title row */}
+          <div className="flex items-start gap-3">
+            <div className="flex-shrink-0 w-9 h-9 rounded-xl bg-amber-50 flex items-center justify-center">
+              <Icon className="h-5 w-5 text-amber-500" />
+            </div>
+
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-semibold text-amber-900 leading-snug">
+                {heading}
+              </p>
+              <p className="mt-1 text-xs text-amber-600 leading-relaxed">
+                {body}
+              </p>
+            </div>
+
+            {/* Dismiss ✕ */}
+            <button
+              onClick={onDismiss}
+              className="flex-shrink-0 -mt-0.5 p-1 rounded-full text-amber-400 hover:text-amber-600 hover:bg-amber-50 transition-colors"
+              aria-label="Dismiss tip"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+
+          {/* Dismiss button (secondary CTA for clarity) */}
+          <button
+            onClick={onDismiss}
+            className="mt-3 w-full py-2 rounded-xl bg-amber-500 text-white text-xs font-medium hover:bg-amber-600 transition-colors"
+          >
+            Got it
+          </button>
+        </div>
+      </motion.div>
+    </AnimatePresence>
+  );
+};
 
 // ─────────────────────────────────────────────────────────────────────────────
 // MINI HOOKS
@@ -53,16 +138,6 @@ const useCancelOrder = () => {
     error: cancelError,
   } = useRequest();
   return { cancelData, cancelLoading, cancelOrder, cancelError };
-};
-
-const useQRGeneration = () => {
-  const {
-    data: qrCodeData,
-    loading: qrCodeLoading,
-    request: generateQRCode,
-    error: qrCodeError,
-  } = useRequest();
-  return { qrCodeData, qrCodeLoading, generateQRCode, qrCodeError };
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -355,7 +430,7 @@ const OrderStatusBadge = ({ status, startTime, endTime }) => {
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
-// MODAL
+// MODAL (centre overlay — for QR, map, cancel, success)
 // ─────────────────────────────────────────────────────────────────────────────
 
 const Modal = ({ isOpen, onClose, children }) => (
@@ -373,8 +448,202 @@ const Modal = ({ isOpen, onClose, children }) => (
 );
 
 // ─────────────────────────────────────────────────────────────────────────────
+// REPORT ISSUE — BOTTOM SHEET with complaint form
+// ─────────────────────────────────────────────────────────────────────────────
+
+const ISSUE_TYPES = [
+  "Delivery Delay",
+  "Wrong Order Details",
+  "Payment Issue",
+  "Other Issue",
+];
+
+const ReportBottomSheet = ({ isOpen, onClose, accessToken, userId, numericOrderId }) => {
+  const [selectedIssue,      setSelectedIssue]      = useState("");
+  const [complaint,          setComplaint]          = useState("");
+  const [isSubmitting,       setIsSubmitting]       = useState(false);
+  const [submitted,          setSubmitted]          = useState(false);
+
+  useEffect(() => {
+    if (isOpen) {
+      setSelectedIssue("");
+      setComplaint("");
+      setSubmitted(false);
+    }
+  }, [isOpen]);
+
+  const handleClose = useCallback(() => {
+    if (!isSubmitting) onClose();
+  }, [isSubmitting, onClose]);
+
+  const handleComplaintChange = useCallback((e) => {
+    setComplaint(e.target.value);
+  }, []);
+
+  const handleSubmit = useCallback(async () => {
+    if (!selectedIssue || !complaint.trim()) return;
+    setIsSubmitting(true);
+    try {
+      await fetch("/api/user", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          accessToken,
+          apiType:       "submitSupportRequest",
+          userId,
+          orderId:       numericOrderId,
+          title:         selectedIssue,
+          message:       complaint,
+          complaintType: "service",
+        }),
+      });
+      await new Promise((r) => setTimeout(r, 800));
+      setSubmitted(true);
+      setTimeout(() => {
+        onClose();
+        setSubmitted(false);
+      }, 2800);
+    } catch (err) {
+      console.error("Failed to submit report:", err);
+    } finally {
+      setIsSubmitting(false);
+    }
+  }, [selectedIssue, complaint, accessToken, userId, numericOrderId, onClose]);
+
+  const canSubmit = !!selectedIssue && complaint.trim().length > 0 && !isSubmitting;
+
+  return (
+    <AnimatePresence>
+      {isOpen && (
+        <>
+          <motion.div
+            key="report-backdrop"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.2 }}
+            className="fixed inset-0 z-40 bg-black/50"
+            onClick={handleClose}
+          />
+
+          <motion.div
+            key="report-sheet"
+            initial={{ y: "100%" }}
+            animate={{ y: 0 }}
+            exit={{ y: "100%" }}
+            transition={{ type: "spring", stiffness: 320, damping: 32 }}
+            className="fixed bottom-0 inset-x-0 z-50 bg-white rounded-t-2xl shadow-2xl"
+          >
+            <div className="flex justify-center pt-3 pb-1">
+              <div className="w-10 h-1 bg-amber-200 rounded-full" />
+            </div>
+
+            <div className="px-5 pb-10 pt-2">
+              {submitted ? (
+                <motion.div
+                  initial={{ opacity: 0, scale: 0.9 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  className="flex flex-col items-center py-8 text-center"
+                >
+                  <div className="w-14 h-14 rounded-full bg-amber-100 flex items-center justify-center mb-4">
+                    <CheckCircle className="h-7 w-7 text-amber-600" />
+                  </div>
+                  <h3 className="text-lg font-semibold text-amber-900 mb-1">Report submitted!</h3>
+                  <p className="text-amber-600 text-sm">We'll look into this and follow up with you.</p>
+                </motion.div>
+              ) : (
+                <>
+                  <div className="flex items-center justify-between mb-5">
+                    <div className="flex items-center space-x-2">
+                      <Flag className="h-5 w-5 text-amber-500" />
+                      <div>
+                        <h2 className="text-base font-semibold text-amber-900">Report an Issue</h2>
+                        <p className="text-xs text-amber-500 mt-0.5">Order #{numericOrderId}</p>
+                      </div>
+                    </div>
+                    <button
+                      onClick={handleClose}
+                      className="p-1.5 rounded-full bg-amber-50 text-amber-500 hover:bg-amber-100 transition-colors"
+                    >
+                      <X className="h-4 w-4" />
+                    </button>
+                  </div>
+
+                  <p className="text-xs font-medium text-amber-700 mb-2 uppercase tracking-wide">
+                    Select issue type
+                  </p>
+                  <div className="grid grid-cols-2 gap-2 mb-4">
+                    {ISSUE_TYPES.map((issue) => (
+                      <button
+                        key={issue}
+                        type="button"
+                        onClick={() => setSelectedIssue(issue)}
+                        className={`py-2.5 px-3 rounded-xl text-sm font-medium border transition-colors text-left ${
+                          selectedIssue === issue
+                            ? "bg-amber-500 text-white border-amber-500"
+                            : "bg-amber-50 text-amber-800 border-amber-200 hover:bg-amber-100"
+                        }`}
+                      >
+                        {issue}
+                      </button>
+                    ))}
+                  </div>
+
+                  <p className="text-xs font-medium text-amber-700 mb-2 uppercase tracking-wide">
+                    Describe the issue
+                  </p>
+                  <textarea
+                    value={complaint}
+                    onChange={handleComplaintChange}
+                    placeholder="Tell us what happened..."
+                    rows={4}
+                    className="w-full p-3 rounded-xl text-sm text-amber-900 placeholder-amber-300 bg-amber-50 border border-amber-200 focus:outline-none focus:ring-2 focus:ring-amber-400 resize-none leading-relaxed"
+                  />
+
+                  <div className="flex gap-2 mt-3">
+                    <button
+                      type="button"
+                      onClick={handleClose}
+                      disabled={isSubmitting}
+                      className="flex-1 py-2.5 rounded-xl text-sm font-medium text-amber-700 border border-amber-200 bg-amber-50 hover:bg-amber-100 transition-colors disabled:opacity-50"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleSubmit}
+                      disabled={!canSubmit}
+                      className="flex-1 py-2.5 rounded-xl text-sm font-medium bg-amber-500 text-white hover:bg-amber-600 transition-colors flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {isSubmitting ? (
+                        <>
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                          <span>Sending…</span>
+                        </>
+                      ) : (
+                        <>
+                          <span>Submit</span>
+                          <Send className="h-4 w-4" />
+                        </>
+                      )}
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
+          </motion.div>
+        </>
+      )}
+    </AnimatePresence>
+  );
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
 // MAIN PAGE
 // ─────────────────────────────────────────────────────────────────────────────
+
+// localStorage key — change version suffix to re-show after major UX changes
+const ONBOARDING_SEEN_KEY = "qr_icon_onboarding_seen_v1";
 
 const OrderTrackingPage = () => {
   const [showExternalMapModal, setShowExternalMapModal] = useState(false);
@@ -384,21 +653,33 @@ const OrderTrackingPage = () => {
   const [isMerchant,           setIsMerchant]           = useState(true);
   const [scanComplete,         setScanComplete]         = useState(false);
   const [currentLocation,      setCurrentLocation]      = useState(null);
-  const [showReportModal,      setShowReportModal]      = useState(false);
+  const [showReportSheet,      setShowReportSheet]      = useState(false);
   const [userType,             setUserType]             = useState("");
   const [showSuccessModal,     setShowSuccessModal]     = useState(false);
   const [successMessage,       setSuccessMessage]       = useState("");
+
+  // ── Onboarding tooltip state ────────────────────────────────────────────────
+  // Start as false; we resolve from localStorage inside the useEffect below
+  // so we avoid a SSR/hydration mismatch.
+  const [showOnboarding, setShowOnboarding] = useState(false);
+
+  const dismissOnboarding = useCallback(() => {
+    setShowOnboarding(false);
+    try {
+      localStorage.setItem(ONBOARDING_SEEN_KEY, "1");
+    } catch (_) {
+      // localStorage unavailable (private/incognito edge-case) — ignore
+    }
+  }, []);
 
   // ── Redux ───────────────────────────────────────────────────────────────────
   const accessToken = useSelector((state) => state.user.accessToken);
   const userId      = useSelector((state) => state.user.user?.user?.id ?? null);
   const user        = useSelector((state) => state.user.user?.user);
 
-  // ── Shared socket + global call state from layout ───────────────────────────
+  // ── Socket + call ───────────────────────────────────────────────────────────
   const socket = useSocket();
   const { startCall, activeCall } = useCall();
-  // ↑ AudioCallModal lives globally in IncomingCallModal (CallLayout)
-  // ↑ No local call state needed — CallProvider owns it all
 
   const {
     data: OrderDetails,
@@ -413,35 +694,39 @@ const OrderTrackingPage = () => {
   const router    = useRouter();
   const orderData = OrderDetails?.data?.data?.orderDetails;
 
-  // ── Outgoing call — uses global CallProvider ────────────────────────────────
-  const handleStartCall = () => {
-    // Guard: already in a call
-    if (activeCall) {
-      console.warn("Already in a call");
-      return;
-    }
-    if (!socket) {
-      console.warn("Socket not ready");
-      return;
-    }
+  const numericOrderId = orderData?.id ? Number(orderData.id) : null;
 
+  // ── Outgoing call ───────────────────────────────────────────────────────────
+  const handleStartCall = () => {
+    if (activeCall) { console.warn("Already in a call"); return; }
+    if (!socket)    { console.warn("Socket not ready");  return; }
     startCall({
       orderId:         orderData?.id,
       otherUserName:   orderData?.userDetails?.displayname,
       otherUserAvatar: orderData?.userDetails?.avatar,
       myName:          user?.firstName || "User",
       myAvatar:        user?.imageUrl  || "",
-      receiverId:      isMerchant
-                         ? orderData?.clientId
-                         : orderData?.merchantId,
+      receiverId:      isMerchant ? orderData?.clientId : orderData?.merchantId,
     });
   };
 
-  // ── Geolocation + userType ──────────────────────────────────────────────────
+  // ── Geolocation + userType + onboarding check ───────────────────────────────
   useEffect(() => {
     const stored = localStorage.getItem("who");
     if (stored) { setUserType(stored); setIsMerchant(stored === "merchant"); }
     else         { setUserType("merchant"); setIsMerchant(true); }
+
+    // Show onboarding tooltip only if user hasn't seen it before
+    try {
+      const seen = localStorage.getItem(ONBOARDING_SEEN_KEY);
+      if (!seen) {
+        // Small delay so the page header has time to render before the tooltip pops in
+        const timer = setTimeout(() => setShowOnboarding(true), 600);
+        return () => clearTimeout(timer);
+      }
+    } catch (_) {
+      // localStorage blocked — skip onboarding silently
+    }
 
     if (navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(
@@ -455,12 +740,7 @@ const OrderTrackingPage = () => {
   useEffect(() => {
     if (!socket || !orderData?.id) return;
 
-    socket.emit("joinOrderRoom", {
-      orderId:  orderData.id,
-      userType: userType,
-    });
-
-    console.log(`✅ Joined room order_${orderData.id} as ${userType}`);
+    socket.emit("joinOrderRoom", { orderId: orderData.id, userType });
 
     const onQrScanSuccess = () => {
       setShowQRScanner(false);
@@ -486,7 +766,6 @@ const OrderTrackingPage = () => {
       socket.off("orderStatusUpdate", onOrderStatusUpdate);
     };
   }, [socket, orderData?.id, userType]);
-  // ↑ callEnded and callDeclined are now handled by CallProvider — removed here
 
   // ── Fetch order ─────────────────────────────────────────────────────────────
   useEffect(() => {
@@ -506,7 +785,7 @@ const OrderTrackingPage = () => {
   };
 
   const openGoogleMaps = () => {
-    const dest = OrderDetails?.data?.data?.orderDetails?.userDetails?.destinationCoordinate;
+    const dest = orderData?.userDetails?.destinationCoordinate;
     if (!dest) return alert("Destination coordinates not available.");
     const url = currentLocation
       ? `https://www.google.com/maps/dir/?api=1&origin=${currentLocation.latitude},${currentLocation.longitude}&destination=${dest.lat},${dest.lng}&travelmode=driving`
@@ -559,7 +838,15 @@ const OrderTrackingPage = () => {
     <ProtectedRoute>
       <Toaster position="top-right" richColors />
 
-      {/* ── Active call indicator — tap to reopen modal ─────────────────────── */}
+      {/* ── QR icon onboarding tooltip (first-visit only) ─────────────────── */}
+      {showOnboarding && (
+        <QROnboardingTooltip
+          isMerchant={isMerchant}
+          onDismiss={dismissOnboarding}
+        />
+      )}
+
+      {/* Active call banner */}
       <AnimatePresence>
         {activeCall && (
           <motion.div
@@ -568,8 +855,7 @@ const OrderTrackingPage = () => {
             exit={{    y: -60, opacity: 0 }}
             className="fixed top-0 left-0 right-0 z-[150] px-3 pt-2 pointer-events-none"
           >
-            <div className="bg-green-600 text-white px-4 py-2 rounded-2xl flex items-center justify-center space-x-2 shadow-lg pointer-events-auto"
-              onClick={() => {/* GlobalAudioCallModal is always visible when activeCall exists */}}>
+            <div className="bg-green-600 text-white px-4 py-2 rounded-2xl flex items-center justify-center space-x-2 shadow-lg pointer-events-auto">
               <div className="w-2 h-2 rounded-full bg-white animate-pulse" />
               <span className="text-sm font-medium">
                 Call in progress · {activeCall.otherUserName || "Unknown"}
@@ -588,14 +874,27 @@ const OrderTrackingPage = () => {
               <ArrowLeft onClick={() => router.back()} className="h-6 w-6 cursor-pointer" />
               <h1 className="text-lg font-semibold">Order Details</h1>
             </div>
+
+            {/*
+              ── QR / Scan icon ─────────────────────────────────────────────
+              Tapping this icon dismisses the onboarding tooltip automatically
+              (user clearly understood what the button does).
+            */}
             {isMerchant ? (
-              <button onClick={() => setShowQRScanner(true)}
-                className="flex items-center space-x-2 bg-white/20 px-3 py-2 rounded-lg hover:bg-white/30 transition-colors">
-                <ScanLine className="h-5 w-5" /><span>Scan QR</span>
+              <button
+                onClick={() => { dismissOnboarding(); setShowQRScanner(true); }}
+                className="flex items-center space-x-2 bg-white/20 px-3 py-2 rounded-lg hover:bg-white/30 transition-colors"
+                aria-label="Scan customer QR code"
+              >
+                <ScanLine className="h-5 w-5" />
+                <span>Scan QR</span>
               </button>
             ) : (
-              <button onClick={() => setShowQRScanner(true)}
-                className="p-2 bg-amber-100 rounded-full text-black hover:bg-amber-200">
+              <button
+                onClick={() => { dismissOnboarding(); setShowQRScanner(true); }}
+                className="p-2 bg-amber-100 rounded-full text-black hover:bg-amber-200"
+                aria-label="View your order QR code"
+              >
                 <QrCode className="h-5 w-5" />
               </button>
             )}
@@ -641,7 +940,6 @@ const OrderTrackingPage = () => {
               </div>
 
               <div className="flex space-x-3">
-                {/* Phone button — disabled if already in call */}
                 <button
                   onClick={handleStartCall}
                   disabled={!!activeCall}
@@ -713,7 +1011,7 @@ const OrderTrackingPage = () => {
           </div>
         </div>
 
-        {/* QR Scanner */}
+        {/* QR Scanner Modal */}
         <Modal isOpen={showQRScanner} onClose={() => setShowQRScanner(false)}>
           {isMerchant
             ? <MerchantScanner
@@ -729,25 +1027,6 @@ const OrderTrackingPage = () => {
                 accessToken={accessToken}
               />
           }
-        </Modal>
-
-        {/* Report Modal */}
-        <Modal isOpen={showReportModal} onClose={() => setShowReportModal(false)}>
-          <div className="flex items-start justify-between mb-4">
-            <div className="flex items-center space-x-2">
-              <Flag className="h-6 w-6 text-amber-500" />
-              <h3 className="text-lg font-semibold text-amber-900">Report Issue</h3>
-            </div>
-            <button onClick={() => setShowReportModal(false)}><X className="h-6 w-6 text-amber-500" /></button>
-          </div>
-          <div className="space-y-4">
-            {["Delivery Delay", "Wrong Order Details", "Payment Issue", "Other Issue"].map((issue) => (
-              <button key={issue} onClick={() => router.push(`/orders/order/complain`)}
-                className="w-full p-3 text-left border border-amber-200 rounded-lg hover:bg-amber-50">
-                {issue}
-              </button>
-            ))}
-          </div>
         </Modal>
 
         {/* External Map Modal */}
@@ -768,7 +1047,7 @@ const OrderTrackingPage = () => {
           </div>
         </Modal>
 
-        {/* In-App Map */}
+        {/* In-App Map Modal */}
         <Modal isOpen={showInAppMap} onClose={() => setShowInAppMap(false)}>
           <div className="flex items-start justify-between mb-4">
             <h3 className="text-lg font-semibold text-amber-900">Live Tracking</h3>
@@ -777,7 +1056,7 @@ const OrderTrackingPage = () => {
           <LeafletMap orderData={orderData} />
         </Modal>
 
-        {/* Cancel Order */}
+        {/* Cancel Order Modal */}
         <Modal isOpen={showCancelOrderModal} onClose={() => setShowCancelOrderModal(false)}>
           <div className="flex items-start justify-between mb-4">
             <div className="flex items-center space-x-2">
@@ -810,18 +1089,24 @@ const OrderTrackingPage = () => {
           </div>
         </Modal>
 
+        {/* Report Issue — Bottom Sheet */}
+        <ReportBottomSheet
+          isOpen={showReportSheet}
+          onClose={() => setShowReportSheet(false)}
+          accessToken={accessToken}
+          userId={userId}
+          numericOrderId={numericOrderId}
+        />
+
         {/* Fixed Report Button */}
         <div className="fixed bottom-0 left-0 right-0 p-4 bg-white shadow-lg z-10">
-          <button onClick={() => setShowReportModal(true)}
-            className="w-full p-3 bg-amber-100 text-amber-600 rounded-lg flex items-center justify-center space-x-2 hover:bg-amber-200">
+          <button
+            onClick={() => setShowReportSheet(true)}
+            className="w-full p-3 bg-amber-100 text-amber-600 rounded-lg flex items-center justify-center space-x-2 hover:bg-amber-200"
+          >
             <Flag className="h-5 w-5" /><span>Report Issue</span>
           </button>
         </div>
-
-        {/* ── NO AudioCallModal here anymore ───────────────────────────────────
-            It lives globally in:
-            CallLayout → IncomingCallModal → GlobalAudioCallModal
-            and persists across all page navigation                           */}
 
       </div>
     </ProtectedRoute>

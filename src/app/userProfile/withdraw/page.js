@@ -13,6 +13,8 @@ import {
   Loader2,
   Wallet,
   ShieldCheck,
+  User,
+  CreditCard,
 } from "lucide-react";
 
 const MIN_AMOUNT = 1000;
@@ -24,49 +26,44 @@ const PRESETS = [1000, 2000, 5000, 10000, 20000];
 const fmt = (n) => Number(n).toLocaleString("en-NG");
 const raw = (s) => Number(String(s).replace(/[^\d]/g, "")) || 0;
 
-// ── Parse wallet balance — mirrors MobileApp logic exactly ────────────────────
-// Redux shape: state.user.user = the actual user object
-// walletBalance can be: number | numeric string | JSON string | object
+// ── Parse wallet balance ──────────────────────────────────────────────────────
 const parseWalletBalance = (rawBalance) => {
   try {
     if (rawBalance === null || rawBalance === undefined) return 0;
-
     if (typeof rawBalance === "number") return rawBalance;
-
     if (typeof rawBalance === "string") {
-      // Try parsing as JSON first: '{"current":5000,"previous":3000}'
       try {
         const parsed = JSON.parse(rawBalance);
         return parsed?.current ?? parsed?.previous ?? 0;
       } catch {
-        // Plain numeric string e.g. "5000"
         return parseFloat(rawBalance) || 0;
       }
     }
-
     if (typeof rawBalance === "object") {
       return rawBalance?.current ?? rawBalance?.previous ?? 0;
     }
-
     return 0;
   } catch {
     return 0;
   }
 };
 
+// ── Mask account number: show first 3 and last 3 ─────────────────────────────
+const maskAccount = (acc) => {
+  if (!acc || acc.length < 6) return acc;
+  return `${acc.slice(0, 3)}****${acc.slice(-3)}`;
+};
+
 const WithdrawPage = () => {
   const router = useRouter();
   const accessToken = useSelector((s) => s.user.accessToken);
 
-  // ── Try all possible nesting paths — log to find correct one ───────────────
   const reduxUser = useSelector((s) => s.user);
 
-  // Check all possible paths your Redux store might use
-  const path1 = reduxUser?.user?.walletBalance;           // state.user.user.walletBalance
-  const path2 = reduxUser?.user?.user?.walletBalance;     // state.user.user.user.walletBalance
-  const path3 = reduxUser?.walletBalance;                 // state.user.walletBalance
+  const path1 = reduxUser?.user?.walletBalance;
+  const path2 = reduxUser?.user?.user?.walletBalance;
+  const path3 = reduxUser?.walletBalance;
 
-  // Log once so you can see exact store shape in browser console
   useEffect(() => {
     console.log("=== WALLET DEBUG ===");
     console.log("Full state.user:", JSON.stringify(reduxUser, null, 2));
@@ -76,21 +73,20 @@ const WithdrawPage = () => {
     console.log("===================");
   }, [reduxUser]);
 
-  // Use whichever path has a value — fallback chain
   const rawWalletBalance = path1 ?? path2 ?? path3;
   const walletBalance = parseWalletBalance(rawWalletBalance);
 
   // ── State ─────────────────────────────────────────────────────────────────
-  const [bankDetails, setBankDetails]   = useState(null);
-  const [bankLoading, setBankLoading]   = useState(true);
-  const [bankError, setBankError]       = useState("");
+  const [bankDetails, setBankDetails] = useState(null);
+  const [bankLoading, setBankLoading] = useState(true);
+  const [bankError, setBankError]     = useState("");
 
-  const [amountStr, setAmountStr]       = useState("");
-  const [amountError, setAmountError]   = useState("");
+  const [amountStr, setAmountStr]     = useState("");
+  const [amountError, setAmountError] = useState("");
 
-  const [submitting, setSubmitting]     = useState(false);
-  const [submitError, setSubmitError]   = useState("");
-  const [success, setSuccess]           = useState(false);
+  const [submitting, setSubmitting]   = useState(false);
+  const [submitError, setSubmitError] = useState("");
+  const [success, setSuccess]         = useState(false);
 
   // ── Fetch bank details ────────────────────────────────────────────────────
   const fetchBankDetails = useCallback(async () => {
@@ -106,12 +102,19 @@ const WithdrawPage = () => {
       });
       if (!res.ok) throw new Error(`${res.status}`);
       const json = await res.json();
-      if (!json?.data?.hasBankDetails) {
+
+      // ── API data is nested at data.data ──
+      // Response shape: { data: { hasBankDetails, settlementAccount, bankCode, bankName, accountName } }
+      const payload = json?.data?.data ?? json?.data ?? json;
+
+      if (!payload?.hasBankDetails) {
         localStorage.setItem("pendingWithdrawalRedirect", "true");
-        router.replace("/userProfile/bankDetails");
+        router.replace("/userProfile/merchantProfile/merchantHome/settings/settingUpAccount");
         return;
       }
-      setBankDetails(json.data);
+
+      // payload now contains: hasBankDetails, settlementAccount, bankCode, bankName, accountName
+      setBankDetails(payload);
     } catch (e) {
       setBankError("Could not load bank details. Please try again.");
     } finally {
@@ -138,9 +141,9 @@ const WithdrawPage = () => {
   const numericAmount = raw(amountStr);
 
   const validate = () => {
-    if (!numericAmount)                       { setAmountError("Please enter an amount."); return false; }
-    if (numericAmount < MIN_AMOUNT)           { setAmountError(`Minimum withdrawal is ₦${fmt(MIN_AMOUNT)}.`); return false; }
-    if (numericAmount > walletBalance)        { setAmountError("Amount exceeds your wallet balance."); return false; }
+    if (!numericAmount)                { setAmountError("Please enter an amount."); return false; }
+    if (numericAmount < MIN_AMOUNT)    { setAmountError(`Minimum withdrawal is ₦${fmt(MIN_AMOUNT)}.`); return false; }
+    if (numericAmount > walletBalance) { setAmountError("Amount exceeds your wallet balance."); return false; }
     return true;
   };
 
@@ -192,8 +195,10 @@ const WithdrawPage = () => {
           <p className="text-amber-700 text-sm mb-1">
             <span className="font-bold text-lg">₦{fmt(numericAmount)}</span>
           </p>
+          {/* accountName on success screen */}
+          <p className="text-amber-800 text-sm font-bold mb-0.5">{bankDetails?.accountName}</p>
           <p className="text-amber-600 text-xs mb-1">
-            To: {bankDetails?.bankName} — {bankDetails?.settlementAccount}
+            {bankDetails?.bankName} — {bankDetails?.settlementAccount}
           </p>
           <p className="text-gray-400 text-xs mb-8">
             Funds are typically received within minutes.
@@ -245,11 +250,12 @@ const WithdrawPage = () => {
       {/* ── Main content ── */}
       <div className="flex-1 overflow-auto px-4 py-5 space-y-4">
 
-        {/* Bank details card */}
+        {/* ── Bank details card ── */}
         <div>
           <p className="text-xs font-bold uppercase tracking-widest text-amber-700 mb-2 px-1">
             Withdrawal Account
           </p>
+
           {bankLoading ? (
             <div className="bg-white rounded-2xl p-4 flex items-center gap-3 shadow-sm">
               <Loader2 className="h-5 w-5 text-amber-500 animate-spin" />
@@ -264,28 +270,84 @@ const WithdrawPage = () => {
               </button>
             </div>
           ) : bankDetails ? (
+            /* ── Verified bank card: bankName + accountName + settlementAccount ── */
             <motion.div
               initial={{ opacity: 0, y: 8 }}
               animate={{ opacity: 1, y: 0 }}
-              className="bg-white rounded-2xl p-4 shadow-sm flex items-center gap-3"
-              style={{ border: "1.5px solid rgba(251,191,36,0.25)" }}
+              className="bg-white rounded-2xl shadow-sm overflow-hidden"
+              style={{ border: "1.5px solid rgba(251,191,36,0.3)" }}
             >
+              {/* Top strip — bank name + change button */}
               <div
-                className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0"
-                style={{ background: "linear-gradient(135deg, #fef3c7, #fde68a)" }}
+                className="px-4 py-3 flex items-center gap-3"
+                style={{ background: "linear-gradient(135deg, #fffbeb, #fef3c7)" }}
               >
-                <Building2 className="h-5 w-5 text-amber-700" />
+                <div
+                  className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 shadow-sm"
+                  style={{ background: "linear-gradient(135deg, #f59e0b, #b45309)" }}
+                >
+                  <Building2 className="h-5 w-5 text-white" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-extrabold text-amber-900 truncate">{bankDetails.bankName}</p>
+                  <p className="text-[11px] text-amber-500 font-mono tracking-widest">
+                    {maskAccount(bankDetails.settlementAccount)}
+                  </p>
+                </div>
+                <button
+                  onClick={() => router.push("/userProfile/merchantProfile/merchantHome/settings/settingUpAccount")}
+                  className="flex items-center gap-0.5 text-[11px] font-bold text-amber-600 bg-white px-2.5 py-1 rounded-lg border border-amber-200 shadow-sm"
+                >
+                  Change <ChevronRight className="h-3 w-3" />
+                </button>
               </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-bold text-amber-900 truncate">{bankDetails.bankName}</p>
-                <p className="text-xs text-amber-600 font-mono">{bankDetails.settlementAccount}</p>
+
+              {/* Thin divider */}
+              <div className="h-px mx-4" style={{ background: "rgba(251,191,36,0.2)" }} />
+
+              {/* Bottom section — account name row + account number row */}
+              <div className="px-4 py-3 space-y-3">
+
+                {/* Account Name */}
+                <div className="flex items-center gap-3">
+                  <div
+                    className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0"
+                    style={{ background: "linear-gradient(135deg, #d1fae5, #a7f3d0)" }}
+                  >
+                    <User className="h-4 w-4 text-emerald-600" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider leading-none mb-0.5">
+                      Account Name
+                    </p>
+                    <p className="text-sm font-bold text-gray-800 truncate">
+                      {bankDetails.accountName}
+                    </p>
+                  </div>
+                  <span className="flex items-center gap-1 text-[10px] font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-100 flex-shrink-0">
+                    <CheckCircle2 className="h-3 w-3" /> Verified
+                  </span>
+                </div>
+
+                {/* Account Number */}
+                <div className="flex items-center gap-3">
+                  <div
+                    className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0"
+                    style={{ background: "linear-gradient(135deg, #fef3c7, #fde68a)" }}
+                  >
+                    <CreditCard className="h-4 w-4 text-amber-600" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider leading-none mb-0.5">
+                      Account Number
+                    </p>
+                    <p className="text-sm font-bold text-gray-800 font-mono tracking-widest">
+                      {bankDetails.settlementAccount}
+                    </p>
+                  </div>
+                </div>
+
               </div>
-              <button
-                onClick={() => router.push("/userProfile/merchantProfile/merchantHome/settings/settingUpAccount")}
-                className="flex items-center gap-0.5 text-[11px] font-semibold text-amber-500"
-              >
-                Change <ChevronRight className="h-3.5 w-3.5" />
-              </button>
             </motion.div>
           ) : (
             /* ── No bank details yet ── */
@@ -320,7 +382,7 @@ const WithdrawPage = () => {
           )}
         </div>
 
-        {/* Amount input */}
+        {/* ── Amount input ── */}
         <div>
           <p className="text-xs font-bold uppercase tracking-widest text-amber-700 mb-2 px-1">
             Amount
@@ -352,7 +414,7 @@ const WithdrawPage = () => {
               )}
             </p>
 
-            {/* Quick-pick presets — disable any that exceed balance */}
+            {/* Quick-pick presets */}
             <div className="flex gap-2 flex-wrap">
               {PRESETS.map((p) => {
                 const overBalance = walletBalance > 0 && p > walletBalance;
@@ -373,7 +435,6 @@ const WithdrawPage = () => {
                 );
               })}
 
-              {/* "All" button — withdraw full balance */}
               {walletBalance > 0 && (
                 <button
                   onClick={() => handlePreset(walletBalance)}
@@ -405,7 +466,7 @@ const WithdrawPage = () => {
           </AnimatePresence>
         </div>
 
-        {/* Summary */}
+        {/* ── Summary ── */}
         <AnimatePresence>
           {numericAmount >= MIN_AMOUNT && numericAmount <= walletBalance && (
             <motion.div
@@ -420,9 +481,14 @@ const WithdrawPage = () => {
                 <span className="text-amber-600">You withdraw</span>
                 <span className="font-bold text-amber-900">₦{fmt(numericAmount)}</span>
               </div>
+              {/* Account name in summary */}
+              <div className="flex justify-between text-sm">
+                <span className="text-amber-600">Account name</span>
+                <span className="font-semibold text-amber-800 text-xs">{bankDetails?.accountName}</span>
+              </div>
               <div className="flex justify-between text-sm">
                 <span className="text-amber-600">To account</span>
-                <span className="font-semibold text-amber-800 text-xs">{bankDetails?.settlementAccount}</span>
+                <span className="font-semibold text-amber-800 text-xs font-mono">{bankDetails?.settlementAccount}</span>
               </div>
               <div className="flex justify-between text-sm">
                 <span className="text-amber-600">Remaining balance</span>

@@ -1,17 +1,15 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { X, Delete, ArrowRight, Loader2, ArrowLeft, AlertCircle } from "lucide-react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useEnterPassCode } from "@/hooks/useAuth";
 import { Dosis } from "next/font/google";
-
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { useDispatch } from "react-redux";
 import { setUser, setPasscodeStatus } from "@/store/slice";
 import { encryptUserData } from "../../utils/data-encryption";
-
 import {
   encryptData,
   decryptData,
@@ -27,21 +25,6 @@ const LOCKOUT_DURATION = 30 * 60 * 1000;
 const MAX_ATTEMPTS = 7;
 const RESET_BUTTON_THRESHOLD = 3;
 
-// ─── Resolve destination based on merchantActivated flag ─────────────────────
-const resolveDestinationFromUser = (merchantActivated) => {
-  if (merchantActivated) return '/userProfile/merchantProfile/merchantHome';
-  return '/home';
-};
-
-// ─── Fallback: resolve from localStorage 'who' if user object unavailable ────
-const resolveDestinationFromStorage = () => {
-  if (typeof window === 'undefined') return null;
-  const who = localStorage.getItem('who');
-  if (!who) return null;
-  if (who === 'client') return '/home';
-  return '/userProfile/merchantProfile/merchantHome';
-};
-
 const SecureLogin = () => {
   const [pin, setPin] = useState("");
   const [numbers, setNumbers] = useState([]);
@@ -54,22 +37,22 @@ const SecureLogin = () => {
   const [resetSuccess, setResetSuccess] = useState(false);
   const [resetError, setResetError] = useState(null);
   const [noEmailError, setNoEmailError] = useState(false);
-  const [resolvedDestination, setResolvedDestination] = useState(null); // ← store destination from success cb
+
+  const destinationRef = useRef(null);
 
   const router   = useRouter();
   const dispatch = useDispatch();
 
-  // ── On mount: if no email in storage → redirect to sign-in ───────────────
+  // On mount: if no email in storage → redirect to sign-in
   useEffect(() => {
     const storedEmail = getDecryptedData("emailEncrypt");
     if (!storedEmail) {
-      // No email found — user must sign in first
       router.replace('/sign-in');
     }
   }, []);
 
   const { mutate, isLoading, isError, error, isSuccess, reset } =
-    useEnterPassCode(async (data) => {
+    useEnterPassCode((data) => {
       const user = data.data.data.modifiedUser;
 
       dispatch(
@@ -81,25 +64,22 @@ const SecureLogin = () => {
       );
 
       dispatch(
-        setPasscodeStatus({
-          isPasscodeEntered: true,
-        })
+        setPasscodeStatus({ isPasscodeEntered: true })
       );
 
       const details = {
-        emailAddress: user.emailAddress,
-        firstName:    user.firstName,
-        lastName:     user.lastName,
-        phoneNumber:  user.phoneNumber,
-        imageUrl:     user.imageUrl,
+        emailAddress:      user.emailAddress,
+        firstName:         user.firstName,
+        lastName:          user.lastName,
+        phoneNumber:       user.phoneNumber,
+        imageUrl:          user.imageUrl,
         merchantActivated: user.merchantActivated,
       };
 
       localStorage.setItem("user", JSON.stringify(details));
 
-      // ✅ Always set 'who' from actual API response — not from pre-existing storage
-      const isMerchant = user.merchantActivated;
-      localStorage.setItem('who', isMerchant ? 'merchant' : 'client');
+      // ✅ Read 'who' from localStorage — set earlier during sign-in, not derived here
+      const who = localStorage.getItem('who');
 
       const stateData = {
         isPasscodeEntered: true,
@@ -110,11 +90,12 @@ const SecureLogin = () => {
       const encryptedDatas = encryptUserData(stateData);
       localStorage.setItem("userData", encryptedDatas);
 
-      // ✅ Resolve destination HERE while we still have user data
-      const destination = resolveDestinationFromUser(isMerchant);
-      setResolvedDestination(destination);
+      // ✅ Derive destination from existing 'who' in localStorage
+      destinationRef.current = who === 'merchant'
+        ? '/userProfile/merchantProfile/merchantHome'
+        : '/home';
 
-      // Reset failed attempts on successful login
+      // Reset failed attempts
       setAttempts(0);
       localStorage.removeItem("pinAttempts");
       localStorage.removeItem("lockoutEndTime");
@@ -167,12 +148,25 @@ const SecureLogin = () => {
     return () => clearInterval(interval);
   }, [isLockedOut, lockoutEndTime]);
 
-  // ── On success: route using destination resolved in the success callback ──
+  // ✅ Redirect on success — read from ref, which is always synchronously set
   useEffect(() => {
-    if (isSuccess && resolvedDestination) {
-      router.push(resolvedDestination);
+    if (!isSuccess) return;
+
+    const destination = destinationRef.current;
+
+    if (destination) {
+      router.push(destination);
+      return;
     }
-  }, [isSuccess, resolvedDestination]);
+
+    // Safety fallback: read 'who' from localStorage
+    const who = localStorage.getItem('who');
+    router.push(
+      who === 'merchant'
+        ? '/userProfile/merchantProfile/merchantHome'
+        : '/home'
+    );
+  }, [isSuccess]);
 
   useEffect(() => {
     randomizeNumbers();
@@ -248,7 +242,6 @@ const SecureLogin = () => {
 
     if (!storedEmail) {
       setResetError("No email found. Please sign in again.");
-      // Redirect to sign-in after a short delay so the user sees the error
       setTimeout(() => { router.replace('/sign-in'); }, 2500);
       return;
     }
@@ -293,7 +286,6 @@ const SecureLogin = () => {
     const storedEmail = getDecryptedData("emailEncrypt");
 
     if (!storedEmail) {
-      // ✅ Email missing from storage — redirect to sign-in with a visible error
       setNoEmailError(true);
       setIsSubmitting(false);
       setTimeout(() => { router.replace('/sign-in'); }, 2500);

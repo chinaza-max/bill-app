@@ -34,8 +34,7 @@ const WalletBalanceCard = ({ balance = 125000, isVisible: isVisibleProp, onToggl
       const response = await fetch(`/api/user?apiType=bank-details&token=${accessToken}`);
       const result = await response.json();
 
-
-      if (result?.data?.hasBankDetails) {
+      if (result?.data?.data?.hasBankDetails) {
         router.push("/userProfile/withdraw");
       } else {
         localStorage.setItem("redirectAfterBankSetup", "/userProfile/withdraw");

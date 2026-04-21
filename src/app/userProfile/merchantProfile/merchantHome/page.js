@@ -18,7 +18,6 @@ import {
   X,
   ArrowRight,
   Megaphone,
-  MapPin,
   User,
   DollarSign,
   ChevronRight,
@@ -31,6 +30,7 @@ import { useRouter } from "next/navigation";
 import ProtectedRoute from "@/app/component/protect";
 import useRequest from "@/hooks/useRequest";
 import Image from "next/image";
+import { useLocationService } from "@/hooks/locationService";
 
 // ─── Haversine distance (returns metres) ─────────────────────────────────────
 const haversineDistance = (lat1, lng1, lat2, lng2) => {
@@ -107,7 +107,6 @@ const PendingOrderModal = ({
 
   return (
     <AnimatePresence>
-      {/* Backdrop — clicking it dismisses without accepting/rejecting */}
       <motion.div
         key="pending-backdrop"
         initial={{ opacity: 0 }}
@@ -116,7 +115,6 @@ const PendingOrderModal = ({
         className="fixed inset-0 z-50 flex items-end justify-center bg-black/60 backdrop-blur-sm"
         onClick={onDismiss}
       >
-        {/* Sheet — stop clicks propagating to backdrop */}
         <motion.div
           key="pending-sheet"
           initial={{ y: "100%" }}
@@ -126,12 +124,10 @@ const PendingOrderModal = ({
           className="relative w-full max-w-lg bg-white rounded-t-2xl overflow-hidden shadow-2xl"
           onClick={(e) => e.stopPropagation()}
         >
-          {/* Drag handle */}
           <div className="flex justify-center pt-3 pb-1">
             <div className="w-10 h-1 rounded-full bg-gray-200" />
           </div>
 
-          {/* Header */}
           <div className="flex items-center justify-between px-5 py-3 border-b border-gray-100">
             <div className="flex items-center gap-2">
               <div className="w-2 h-2 rounded-full bg-yellow-400 animate-pulse" />
@@ -145,7 +141,6 @@ const PendingOrderModal = ({
                   {queueCount - 1} more waiting
                 </span>
               )}
-              {/* Close / dismiss button */}
               <button
                 onClick={onDismiss}
                 className="w-7 h-7 rounded-full bg-gray-100 hover:bg-gray-200 flex items-center justify-center transition-colors"
@@ -156,9 +151,7 @@ const PendingOrderModal = ({
             </div>
           </div>
 
-          {/* Order Details */}
           <div className="px-5 py-4 space-y-3">
-            {/* Customer row with avatar */}
             <div className="flex items-center gap-3">
               <div className="w-11 h-11 rounded-full bg-emerald-100 flex items-center justify-center flex-shrink-0 overflow-hidden">
                 {clientImage ? (
@@ -174,44 +167,30 @@ const PendingOrderModal = ({
                 )}
               </div>
               <div className="min-w-0">
-                <p className="text-xs text-gray-400 leading-none mb-0.5">
-                  Customer
-                </p>
-                <p className="text-sm font-semibold text-gray-900 truncate">
-                  {customerName}
-                </p>
+                <p className="text-xs text-gray-400 leading-none mb-0.5">Customer</p>
+                <p className="text-sm font-semibold text-gray-900 truncate">{customerName}</p>
               </div>
             </div>
 
-            {/* Phone */}
             {phone && (
               <div className="flex items-center gap-3">
                 <div className="w-9 h-9 rounded-full bg-purple-100 flex items-center justify-center flex-shrink-0">
                   <Phone className="w-4 h-4 text-purple-600" />
                 </div>
                 <div className="min-w-0">
-                  <p className="text-xs text-gray-400 leading-none mb-0.5">
-                    Phone
-                  </p>
-                  <p className="text-sm font-semibold text-gray-900">
-                    0{phone}
-                  </p>
+                  <p className="text-xs text-gray-400 leading-none mb-0.5">Phone</p>
+                  <p className="text-sm font-semibold text-gray-900">0{phone}</p>
                 </div>
               </div>
             )}
 
-            {/* Amount */}
             <div className="flex items-center gap-3">
               <div className="w-9 h-9 rounded-full bg-green-100 flex items-center justify-center flex-shrink-0">
                 <DollarSign className="w-4 h-4 text-green-600" />
               </div>
               <div className="min-w-0">
-                <p className="text-xs text-gray-400 leading-none mb-0.5">
-                  Total Amount
-                </p>
-                <p className="text-sm font-semibold text-gray-900">
-                  {formatCurrency(totalAmount)}
-                </p>
+                <p className="text-xs text-gray-400 leading-none mb-0.5">Total Amount</p>
+                <p className="text-sm font-semibold text-gray-900">{formatCurrency(totalAmount)}</p>
                 {orderAmount && orderAmount !== totalAmount && (
                   <p className="text-xs text-gray-400 leading-none mt-0.5">
                     Order: {formatCurrency(orderAmount)} + fee
@@ -220,24 +199,18 @@ const PendingOrderModal = ({
               </div>
             </div>
 
-            {/* Distance */}
             {distanceText && (
               <div className="flex items-center gap-3">
                 <div className="w-9 h-9 rounded-full bg-blue-100 flex items-center justify-center flex-shrink-0">
                   <Navigation className="w-4 h-4 text-blue-500" />
                 </div>
                 <div className="min-w-0">
-                  <p className="text-xs text-gray-400 leading-none mb-0.5">
-                    Distance
-                  </p>
-                  <p className="text-sm font-semibold text-gray-900">
-                    {distanceText}
-                  </p>
+                  <p className="text-xs text-gray-400 leading-none mb-0.5">Distance</p>
+                  <p className="text-sm font-semibold text-gray-900">{distanceText}</p>
                 </div>
               </div>
             )}
 
-            {/* Note */}
             {note && (
               <div className="bg-gray-50 rounded-xl px-4 py-3">
                 <p className="text-xs text-gray-400 mb-1">Note</p>
@@ -245,14 +218,12 @@ const PendingOrderModal = ({
               </div>
             )}
 
-            {/* Order ID */}
             <div className="flex items-center justify-between text-xs text-gray-400">
               <span>Order ID</span>
               <span className="font-mono">{orderId}</span>
             </div>
           </div>
 
-          {/* Actions */}
           <div className="px-5 pb-6 pt-2 flex gap-3">
             <motion.button
               whileHover={{ scale: 1.02 }}
@@ -278,9 +249,7 @@ const PendingOrderModal = ({
                 <>
                   <CheckCircle className="w-4 h-4" />
                   Accept
-                  {queueCount > 1 && (
-                    <ChevronRight className="w-4 h-4 opacity-70" />
-                  )}
+                  {queueCount > 1 && <ChevronRight className="w-4 h-4 opacity-70" />}
                 </>
               )}
             </motion.button>
@@ -361,9 +330,7 @@ const AdsSetupDialog = ({ onClose, onSetupAds, pricingImage }) => {
             </button>
 
             <div className="absolute top-3 left-3 bg-white/20 backdrop-blur-sm rounded-full px-3 py-1">
-              <span className="text-white text-xs font-semibold tracking-wide">
-                Pricing
-              </span>
+              <span className="text-white text-xs font-semibold tracking-wide">Pricing</span>
             </div>
           </div>
 
@@ -372,15 +339,12 @@ const AdsSetupDialog = ({ onClose, onSetupAds, pricingImage }) => {
               <div className="w-8 h-8 rounded-full bg-emerald-100 flex items-center justify-center">
                 <Megaphone className="w-4 h-4 text-emerald-600" />
               </div>
-              <h2 className="text-lg font-bold text-gray-900">
-                Set Up Your Ads
-              </h2>
+              <h2 className="text-lg font-bold text-gray-900">Set Up Your Ads</h2>
             </div>
 
             <p className="text-sm text-gray-500 mb-4 leading-relaxed">
               Ads let customers discover you by showing how much you charge for
-              cash delivery. Without an active ad, you are invisible to new
-              clients.
+              cash delivery. Without an active ad, you are invisible to new clients.
             </p>
 
             <ul className="space-y-2 mb-5">
@@ -389,10 +353,7 @@ const AdsSetupDialog = ({ onClose, onSetupAds, pricingImage }) => {
                 "Appear in customer search results",
                 "Grow your merchant income",
               ].map((point, i) => (
-                <li
-                  key={i}
-                  className="flex items-center gap-2 text-sm text-gray-700"
-                >
+                <li key={i} className="flex items-center gap-2 text-sm text-gray-700">
                   <CheckCircle className="w-4 h-4 text-emerald-500 flex-shrink-0" />
                   {point}
                 </li>
@@ -458,16 +419,43 @@ const MerchantApp = () => {
 
   const [showAdsSetupDialog, setShowAdsSetupDialog] = useState(false);
   const [pendingOrdersQueue, setPendingOrdersQueue] = useState([]);
-
-  // ── Tracks which index in the queue is currently shown (null = all hidden) ─
   const [visibleIndex, setVisibleIndex] = useState(null);
-
-  const [merchantCoords, setMerchantCoords] = useState(null);
 
   const router = useRouter();
   const intervalRef = useRef(null);
   const myUserData = useSelector((state) => state.user.user);
   const accessToken = useSelector((state) => state.user.accessToken);
+
+  const {
+    getCurrentLocation,
+    locationStatus,
+    currentAccuracy,
+    lastLocationUpdate,
+  } = useLocationService();
+
+  const [merchantCoords, setMerchantCoords] = useState(null);
+
+  useEffect(() => {
+    (async () => {
+      const coords = await getCurrentLocation();
+      if (coords?.lat != null && coords?.lng != null) {
+        setMerchantCoords({ lat: coords.lat, lng: coords.lng });
+      }
+    })();
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    const handleVisibility = async () => {
+      if (document.visibilityState === "visible") {
+        const coords = await getCurrentLocation();
+        if (coords?.lat != null && coords?.lng != null) {
+          setMerchantCoords({ lat: coords.lat, lng: coords.lng });
+        }
+      }
+    };
+    document.addEventListener("visibilitychange", handleVisibility);
+    return () => document.removeEventListener("visibilitychange", handleVisibility);
+  }, [getCurrentLocation]);
 
   const defaultMerchantData = {
     Balance: 0,
@@ -480,7 +468,6 @@ const MerchantApp = () => {
 
   const [merchantData, setMerchantData] = useState(defaultMerchantData);
 
-  // ── When queue gets new orders, show first one if nothing is visible ───────
   useEffect(() => {
     if (pendingOrdersQueue.length > 0 && visibleIndex === null) {
       setVisibleIndex(0);
@@ -490,21 +477,6 @@ const MerchantApp = () => {
     }
   }, [pendingOrdersQueue, visibleIndex]);
 
-  // ── GPS ───────────────────────────────────────────────────────────────────
-  useEffect(() => {
-    if (!navigator.geolocation) return;
-    navigator.geolocation.getCurrentPosition(
-      (pos) =>
-        setMerchantCoords({
-          lat: pos.coords.latitude,
-          lng: pos.coords.longitude,
-        }),
-      (err) => console.warn("Geolocation unavailable:", err.message),
-      { enableHighAccuracy: true, timeout: 10000 }
-    );
-  }, []);
-
-  // ── Fetch order statistics ────────────────────────────────────────────────
   const fetchOrderStatistics = useCallback(async () => {
     if (accessToken) {
       try {
@@ -523,7 +495,6 @@ const MerchantApp = () => {
     }
   }, [accessToken, getOrderStatistic]);
 
-  // ── Check merchant ads ────────────────────────────────────────────────────
   const fetchHasMerchantAds = useCallback(async () => {
     if (accessToken) {
       try {
@@ -540,7 +511,6 @@ const MerchantApp = () => {
     }
   }, [accessToken, checkMerchantAds]);
 
-  // ── Fetch pending orders ──────────────────────────────────────────────────
   const fetchPendingOrders = useCallback(async () => {
     if (!accessToken) return;
     try {
@@ -560,8 +530,6 @@ const MerchantApp = () => {
     }
   }, [accessToken, getPendingOrders]);
 
-  // ── Dismiss: hide current modal without any API call ─────────────────────
-  // If there are more in queue, show the next one. Otherwise close everything.
   const handleDismiss = useCallback(() => {
     setPendingOrdersQueue((prev) => {
       const next = prev.slice(1);
@@ -574,7 +542,6 @@ const MerchantApp = () => {
     });
   }, []);
 
-  // ── Accept ────────────────────────────────────────────────────────────────
   const handleAcceptOrder = useCallback(
     async (order) => {
       const orderId = order?.id ?? order?.orderId;
@@ -599,7 +566,6 @@ const MerchantApp = () => {
     [accessToken, orderAction, fetchOrderStatistics]
   );
 
-  // ── Reject ────────────────────────────────────────────────────────────────
   const handleRejectOrder = useCallback(
     async (order) => {
       const orderId = order?.id ?? order?.orderId;
@@ -630,7 +596,6 @@ const MerchantApp = () => {
     fetchPendingOrders();
   }, [fetchOrderStatistics, fetchHasMerchantAds, fetchPendingOrders]);
 
-  // ── Carousel ──────────────────────────────────────────────────────────────
   const minSwipeDistance = 50;
 
   const balanceItems = [
@@ -767,7 +732,6 @@ const MerchantApp = () => {
     </div>
   );
 
-  // The order currently on screen (null when dismissed)
   const visibleOrder =
     visibleIndex !== null ? pendingOrdersQueue[visibleIndex] ?? null : null;
 
@@ -804,22 +768,23 @@ const MerchantApp = () => {
             <div className="flex items-center space-x-3">
               <div className="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center text-white">
                 <Image
-                  onClick={() => handleTabChange("userProfile")}
+                  onClick={() =>
+                    // ✅ Profile picture → merchant profile
+                    router.push("/userProfile/merchantProfile/merchantHome")
+                  }
                   src={formatGoogleDriveImage(
                     myUserData?.user?.MerchantProfile?.imageUrl
                   )}
                   alt="avatar"
                   width={100}
                   height={100}
-                  className="w-full h-full object-cover rounded-full"
+                  className="w-full h-full object-cover rounded-full cursor-pointer"
                 />
               </div>
               <div>
                 <p className="text-sm">Welcome back,</p>
                 <p className="font-semibold">
-                  {myUserData
-                    ? myUserData?.user?.MerchantProfile.displayName
-                    : ""}
+                  {myUserData ? myUserData?.user?.MerchantProfile.displayName : ""}
                 </p>
               </div>
             </div>
@@ -999,7 +964,10 @@ const MerchantApp = () => {
           <div className="flex justify-around py-2">
             <motion.button
               whileTap={{ scale: 0.95 }}
-              onClick={() => handleTabChange("home")}
+              // ✅ Home icon → merchant home
+              onClick={() =>
+                router.push("/userProfile/merchantProfile/merchantHome")
+              }
               className={`flex flex-col items-center p-2 ${
                 activeTab === "home" ? "text-emerald-600" : "text-emerald-400"
               }`}

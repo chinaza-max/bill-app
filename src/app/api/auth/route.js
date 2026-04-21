@@ -8,7 +8,7 @@ console.log("process.env.API_BASE_URL")
 console.log("process.env.API_BASE_URL")
 
 const axiosInstance = axios.create({
-  baseURL: "https://fidopoint.onrender.com/api/v1",
+  baseURL: "http://localhost:5000/api/v1",
   headers: {
     "Content-Type": "application/json", // Set default content-type for the API requests
   }, 

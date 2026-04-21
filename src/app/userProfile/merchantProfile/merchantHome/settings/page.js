@@ -180,9 +180,7 @@ const SettingsPage = () => {
   };
 
   const handleNavigateToWithdrawal = () => {
-    router.push(
-      "/userProfile/merchantProfile/merchantHome/settings/Withdrawal"
-    );
+    router.push("/userProfile/withdraw");
   };
 
   const handleViewAds = () => {
@@ -196,9 +194,7 @@ const SettingsPage = () => {
   };
 
   useEffect(() => {
-    router.prefetch(
-      "userProfile/merchantProfile/merchantHome/settings/Withdrawal"
-    );
+    //router.prefetch("userProfile/withdraw");
     router.prefetch(
       "userProfile/merchantProfile/merchantHome/settings/settingUpAccount"
     );

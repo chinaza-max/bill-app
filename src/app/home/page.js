@@ -3,16 +3,22 @@
 import { LocationStatusIndicator, LocationStatusBadge } from '../component/LocationStatusIndicator';
 
 import React, { useEffect, useState, useRef, useMemo, useCallback } from "react";
+import Image from "next/image";
 import {
   Bell,
   ChevronDown,
   ShoppingBag,
-  Loader2,
   ArrowRight,
   Zap,
   CheckCircle2,
   XCircle,
   Clock,
+  RefreshCw,
+  Camera,
+  Upload,
+  RotateCcw,
+  X,
+  Check,
 } from "lucide-react";
 import {
   motion,
@@ -35,15 +41,45 @@ import { PaymentStatusBadge } from "../component/PaymentStatusBadge";
 import { EmptyTransactionState } from "../component/EmptyTransactionState";
 import LocationNotificationModal from "../component/LocationNotificationModal";
 
-// ─── Transaction fetcher ───────────────────────────────────────────────────────
+// ─── Google Drive image formatter ─────────────────────────────────────────────
+const formatGoogleDriveImage = (url) => {
+  if (!url) return "/default-avatar.png";
+  if (url.includes("uc?export=view&id=")) return url;
+  const match = url.match(/\/d\/(.*?)\//);
+  if (match && match[1])
+    return `https://drive.google.com/uc?export=view&id=${match[1]}`;
+  return url;
+};
+
+// ─── Fetchers ─────────────────────────────────────────────────────────────────
+const fetchUserProfile = async (accessToken) => {
+  if (!accessToken) return null;
+  const queryParams = new URLSearchParams({
+    token: accessToken,
+    apiType: "userData",
+  }).toString();
+  const response = await fetch(`/api/user?${queryParams}`, {
+    method: "GET",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${accessToken}`,
+    },
+  });
+  if (!response.ok) throw new Error(`Error: ${response.status}`);
+  return response.json();
+};
+
 const fetchTransaction = async (accessToken) => {
-  if (!accessToken) throw new Error("No access token provided");
+  if (!accessToken) throw new Error("No access token");
   const queryParams = new URLSearchParams({
     limit: 3, offset: 0, token: accessToken, apiType: "getGeneralTransaction",
   }).toString();
   const response = await fetch(`/api/user?${queryParams}`, {
     method: "GET",
-    headers: { "Content-Type": "application/json", Authorization: `Bearer ${accessToken}` },
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${accessToken}`,
+    },
   });
   if (!response.ok) {
     const errorData = await response.json().catch(() => null);
@@ -52,33 +88,32 @@ const fetchTransaction = async (accessToken) => {
   return response.json();
 };
 
-// ─── Loading / Error helpers ──────────────────────────────────────────────────
-const LoadingSpinner = () => (
-  <div className="flex flex-col items-center justify-center py-6 px-4">
-    <Loader2 className="h-8 w-8 text-amber-600 animate-spin" />
-    <p className="mt-2 text-amber-600 text-sm">Loading transactions...</p>
-  </div>
-);
+// ─── Profile Picture Upload API ───────────────────────────────────────────────
+const uploadProfilePicture = async (accessToken, imageFile) => {
+  const formData = new FormData();
+  formData.append("image", imageFile);
+  formData.append("accessToken", accessToken);
+  formData.append("apiType", "updateUserProfileWithImage");
 
-const ErrorDisplay = ({ message }) => (
-  <div className="flex flex-col items-center justify-center py-6 px-4 bg-red-50 rounded-lg">
-    <div className="w-16 h-16 mb-4 bg-red-100 rounded-full flex items-center justify-center">
-      <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-      </svg>
-    </div>
-    <h3 className="text-lg font-semibold text-red-700 mb-2">Unable to load transactions</h3>
-    <p className="text-red-600 text-center text-sm mb-4">{message}</p>
-    <button className="px-6 py-2 bg-amber-500 text-white rounded-full font-medium text-sm" onClick={() => window.location.reload()}>
-      Try Again
-    </button>
-  </div>
-);
+  const response = await fetch("/api/user", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      // Do NOT set Content-Type — let the browser set multipart/form-data boundary
+    },
+    body: formData,
+  });
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => null);
+    throw new Error(errorData?.message || `Upload failed: ${response.status}`);
+  }
+  return response.json();
+};
 
 // ─── Live Activity Ticker ─────────────────────────────────────────────────────
 const FIRST_NAMES = ["Amina","Chukwudi","Fatima","Emeka","Ngozi","Tunde","Aisha","Kelechi","Blessing","Usman","Adaeze","Seun","Halima","Tobi","Chisom","Musa","Yetunde","Ifeanyi","Zainab","Babatunde","Chiamaka","Abdullahi","Sola","Chinyere","Ahmed","Folake","Obinna","Rukayat","Gbenga","Nneka"];
 const LAST_NAMES  = ["Okafor","Adeyemi","Ibrahim","Nwosu","Bello","Eze","Lawal","Obi","Yusuf","Adeleke","Nwachukwu","Suleiman","Okonkwo","Abubakar","Dike","Omotayo","Garba","Onuoha","Aliyu","Fashola"];
-
 const ACTIONS = [
   { type: "placed",          label: "just placed an order of",    icon: Clock,        color: "#f59e0b" },
   { type: "completed",       label: "just completed an order of", icon: CheckCircle2, color: "#16a34a" },
@@ -93,9 +128,9 @@ const randomAction  = () => ACTIONS[randomBetween(0, ACTIONS.length - 1)];
 const generateFeed  = (count = 20) => Array.from({ length: count }, (_, i) => ({ id: i, name: randomName(), amount: randomAmount(), action: randomAction() }));
 
 const LiveActivityTicker = () => {
-  const [feed, setFeed]               = useState(() => generateFeed(20));
+  const [feed, setFeed]                 = useState(() => generateFeed(20));
   const [currentIndex, setCurrentIndex] = useState(0);
-  const [visible, setVisible]         = useState(true);
+  const [visible, setVisible]           = useState(true);
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -155,6 +190,326 @@ const LiveActivityTicker = () => {
   );
 };
 
+// ─── Profile Picture Bottom Sheet ─────────────────────────────────────────────
+const ProfilePictureSheet = ({ onClose, onUploaded, accessToken }) => {
+  const [stage, setStage]               = useState("picker");
+  const [previewSrc, setPreviewSrc]     = useState(null);
+  const [selectedFile, setSelectedFile] = useState(null);
+  const [errorMsg, setErrorMsg]         = useState("");
+
+  const cameraInputRef  = useRef(null);
+  const galleryInputRef = useRef(null);
+
+  const handleFileSelected = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    e.target.value = "";
+
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      setPreviewSrc(ev.target.result);
+      setSelectedFile(file);
+      setStage("preview");
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleConfirm = async () => {
+    if (!selectedFile) return;
+    setStage("uploading");
+    setErrorMsg("");
+    try {
+      const result = await uploadProfilePicture(accessToken, selectedFile);
+      const newUrl =
+        result?.data?.data?.imageUrl ??
+        result?.data?.imageUrl ??
+        result?.imageUrl ??
+        null;
+      setStage("done");
+      setTimeout(() => onUploaded(newUrl), 800);
+    } catch (err) {
+      setErrorMsg(err.message || "Upload failed. Please try again.");
+      setStage("error");
+    }
+  };
+
+  const handleRetake = () => {
+    setPreviewSrc(null);
+    setSelectedFile(null);
+    setErrorMsg("");
+    setStage("picker");
+  };
+
+  return (
+    <div
+      style={{
+        position: "fixed", inset: 0, zIndex: 50,
+        background: "rgba(0,0,0,0.55)",
+        display: "flex", alignItems: "flex-end",
+      }}
+      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
+    >
+      <input
+        key="camera-input"
+        ref={cameraInputRef}
+        type="file"
+        capture="environment"
+        style={{ display: "none" }}
+        onChange={handleFileSelected}
+      />
+
+      <input
+        key="gallery-input"
+        ref={galleryInputRef}
+        type="file"
+        accept="image/*"
+        style={{ display: "none" }}
+        onChange={handleFileSelected}
+      />
+
+      <motion.div
+        initial={{ y: "100%" }}
+        animate={{ y: 0 }}
+        exit={{ y: "100%" }}
+        transition={{ type: "spring", damping: 28, stiffness: 280 }}
+        style={{
+          width: "100%",
+          background: "#fff",
+          borderRadius: "24px 24px 0 0",
+          padding: "0 0 40px",
+          maxWidth: 480,
+          margin: "0 auto",
+        }}
+      >
+        {/* Drag handle */}
+        <div style={{ display: "flex", justifyContent: "center", paddingTop: 12, paddingBottom: 4 }}>
+          <div style={{ width: 36, height: 4, borderRadius: 2, background: "#e5e7eb" }} />
+        </div>
+
+        {/* Close button */}
+        <div style={{ display: "flex", justifyContent: "flex-end", padding: "4px 16px 0" }}>
+          <button
+            onClick={onClose}
+            style={{
+              background: "#f3f4f6", border: "none", borderRadius: "50%",
+              width: 30, height: 30, display: "flex", alignItems: "center",
+              justifyContent: "center", cursor: "pointer",
+            }}
+          >
+            <X className="h-4 w-4 text-gray-500" />
+          </button>
+        </div>
+
+        {/* ── PICKER STAGE ── */}
+        {stage === "picker" && (
+          <div style={{ padding: "8px 24px 0" }}>
+            <p style={{ fontSize: 18, fontWeight: 500, color: "#78350f", marginBottom: 4 }}>
+              Add a profile photo
+            </p>
+            <p style={{ fontSize: 13, color: "#a16207", marginBottom: 24 }}>
+              Complete your profile. This takes less than a minute.
+            </p>
+
+            <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+              <button
+                onClick={() => cameraInputRef.current?.click()}
+                style={{
+                  display: "flex", alignItems: "center", gap: 14,
+                  padding: "14px 16px", borderRadius: 14,
+                  background: "linear-gradient(135deg, #fef3c7, #fde68a)",
+                  border: "1px solid #fbbf24",
+                  cursor: "pointer",
+                }}
+              >
+                <div style={{
+                  width: 42, height: 42, borderRadius: 12,
+                  background: "#f59e0b", display: "flex",
+                  alignItems: "center", justifyContent: "center",
+                }}>
+                  <Camera className="h-5 w-5 text-white" />
+                </div>
+                <div style={{ textAlign: "left" }}>
+                  <p style={{ fontSize: 14, fontWeight: 500, color: "#78350f", margin: 0 }}>Take a photo</p>
+                  <p style={{ fontSize: 12, color: "#a16207", margin: 0 }}>Opens your camera directly</p>
+                </div>
+              </button>
+
+              <button
+                onClick={() => galleryInputRef.current?.click()}
+                style={{
+                  display: "flex", alignItems: "center", gap: 14,
+                  padding: "14px 16px", borderRadius: 14,
+                  background: "#f9fafb",
+                  border: "1px solid #e5e7eb",
+                  cursor: "pointer",
+                }}
+              >
+                <div style={{
+                  width: 42, height: 42, borderRadius: 12,
+                  background: "#b45309", display: "flex",
+                  alignItems: "center", justifyContent: "center",
+                }}>
+                  <Upload className="h-5 w-5 text-white" />
+                </div>
+                <div style={{ textAlign: "left" }}>
+                  <p style={{ fontSize: 14, fontWeight: 500, color: "#374151", margin: 0 }}>Upload from gallery</p>
+                  <p style={{ fontSize: 12, color: "#6b7280", margin: 0 }}>Choose an existing photo</p>
+                </div>
+              </button>
+            </div>
+
+            <button
+              onClick={onClose}
+              style={{
+                width: "100%", marginTop: 20, padding: "10px 0",
+                background: "none", border: "none",
+                fontSize: 13, color: "#9ca3af", cursor: "pointer",
+              }}
+            >
+              Skip for now
+            </button>
+          </div>
+        )}
+
+        {/* ── PREVIEW STAGE ── */}
+        {stage === "preview" && previewSrc && (
+          <div style={{ padding: "8px 24px 0", textAlign: "center" }}>
+            <p style={{ fontSize: 18, fontWeight: 500, color: "#78350f", marginBottom: 4 }}>
+              Looks good?
+            </p>
+            <p style={{ fontSize: 13, color: "#a16207", marginBottom: 20 }}>
+              Preview your photo before saving it.
+            </p>
+
+            <div style={{ display: "flex", justifyContent: "center", marginBottom: 24 }}>
+              <div style={{
+                width: 140, height: 140, borderRadius: "50%",
+                overflow: "hidden",
+                border: "4px solid #f59e0b",
+                boxShadow: "0 0 0 4px #fef3c7",
+              }}>
+                <img
+                  src={previewSrc}
+                  alt="Preview"
+                  style={{ width: "100%", height: "100%", objectFit: "cover" }}
+                />
+              </div>
+            </div>
+
+            <div style={{ display: "flex", gap: 10 }}>
+              <button
+                onClick={handleRetake}
+                style={{
+                  flex: 1, display: "flex", alignItems: "center",
+                  justifyContent: "center", gap: 6,
+                  padding: "12px 0", borderRadius: 12,
+                  background: "#f3f4f6", border: "1px solid #e5e7eb",
+                  fontSize: 14, fontWeight: 500, color: "#374151",
+                  cursor: "pointer",
+                }}
+              >
+                <RotateCcw className="h-4 w-4" />
+                Retake
+              </button>
+
+              <button
+                onClick={handleConfirm}
+                style={{
+                  flex: 2, display: "flex", alignItems: "center",
+                  justifyContent: "center", gap: 6,
+                  padding: "12px 0", borderRadius: 12,
+                  background: "linear-gradient(135deg, #92400e, #d97706)",
+                  border: "none",
+                  fontSize: 14, fontWeight: 500, color: "#fff",
+                  cursor: "pointer",
+                }}
+              >
+                <Check className="h-4 w-4" />
+                Save photo
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* ── UPLOADING STAGE ── */}
+        {stage === "uploading" && (
+          <div style={{ padding: "24px 24px 0", textAlign: "center" }}>
+            {previewSrc && (
+              <div style={{ display: "flex", justifyContent: "center", marginBottom: 20 }}>
+                <div style={{
+                  width: 100, height: 100, borderRadius: "50%",
+                  overflow: "hidden", border: "3px solid #f59e0b", opacity: 0.7,
+                }}>
+                  <img src={previewSrc} alt="Uploading" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                </div>
+              </div>
+            )}
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8, marginBottom: 8 }}>
+              <RefreshCw className="h-5 w-5 animate-spin text-amber-600" />
+              <p style={{ fontSize: 15, fontWeight: 500, color: "#78350f" }}>Uploading…</p>
+            </div>
+            <p style={{ fontSize: 12, color: "#a16207" }}>Almost done, please wait</p>
+          </div>
+        )}
+
+        {/* ── DONE STAGE ── */}
+        {stage === "done" && (
+          <div style={{ padding: "24px 24px 0", textAlign: "center" }}>
+            <div style={{
+              width: 64, height: 64, borderRadius: "50%",
+              background: "#dcfce7", display: "flex",
+              alignItems: "center", justifyContent: "center",
+              margin: "0 auto 12px",
+            }}>
+              <CheckCircle2 className="h-8 w-8 text-green-600" />
+            </div>
+            <p style={{ fontSize: 16, fontWeight: 500, color: "#15803d" }}>Photo saved!</p>
+            <p style={{ fontSize: 12, color: "#6b7280", marginTop: 4 }}>Your profile photo has been updated.</p>
+          </div>
+        )}
+
+        {/* ── ERROR STAGE ── */}
+        {stage === "error" && (
+          <div style={{ padding: "8px 24px 0", textAlign: "center" }}>
+            <div style={{
+              width: 64, height: 64, borderRadius: "50%",
+              background: "#fee2e2", display: "flex",
+              alignItems: "center", justifyContent: "center",
+              margin: "0 auto 12px",
+            }}>
+              <XCircle className="h-8 w-8 text-red-500" />
+            </div>
+            <p style={{ fontSize: 15, fontWeight: 500, color: "#b91c1c", marginBottom: 6 }}>Upload failed</p>
+            <p style={{ fontSize: 12, color: "#6b7280", marginBottom: 20 }}>{errorMsg}</p>
+            <div style={{ display: "flex", gap: 10 }}>
+              <button
+                onClick={handleRetake}
+                style={{
+                  flex: 1, padding: "11px 0", borderRadius: 12,
+                  background: "#f3f4f6", border: "1px solid #e5e7eb",
+                  fontSize: 14, fontWeight: 500, color: "#374151", cursor: "pointer",
+                }}
+              >
+                Try again
+              </button>
+              <button
+                onClick={onClose}
+                style={{
+                  flex: 1, padding: "11px 0", borderRadius: 12,
+                  background: "none", border: "1px solid #e5e7eb",
+                  fontSize: 14, color: "#9ca3af", cursor: "pointer",
+                }}
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        )}
+      </motion.div>
+    </div>
+  );
+};
+
 // ─── Main Component ────────────────────────────────────────────────────────────
 const MobileApp = () => {
   const [userType, setUserType]                               = useState("Client");
@@ -166,11 +521,13 @@ const MobileApp = () => {
   const [isBalanceVisible, setIsBalanceVisible]               = useState(false);
   const [showPulseAnimation, setShowPulseAnimation]           = useState(false);
   const [hasInteractedWithSwitch, setHasInteractedWithSwitch] = useState(false);
+  const [unreadCount, setUnreadCount]                         = useState(0);
 
-  // ── Real unread notification count ───────────────────────────────────────
-  const [unreadCount, setUnreadCount] = useState(0);
+  // ─── Profile picture prompt state ─────────────────────────────────────────
+  const [showProfileSheet, setShowProfileSheet] = useState(false);
+  const profilePromptTimerRef = useRef(null);
 
-  const { token } = useNotifications();
+  const { token }                  = useNotifications();
   const [numberOfOrder, setNumberOfOrder] = useState(0);
 
   const data2           = useSelector((state) => state.user);
@@ -192,49 +549,71 @@ const MobileApp = () => {
 
   useVisibility();
 
-  const { data: transactionData, isLoading, isError, error, refetch } = useQuery({
-    queryKey: ["transactions"],
-    queryFn: () => fetchTransaction(accessToken),
-    enabled: !!accessToken,
-    retry: 2,
-    retryDelay: (i) => Math.min(1000 * 2 ** i, 30000),
-    staleTime: 300000,
-    refetchOnWindowFocus: false,
-  });
-
   const router   = useRouter();
   const pathname = usePathname();
 
-  // ── Fetch unread notification count ──────────────────────────────────────
+  // ─── Profile query ────────────────────────────────────────────────────────
+  const {
+    data: profileData,
+    refetch: refetchProfile,
+    isFetching: isProfileFetching,
+  } = useQuery({
+    queryKey: ["userProfile", accessToken],
+    queryFn: () => fetchUserProfile(accessToken),
+    enabled: !!accessToken,
+    staleTime: 0,
+    refetchOnMount: true,
+    refetchOnWindowFocus: true,
+    retry: 1,
+  });
+
+  // ─── Transactions query ───────────────────────────────────────────────────
+  const {
+    data: transactionData,
+    isError,
+    error,
+    refetch: refetchTransactions,
+  } = useQuery({
+    queryKey: ["transactions", accessToken],
+    queryFn: () => fetchTransaction(accessToken),
+    enabled: !!accessToken,
+    staleTime: 0,
+    refetchOnMount: true,
+    refetchOnWindowFocus: true,
+    retry: 1,
+    keepPreviousData: true,
+  });
+
+  // ─── visibilitychange ─────────────────────────────────────────────────────
+  useEffect(() => {
+    const handleVisibility = () => {
+      if (document.visibilityState === "visible" && accessToken) {
+        refetchProfile();
+        refetchTransactions();
+        fetchUnreadCount();
+      }
+    };
+    document.addEventListener("visibilitychange", handleVisibility);
+    return () => document.removeEventListener("visibilitychange", handleVisibility);
+  }, [accessToken]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ─── Unread count ─────────────────────────────────────────────────────────
   const fetchUnreadCount = useCallback(async () => {
     if (!accessToken) return;
     try {
-      const userType = typeof window !== 'undefined' && localStorage.getItem('who') === 'client'
-        ? 'CLIENT'
-        : 'MERCHANT';
-
-      const queryParams = new URLSearchParams({
-        apiType:   'notificationCountUnread',
-        user_type: userType,
-        token:     accessToken,
+      const who = typeof window !== "undefined" && localStorage.getItem("who") === "client"
+        ? "CLIENT" : "MERCHANT";
+      const q = new URLSearchParams({
+        apiType: "notificationCountUnread", user_type: who, token: accessToken,
       }).toString();
-
-      const response = await fetch(`/api/user?${queryParams}`, {
-        method:  'GET',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization:  `Bearer ${accessToken}`,
-        },
+      const res = await fetch(`/api/user?${q}`, {
+        method: "GET",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${accessToken}` },
       });
-
-      if (!response.ok) return;
-
-      const json  = await response.json();
-      const count = json?.data?.data?.unreadCount ?? 0;
-      setUnreadCount(Number(count));
-    } catch {
-      // non-critical — fail silently
-    }
+      if (!res.ok) return;
+      const json = await res.json();
+      setUnreadCount(Number(json?.data?.data?.unreadCount ?? 0));
+    } catch { /* non-critical */ }
   }, [accessToken]);
 
   useEffect(() => {
@@ -244,10 +623,7 @@ const MobileApp = () => {
     (async () => { await getCurrentLocation(); })();
   }, []);
 
-  // fetch unread count once accessToken is available
-  useEffect(() => {
-    if (accessToken) fetchUnreadCount();
-  }, [accessToken, fetchUnreadCount]);
+  useEffect(() => { if (accessToken) fetchUnreadCount(); }, [accessToken, fetchUnreadCount]);
 
   useEffect(() => {
     if (token && accessToken) {
@@ -264,9 +640,7 @@ const MobileApp = () => {
     }
   }, [accessToken]);
 
-  useEffect(() => {
-    if (order) setNumberOfOrder(order.data?.data?.length);
-  }, [order]);
+  useEffect(() => { if (order) setNumberOfOrder(order.data?.data?.length); }, [order]);
 
   const handleSwitchInteraction = () => {
     setHasInteractedWithSwitch(true);
@@ -286,38 +660,42 @@ const MobileApp = () => {
 
   const toggleBalanceVisibility = () => setIsBalanceVisible((v) => !v);
 
-  const recentTransactions = useMemo(() => {
-    if (!transactionData?.data?.data) return [];
-    return transactionData.data.data.map((t) => ({
-      id: t.id || Math.random().toString(),
-      title: t.title || "Transaction",
-      initials: t.initials || (t.title ? t.title.substring(0, 2).toUpperCase() : "TX"),
-      date: t.date || new Date(t.createdAt).toLocaleDateString(),
-      type: t.type || "outgoing",
-      amount: t.amount || "0.00 ₦",
-      paymentStatus: t.paymentStatus || "pending",
-    }));
-  }, [transactionData]);
+  // ─── Sync profile data + trigger profile picture prompt ───────────────────
+  useEffect(() => {
+    const freshUser =
+      profileData?.data?.data ??
+      profileData?.data?.user ??
+      null;
+    const user = freshUser ?? data2?.user?.user;
+    if (!user) return;
+
+    try {
+      setImageUrl(user.imageUrl);
+      setFirstName(user.firstName || "");
+      const raw = user.walletBalance;
+      let walletData = { current: 0, previous: 0 };
+      if (typeof raw === "string")                      walletData = JSON.parse(raw);
+      else if (typeof raw === "object" && raw !== null) walletData = raw;
+      setWalletBalance(walletData?.current ?? walletData?.previous ?? 0);
+    } catch { setWalletBalance(0); }
+
+    // Only prompt if imageUrlUpdated is explicitly false
+    const imageUrlUpdated = user.imageUrlUpdated;
+    if (imageUrlUpdated === false) {
+      if (profilePromptTimerRef.current) clearTimeout(profilePromptTimerRef.current);
+      profilePromptTimerRef.current = setTimeout(() => {
+        setShowProfileSheet(true);
+      }, 7000);
+    }
+
+    return () => {
+      if (profilePromptTimerRef.current) clearTimeout(profilePromptTimerRef.current);
+    };
+  }, [profileData, data2.user]);
 
   useEffect(() => {
     if (error) getErrorMessage(error, router, "", isAuthenticated);
   }, [error, router, isAuthenticated]);
-
-  useEffect(() => {
-    if (data2?.user?.user) {
-      try {
-        const user = data2.user.user;
-        setImageUrl(user.imageUrl);
-        // store only firstName — handles long full names gracefully
-        setFirstName(user.firstName || "");
-        let walletData = { current: 0, previous: 0 };
-        const raw = user.walletBalance;
-        if (typeof raw === "string") walletData = JSON.parse(raw);
-        else if (typeof raw === "object" && raw !== null) walletData = raw;
-        setWalletBalance(walletData?.current ?? walletData?.previous ?? 0);
-      } catch { setWalletBalance(0); }
-    }
-  }, [data2.user]);
 
   useEffect(() => {
     if (typeof window !== "undefined" && pathname) localStorage.setItem("pathname", pathname);
@@ -331,6 +709,7 @@ const MobileApp = () => {
   const moveToMerchant = () => {
     const u = myUserData?.user;
     if (!u?.isNinVerified)            return router.push("/userProfile/merchantProfile");
+    if (!u?.isninImageVerified) return router.push("/userProfile/merchantProfile/merchantProfile1");
     if (!u?.isDisplayNameMerchantSet) return router.push("/userProfile/merchantProfile/merchantProfile2");
     if (!u?.isFaceVerified)           return router.push("/userProfile/merchantProfile/merchantProfile3");
     const s = u?.MerchantProfile?.accountStatus;
@@ -350,10 +729,38 @@ const MobileApp = () => {
     ].forEach((r) => router.prefetch(r));
   }, [router]);
 
+  const recentTransactions = useMemo(() => {
+    if (!transactionData?.data?.data) return [];
+    return transactionData.data.data.map((t) => ({
+      id:            t.id || Math.random().toString(),
+      title:         t.title || "Transaction",
+      initials:      t.initials || (t.title ? t.title.substring(0, 2).toUpperCase() : "TX"),
+      date:          t.date || new Date(t.createdAt).toLocaleDateString(),
+      type:          t.type || "outgoing",
+      amount:        t.amount || "0.00 ₦",
+      paymentStatus: t.paymentStatus || "pending",
+    }));
+  }, [transactionData]);
+
+  const handleManualRefresh = useCallback(() => {
+    refetchProfile();
+    refetchTransactions();
+  }, [refetchProfile, refetchTransactions]);
+
+  // ─── Called when the sheet completes a successful upload ──────────────────
+  const handleProfileUploaded = useCallback((newUrl) => {
+    if (newUrl) setImageUrl(newUrl);
+    setShowProfileSheet(false);
+    refetchProfile();
+  }, [refetchProfile]);
+
   const renderTransactionsSection = () => {
-    if (isLoading) return <LoadingSpinner />;
-    if (isError)   return <ErrorDisplay message={error?.message || "Failed to load transactions"} />;
-    if (recentTransactions.length === 0) return <EmptyTransactionState handleTabChange={handleTabChange} />;
+    if (!transactionData && isError) {
+      return <EmptyTransactionState handleTabChange={handleTabChange} />;
+    }
+    if (recentTransactions.length === 0) {
+      return <EmptyTransactionState handleTabChange={handleTabChange} />;
+    }
 
     return (
       <div className="space-y-3">
@@ -387,16 +794,13 @@ const MobileApp = () => {
           </motion.div>
         ))}
 
-        <div className="flex justify-center mt-4">
+        <div className="flex justify-center mt-2 pb-2">
           <button
-            onClick={() => refetch()}
-            className="flex items-center space-x-1 text-amber-600 text-sm"
-            disabled={isLoading}
+            onClick={refetchTransactions}
+            className="flex items-center gap-1.5 text-amber-500/70 text-xs py-1 px-3 rounded-full transition-colors hover:text-amber-600"
           >
-            <svg xmlns="http://www.w3.org/2000/svg" className={`h-4 w-4 ${isLoading ? "animate-spin" : ""}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-            </svg>
-            <span>{isLoading ? "Refreshing..." : "Refresh"}</span>
+            <RefreshCw className={`h-3 w-3 ${isProfileFetching ? "animate-spin" : ""}`} />
+            <span>Refresh</span>
           </button>
         </div>
       </div>
@@ -413,14 +817,26 @@ const MobileApp = () => {
 
             {/* Left — avatar + name */}
             <div className="flex items-center space-x-2 min-w-0 flex-1 mr-2">
-              <div className="w-9 h-9 rounded-full bg-white/20 flex-shrink-0 flex items-center justify-center">
-                <img
+              <div className="w-9 h-9 rounded-full bg-white/20 flex-shrink-0 flex items-center justify-center relative">
+                {/* ── FIXED: use next/image + formatGoogleDriveImage (same as merchant home) ── */}
+                <Image
                   onClick={() => handleTabChange("userProfile")}
-                  src={imageUrl || "/default-avatar.png"}
+                  src={formatGoogleDriveImage(imageUrl)}
                   alt="avatar"
+                  width={36}
+                  height={36}
                   className="w-full h-full object-cover rounded-full cursor-pointer"
-                  onError={(e) => { e.target.onerror = null; e.target.src = "/default-avatar.png"; }}
                 />
+                {/* Small camera badge on avatar */}
+                {showProfileSheet === false && (
+                  <button
+                    onClick={() => setShowProfileSheet(true)}
+                    className="absolute -bottom-0.5 -right-0.5 w-4 h-4 rounded-full bg-amber-300 flex items-center justify-center border border-amber-600"
+                    title="Add profile photo"
+                  >
+                    <Camera className="h-2.5 w-2.5 text-amber-900" />
+                  </button>
+                )}
               </div>
               <div className="min-w-0">
                 <p className="text-xs text-white/70 leading-none">Welcome</p>
@@ -431,10 +847,23 @@ const MobileApp = () => {
               <LocationStatusBadge status={locationStatus} size="sm" />
             </div>
 
-            {/* Right — bell + role switcher */}
+            {/* Right — refresh + bell + role switcher */}
             <div className="flex items-center space-x-3 flex-shrink-0">
 
-              {/* Bell with real unread count */}
+              <motion.button
+                whileTap={{ scale: 0.82 }}
+                onClick={handleManualRefresh}
+                title="Refresh balance"
+              >
+                <RefreshCw
+                  className={`h-5 w-5 transition-colors ${
+                    isProfileFetching
+                      ? "text-white animate-spin"
+                      : "text-white/70 hover:text-white"
+                  }`}
+                />
+              </motion.button>
+
               <div className="relative">
                 <Bell
                   className="h-5 w-5 cursor-pointer"
@@ -447,7 +876,6 @@ const MobileApp = () => {
                 )}
               </div>
 
-              {/* Role switcher */}
               <div className="relative" ref={dropdownRef}>
                 <button
                   onClick={() => { setIsDropdownOpen(!isDropdownOpen); handleSwitchInteraction(); }}
@@ -468,13 +896,22 @@ const MobileApp = () => {
                       className="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg py-1 z-10"
                     >
                       <button
-                        onClick={() => { setUserType("Merchant"); setIsDropdownOpen(false); handleSwitchInteraction(); moveToMerchant(); }}
+                        onClick={() => {
+                          setUserType("Merchant");
+                          setIsDropdownOpen(false);
+                          handleSwitchInteraction();
+                          moveToMerchant();
+                        }}
                         className="block px-4 py-2 text-sm text-gray-700 hover:bg-amber-50 w-full text-left"
                       >
                         Merchant
                       </button>
                       <button
-                        onClick={() => { setUserType("Client"); setIsDropdownOpen(false); handleSwitchInteraction(); }}
+                        onClick={() => {
+                          setUserType("Client");
+                          setIsDropdownOpen(false);
+                          handleSwitchInteraction();
+                        }}
                         className="block px-4 py-2 text-sm text-gray-700 hover:bg-amber-50 w-full text-left"
                       >
                         Client
@@ -487,7 +924,11 @@ const MobileApp = () => {
           </div>
 
           <div className="mt-2">
-            <LocationStatusIndicator status={locationStatus} accuracy={currentAccuracy} lastUpdate={lastLocationUpdate} />
+            <LocationStatusIndicator
+              status={locationStatus}
+              accuracy={currentAccuracy}
+              lastUpdate={lastLocationUpdate}
+            />
           </div>
         </div>
 
@@ -497,9 +938,10 @@ const MobileApp = () => {
             balance={walletBalance}
             isVisible={isBalanceVisible}
             onToggleVisibility={toggleBalanceVisibility}
+            onRefresh={handleManualRefresh}
+            isRefreshing={isProfileFetching}
           />
 
-          {/* ── Place New Order ── */}
           <div className="px-4 pb-3 pt-1">
             <motion.button
               whileTap={{ scale: 0.97 }}
@@ -547,12 +989,14 @@ const MobileApp = () => {
 
           <LiveActivityTicker />
 
-          {/* ── Transactions ── */}
           <div className="p-4">
             <div className="flex justify-between items-center mb-3">
               <h2 className="text-lg font-semibold text-amber-900">Recent Transactions</h2>
-              {!isLoading && !isError && recentTransactions.length > 0 && (
-                <button onClick={() => router.push("/history")} className="text-sm text-amber-600 hover:text-amber-700">
+              {recentTransactions.length > 0 && (
+                <button
+                  onClick={() => router.push("/history")}
+                  className="text-sm text-amber-600 hover:text-amber-700"
+                >
                   View All
                 </button>
               )}
@@ -570,7 +1014,22 @@ const MobileApp = () => {
           />
         )}
 
-        <BottomNav handleTabChangeP={handleTabChange} activeTabP={activeTab} pendingP={numberOfOrder} />
+        {/* ── Profile Picture Bottom Sheet ── */}
+        <AnimatePresence>
+          {showProfileSheet && (
+            <ProfilePictureSheet
+              accessToken={accessToken}
+              onClose={() => setShowProfileSheet(false)}
+              onUploaded={handleProfileUploaded}
+            />
+          )}
+        </AnimatePresence>
+
+        <BottomNav
+          handleTabChangeP={handleTabChange}
+          activeTabP={activeTab}
+          pendingP={numberOfOrder}
+        />
       </div>
     </ProtectedRoute>
   );
