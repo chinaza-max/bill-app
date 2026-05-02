@@ -248,7 +248,7 @@ const TransferPage = () => {
   const [isProcessingPayment, setIsProcessingPayment] = useState(false);
   const [paymentError, setPaymentError]       = useState(null);
   const [virtualAccount, setVirtualAccount]   = useState(null);
-  const [transactionId, setTransactionId]     = useState(null);
+  const [transactionId, setTransactionId]     = useState(null); // stored separately from account obj
   const [isGeneratingAccount, setIsGeneratingAccount] = useState(false);
   const [accountExpired, setAccountExpired]   = useState(false);
 
@@ -261,8 +261,6 @@ const TransferPage = () => {
   // ── Scroll refs ───────────────────────────────────────────────────────────
   const accountCardRef  = useRef(null);
   const transferSecRef  = useRef(null);
-  // ✅ NEW: ref for the confirm status card so we can scroll to it
-  const confirmCardRef  = useRef(null);
 
   const sliderControls  = useAnimation();
   const SLIDER_THRESHOLD = 0.5;
@@ -328,12 +326,19 @@ const TransferPage = () => {
   // ── Account generated ─────────────────────────────────────────────────────
   useEffect(() => {
     if (accountData?.data) {
-      const level3     = accountData.data?.data?.data;
-      const accountObj = level3?.data ?? level3;
-      const txId       = level3?.transactionId
-                      ?? accountObj?.externalReference
-                      ?? accountObj?._id
-                      ?? null;
+      // Response shape:
+      // accountData.data              → { status, message, data: { status, message, data: { statusCode, message, data: {...}, transactionId } } }
+      // accountData.data.data         → { status, message, data: { statusCode, ... } }
+      // accountData.data.data.data    → { statusCode, message, data: <account obj>, transactionId }
+      // accountData.data.data.data.data → the actual account object
+      // transactionId lives at accountData.data.data.data.transactionId (same as externalReference)
+
+      const level3 = accountData.data?.data?.data;           // { statusCode, transactionId, data: {...} }
+      const accountObj = level3?.data ?? level3;             // the raw account fields
+      const txId = level3?.transactionId                     // "NGTXQGJ0U5"
+                ?? accountObj?.externalReference
+                ?? accountObj?._id
+                ?? null;
 
       setVirtualAccount(accountObj);
       setTransactionId(txId);
@@ -344,6 +349,7 @@ const TransferPage = () => {
       setAccountExpired(false);
       clearTimeout(pollTimerRef.current);
 
+      // Scroll account card into view after paint
       requestAnimationFrame(() => {
         setTimeout(() => {
           accountCardRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -360,19 +366,8 @@ const TransferPage = () => {
   const isValidAmount   = (v) => { const n = parseFloat(v); return n >= range.min && n <= range.max; };
   const getDirectAmount = () => chargeData?.totalAmount ?? 0;
   const getWalletAmount = () => (chargeData?.totalAmount ?? 0) - (chargeData?.gatewayCharge ?? 0);
-
   const getAmountToPay  = () => transferType === "wallet" ? getWalletAmount() : getDirectAmount();
   const hasSufficientBalance = () => !!chargeData && walletBalance >= getWalletAmount();
-
-  // ── ✅ Scroll to confirm card whenever status changes away from IDLE ───────
-  useEffect(() => {
-    if (confirmStatus !== CONFIRM.IDLE) {
-      // Small delay lets AnimatePresence mount + render the card first
-      setTimeout(() => {
-        confirmCardRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
-      }, 120);
-    }
-  }, [confirmStatus]);
 
   // ── Confirm / Poll ────────────────────────────────────────────────────────
   const callConfirmTransfer = useCallback(async (transactionId) => {
@@ -420,22 +415,18 @@ const TransferPage = () => {
   }, [callConfirmTransfer, refreshWalletBalance]);
 
   const handleConfirmDirectTransfer = () => {
-    const txId = transactionId ?? virtualAccount?.transactionId ?? virtualAccount?.externalReference;
+    const txId = virtualAccount?.transactionId ?? virtualAccount?.externalReference;
     if (!txId) { setPaymentError("No transaction reference. Generate an account first."); return; }
     if (confirmStatus === CONFIRM.CHECKING) return;
     clearTimeout(pollTimerRef.current);
-    setConfirmStatus(CONFIRM.CHECKING);
-    setConfirmMessage("");
-    setPollAttempt(0);
+    setConfirmStatus(CONFIRM.CHECKING); setConfirmMessage(""); setPollAttempt(0);
     startPolling(txId, 0);
   };
 
   const handleCheckAgain = () => {
-    const txId = transactionId ?? virtualAccount?.transactionId ?? virtualAccount?.externalReference;
+    const txId = virtualAccount?.transactionId ?? virtualAccount?.externalReference;
     clearTimeout(pollTimerRef.current);
-    setConfirmStatus(CONFIRM.CHECKING);
-    setConfirmMessage("");
-    setPollAttempt(0);
+    setConfirmStatus(CONFIRM.CHECKING); setConfirmMessage(""); setPollAttempt(0);
     startPolling(txId, 0);
   };
 
@@ -466,17 +457,14 @@ const TransferPage = () => {
     clearTimeout(pollTimerRef.current);
     const selectedMerchantId = localStorage.getItem("selectedMerchantId");
     try {
-
-
       await generateAccount("/api/user", "POST", {
-        accessToken, apiType: "generateAccountVirtual", 
-        type: "order",orderAmount:Number(amount),
-        userId2: selectedMerchantId,
-         amount: getDirectAmount(),
+        accessToken, apiType: "generateAccountVirtual", type: "order",
+        userId2: selectedMerchantId, amount: getDirectAmount(),
       });
     } catch { setIsGeneratingAccount(false); setPaymentError("Failed to generate account. Please try again."); }
   };
 
+  // Scroll to transfer section when type picked
   const handleSelectTransferType = (type) => {
     setTransferType(type);
     setConfirmStatus(CONFIRM.IDLE);
@@ -766,16 +754,24 @@ const TransferPage = () => {
                       initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
                       className="space-y-3"
                     >
-                      {/* ── ACCOUNT CARD ── */}
+                      {/* ─────────────────────────────────────────────────────
+                          ACCOUNT CARD
+                          Layout (top → bottom):
+                          1. Header row: "Account Details" label + Generate button (ALWAYS visible)
+                          2. [if virtualAccount] Countdown timer banner — right after header, before details
+                          3. Account details / loading / empty state
+                      ───────────────────────────────────────────────────── */}
                       <div
                         ref={accountCardRef}
                         className="bg-white rounded-3xl overflow-hidden scroll-mt-4"
                         style={{ boxShadow: "0 2px 20px rgba(0,0,0,0.06)" }}
                       >
-                        {/* Card Header */}
+                        {/* ── Card Header: always visible, generate button always shown ── */}
                         <div className="px-5 pt-4 pb-3 border-b border-gray-50">
                           <div className="flex items-center justify-between mb-1">
                             <p className="text-[14px] font-semibold text-gray-800">Account Details</p>
+
+                            {/* Generate / Regenerate button — ALWAYS visible */}
                             <motion.button
                               whileTap={{ scale: isGeneratingAccount || isChecking ? 1 : 0.93 }}
                               onClick={handleGenerateAccount}
@@ -798,6 +794,8 @@ const TransferPage = () => {
                               )}
                             </motion.button>
                           </div>
+
+                          {/* Sub-hint shown when no account generated yet */}
                           {!virtualAccount && !isGeneratingAccount && (
                             <p className="text-[11px] text-gray-400">
                               Tap <span className="font-semibold text-[#FF9500]">Generate Account</span> to get your bank details
@@ -805,7 +803,7 @@ const TransferPage = () => {
                           )}
                         </div>
 
-                        {/* Countdown Timer */}
+                        {/* ── Countdown Timer: immediately below header when account exists ── */}
                         <AnimatePresence>
                           {virtualAccount && !accountExpired && (
                             <motion.div
@@ -821,7 +819,7 @@ const TransferPage = () => {
                           )}
                         </AnimatePresence>
 
-                        {/* Expired notice */}
+                        {/* ── Expired notice (replaces countdown) ── */}
                         <AnimatePresence>
                           {accountExpired && (
                             <motion.div
@@ -843,7 +841,7 @@ const TransferPage = () => {
                           )}
                         </AnimatePresence>
 
-                        {/* Card Body */}
+                        {/* ── Card Body: loading / details / empty ── */}
                         <AnimatePresence mode="wait">
                           {isGeneratingAccount ? (
                             <motion.div key="gen-loading"
@@ -924,10 +922,12 @@ const TransferPage = () => {
                             </motion.div>
 
                           ) : (
+                            /* Empty state — shown before first generation */
                             <motion.div key="empty-state"
                               initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
                               className="px-5 py-10 flex flex-col items-center gap-3"
                             >
+                              {/* Big prominent generate CTA in empty state */}
                               <div className="w-14 h-14 rounded-3xl flex items-center justify-center"
                                 style={{ background: "rgba(255,149,0,0.10)" }}>
                                 <Building2 className="h-7 w-7" style={{ color: "#FF9500" }} />
@@ -938,6 +938,7 @@ const TransferPage = () => {
                                   Tap <span className="font-bold text-[#FF9500]">Generate Account</span> above to receive your unique bank details for this transfer
                                 </p>
                               </div>
+                              {/* Arrow pointing up toward the button */}
                               <motion.div
                                 animate={{ y: [0, -5, 0] }}
                                 transition={{ repeat: Infinity, duration: 1.4, ease: "easeInOut" }}
@@ -951,16 +952,15 @@ const TransferPage = () => {
                         </AnimatePresence>
                       </div>
 
-                      {/* ── ✅ Confirm Status Card — now with confirmCardRef ── */}
+                      {/* ── Confirm Status Card ── */}
                       <AnimatePresence>
                         {virtualAccount && confirmStatus !== CONFIRM.IDLE && (
                           <motion.div
                             key="confirm-card"
-                            ref={confirmCardRef}           // ← attached here
                             initial={{ opacity: 0, y: 12, scale: 0.98 }}
                             animate={{ opacity: 1, y: 0, scale: 1 }}
                             exit={{ opacity: 0 }}
-                            className="rounded-3xl overflow-hidden bg-white scroll-mt-4"
+                            className="rounded-3xl overflow-hidden bg-white"
                             style={{
                               boxShadow: "0 2px 20px rgba(0,0,0,0.06)",
                               border:
@@ -1144,7 +1144,7 @@ const TransferPage = () => {
                 </motion.button>
               )}
 
-              {/* DIRECT: no account yet */}
+              {/* DIRECT: no account yet — show a big generate CTA in footer too */}
               {transferType === "direct" && !virtualAccount && !isGeneratingAccount && (
                 <motion.button
                   whileTap={{ scale: 0.97 }}
@@ -1156,7 +1156,7 @@ const TransferPage = () => {
                 </motion.button>
               )}
 
-              {/* DIRECT: generating */}
+              {/* DIRECT: generating in footer too */}
               {transferType === "direct" && !virtualAccount && isGeneratingAccount && (
                 <div className="w-full py-4 rounded-2xl flex items-center justify-center gap-2"
                   style={{ background: "rgba(255,149,0,0.1)" }}>

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState, useCallback } from "react";
+import React, { useEffect, useState, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { useSelector } from "react-redux";
 import { motion, AnimatePresence } from "framer-motion";
@@ -13,20 +13,15 @@ import {
   Loader2,
   Wallet,
   ShieldCheck,
-  User,
-  CreditCard,
+  Mail,
 } from "lucide-react";
 
 const MIN_AMOUNT = 1000;
-
-// ── Quick-pick presets ────────────────────────────────────────────────────────
 const PRESETS = [1000, 2000, 5000, 10000, 20000];
 
-// ── Format helpers ────────────────────────────────────────────────────────────
 const fmt = (n) => Number(n).toLocaleString("en-NG");
 const raw = (s) => Number(String(s).replace(/[^\d]/g, "")) || 0;
 
-// ── Parse wallet balance ──────────────────────────────────────────────────────
 const parseWalletBalance = (rawBalance) => {
   try {
     if (rawBalance === null || rawBalance === undefined) return 0;
@@ -48,52 +43,61 @@ const parseWalletBalance = (rawBalance) => {
   }
 };
 
-// ── Mask account number: show first 3 and last 3 ─────────────────────────────
 const maskAccount = (acc) => {
   if (!acc || acc.length < 6) return acc;
   return `${acc.slice(0, 3)}****${acc.slice(-3)}`;
 };
 
-const WithdrawPage = () => {
+export default function WithdrawPage() {
   const router = useRouter();
   const accessToken = useSelector((s) => s.user.accessToken);
-
   const reduxUser = useSelector((s) => s.user);
 
   const path1 = reduxUser?.user?.walletBalance;
   const path2 = reduxUser?.user?.user?.walletBalance;
   const path3 = reduxUser?.walletBalance;
-
-  useEffect(() => {
-    console.log("=== WALLET DEBUG ===");
-    console.log("Full state.user:", JSON.stringify(reduxUser, null, 2));
-    console.log("path1 (state.user.user.walletBalance):", path1);
-    console.log("path2 (state.user.user.user.walletBalance):", path2);
-    console.log("path3 (state.user.walletBalance):", path3);
-    console.log("===================");
-  }, [reduxUser]);
-
   const rawWalletBalance = path1 ?? path2 ?? path3;
   const walletBalance = parseWalletBalance(rawWalletBalance);
 
-  // ── State ─────────────────────────────────────────────────────────────────
+  const [step, setStep] = useState("amount");
+
+  // bank
   const [bankDetails, setBankDetails] = useState(null);
   const [bankLoading, setBankLoading] = useState(true);
-  const [bankError, setBankError]     = useState("");
+  const [bankError, setBankError] = useState("");
 
-  const [amountStr, setAmountStr]     = useState("");
+  // amount step
+  const [amountStr, setAmountStr] = useState("");
   const [amountError, setAmountError] = useState("");
+  const [initiating, setInitiating] = useState(false);
+  const [initiateError, setInitiateError] = useState("");
 
-  const [submitting, setSubmitting]   = useState(false);
-  const [submitError, setSubmitError] = useState("");
-  const [success, setSuccess]         = useState(false);
+  // otp step
+  const [csrfToken, setCsrfToken] = useState("");
+  const [withdrawalToken, setWithdrawalToken] = useState("");
+  const [plainToken, setPlainToken] = useState("");
+  const [maskedDestination, setMaskedDestination] = useState(null);
+  const [otpValue, setOtpValue] = useState("");
+  const [otpError, setOtpError] = useState("");
+  const [verifying, setVerifying] = useState(false);
+  const [verifyError, setVerifyError] = useState("");
+
+  // resend
+  const [resending, setResending] = useState(false);
+  const [resendCooldown, setResendCooldown] = useState(0);
+  const resendRef = useRef(null);
+
+  const numericAmount = raw(amountStr);
 
   // ── Fetch bank details ────────────────────────────────────────────────────
   const fetchBankDetails = useCallback(async () => {
     setBankLoading(true);
     setBankError("");
     try {
-      const q = new URLSearchParams({ apiType: "bank-details", token: accessToken || "" }).toString();
+      const q = new URLSearchParams({
+        apiType: "bank-details",
+        token: accessToken || "",
+      }).toString();
       const res = await fetch(`/api/user?${q}`, {
         headers: {
           "Content-Type": "application/json",
@@ -102,56 +106,80 @@ const WithdrawPage = () => {
       });
       if (!res.ok) throw new Error(`${res.status}`);
       const json = await res.json();
-
-      // ── API data is nested at data.data ──
-      // Response shape: { data: { hasBankDetails, settlementAccount, bankCode, bankName, accountName } }
       const payload = json?.data?.data ?? json?.data ?? json;
-
       if (!payload?.hasBankDetails) {
         localStorage.setItem("pendingWithdrawalRedirect", "true");
-        router.replace("/userProfile/merchantProfile/merchantHome/settings/settingUpAccount");
+        router.replace(
+          "/userProfile/merchantProfile/merchantHome/settings/settingUpAccount"
+        );
         return;
       }
-
-      // payload now contains: hasBankDetails, settlementAccount, bankCode, bankName, accountName
       setBankDetails(payload);
-    } catch (e) {
+    } catch {
       setBankError("Could not load bank details. Please try again.");
     } finally {
       setBankLoading(false);
     }
   }, [accessToken, router]);
 
-  useEffect(() => { fetchBankDetails(); }, [fetchBankDetails]);
+  useEffect(() => {
+    fetchBankDetails();
+  }, [fetchBankDetails]);
 
-  // ── Amount input handler ──────────────────────────────────────────────────
+  // ── Resend cooldown ───────────────────────────────────────────────────────
+  useEffect(() => {
+    if (resendCooldown <= 0) return;
+    resendRef.current = setInterval(
+      () => setResendCooldown((c) => (c > 0 ? c - 1 : 0)),
+      1000
+    );
+    return () => clearInterval(resendRef.current);
+  }, [resendCooldown]);
+
+  // ── Amount helpers ────────────────────────────────────────────────────────
   const handleAmountChange = (e) => {
     const digits = e.target.value.replace(/[^\d]/g, "");
-    setAmountStr(digits ? fmt(digits) : "");
+    const num = parseInt(digits) || 0;
+    setAmountStr(num ? fmt(num) : "");
     setAmountError("");
-    setSubmitError("");
+    setInitiateError("");
   };
 
   const handlePreset = (val) => {
     setAmountStr(fmt(val));
     setAmountError("");
-    setSubmitError("");
+    setInitiateError("");
   };
 
-  const numericAmount = raw(amountStr);
-
-  const validate = () => {
-    if (!numericAmount)                { setAmountError("Please enter an amount."); return false; }
-    if (numericAmount < MIN_AMOUNT)    { setAmountError(`Minimum withdrawal is ₦${fmt(MIN_AMOUNT)}.`); return false; }
-    if (numericAmount > walletBalance) { setAmountError("Amount exceeds your wallet balance."); return false; }
+  const validateAmount = () => {
+    if (!numericAmount) {
+      setAmountError("Please enter an amount.");
+      return false;
+    }
+    if (numericAmount < MIN_AMOUNT) {
+      setAmountError(`Minimum withdrawal is ₦${fmt(MIN_AMOUNT)}.`);
+      return false;
+    }
+    if (numericAmount > walletBalance) {
+      setAmountError("Amount exceeds your available balance.");
+      return false;
+    }
     return true;
   };
 
-  // ── Submit withdrawal ─────────────────────────────────────────────────────
-  const handleSubmit = async () => {
-    if (!validate()) return;
-    setSubmitting(true);
-    setSubmitError("");
+  const storeTokensFromResponse = (json) => {
+    const d = json?.data?.data ?? json?.data ?? json;
+    setCsrfToken(d?.csrfToken ?? "");
+    setWithdrawalToken(d?.withdrawalToken ?? "");
+    setPlainToken(d?.token ?? "");
+    setMaskedDestination(d?.destination ?? null);
+  };
+
+  // ── Initiate withdrawal ───────────────────────────────────────────────────
+  const handleInitiate = async () => {
+    if (!validateAmount()) return;
+    setInitiating(true);
+    setInitiateError("");
     try {
       const res = await fetch("/api/user", {
         method: "POST",
@@ -160,70 +188,377 @@ const WithdrawPage = () => {
           ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
         },
         body: JSON.stringify({
-          apiType: "withdraw",
-          token: accessToken,
+          apiType: "initiateWithdrawal",
+          accessToken,
           amount: numericAmount,
         }),
       });
       const json = await res.json();
-      if (!res.ok) throw new Error(json?.message || `Error ${res.status}`);
-      setSuccess(true);
+      if (!res.ok)
+        throw new Error(json?.details || json?.message || `Error ${res.status}`);
+      storeTokensFromResponse(json);
+      setResendCooldown(60);
+      setOtpValue("");
+      setOtpError("");
+      setVerifyError("");
+      setStep("otp");
     } catch (e) {
-      setSubmitError(e.message || "Withdrawal failed. Please try again.");
+      setInitiateError(e.message || "Could not initiate withdrawal. Try again.");
     } finally {
-      setSubmitting(false);
+      setInitiating(false);
     }
   };
 
-  // ── Success screen ────────────────────────────────────────────────────────
-  if (success) {
+  // ── Verify OTP ────────────────────────────────────────────────────────────
+  const handleVerifyOtp = async () => {
+    if (otpValue.trim().length !== 6) {
+      setOtpError("Enter the 6-digit code sent to your email.");
+      return;
+    }
+    setVerifying(true);
+    setVerifyError("");
+    setOtpError("");
+    try {
+      const verifyPayload = {
+        apiType: "verifyWithdrawalOtp",
+        accessToken,
+        otp: Number(otpValue.trim()),
+      };
+      if (csrfToken) verifyPayload.csrfToken = csrfToken;
+      if (withdrawalToken) verifyPayload.withdrawalToken = withdrawalToken;
+      if (plainToken) verifyPayload.token = plainToken;
+
+      const res = await fetch("/api/user", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
+        },
+        body: JSON.stringify(verifyPayload),
+      });
+      const json = await res.json();
+      if (!res.ok)
+        throw new Error(json?.details || json?.message || `Error ${res.status}`);
+      setStep("success");
+    } catch (e) {
+      setVerifyError(e.message || "Verification failed. Please try again.");
+    } finally {
+      setVerifying(false);
+    }
+  };
+
+  // ── Resend OTP ────────────────────────────────────────────────────────────
+  const handleResend = async () => {
+    if (resendCooldown > 0 || resending) return;
+    setResending(true);
+    setVerifyError("");
+    setOtpError("");
+    setOtpValue("");
+    try {
+      const res = await fetch("/api/user", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
+        },
+        body: JSON.stringify({
+          apiType: "initiateWithdrawal",
+          accessToken,
+          amount: numericAmount,
+        }),
+      });
+      const json = await res.json();
+      if (!res.ok)
+        throw new Error(json?.details || json?.message || `Error ${res.status}`);
+      storeTokensFromResponse(json);
+      setResendCooldown(60);
+    } catch (e) {
+      setVerifyError(e.message || "Could not resend OTP.");
+    } finally {
+      setResending(false);
+    }
+  };
+
+  // ══════════════════════════════════════════════════════════════════════════
+  // SUCCESS
+  // ══════════════════════════════════════════════════════════════════════════
+  if (step === "success") {
     return (
-      <div className="flex flex-col h-screen bg-amber-50 items-center justify-center px-6">
+      <div className="flex flex-col min-h-screen bg-white items-center justify-center px-6">
         <motion.div
-          initial={{ scale: 0.7, opacity: 0 }}
+          initial={{ scale: 0.8, opacity: 0 }}
           animate={{ scale: 1, opacity: 1 }}
-          transition={{ type: "spring", stiffness: 260, damping: 20 }}
-          className="flex flex-col items-center text-center"
+          transition={{ type: "spring", stiffness: 260, damping: 22 }}
+          className="flex flex-col items-center text-center w-full max-w-xs"
         >
           <div
-            className="w-20 h-20 rounded-full flex items-center justify-center mb-5 shadow-lg"
-            style={{ background: "linear-gradient(135deg, #f59e0b, #b45309)" }}
+            className="w-20 h-20 rounded-full flex items-center justify-center mb-6 shadow-lg"
+            style={{ background: "linear-gradient(135deg, #34d399, #059669)" }}
           >
-            <CheckCircle2 className="h-10 w-10 text-white" />
+            <CheckCircle2 className="h-10 w-10 text-white" strokeWidth={2.2} />
           </div>
-          <h2 className="text-2xl font-extrabold text-amber-900 mb-2">Withdrawal Initiated</h2>
-          <p className="text-amber-700 text-sm mb-1">
-            <span className="font-bold text-lg">₦{fmt(numericAmount)}</span>
+
+          <p className="text-[13px] font-semibold text-gray-400 uppercase tracking-widest mb-1">
+            Withdrawal Initiated
           </p>
-          {/* accountName on success screen */}
-          <p className="text-amber-800 text-sm font-bold mb-0.5">{bankDetails?.accountName}</p>
-          <p className="text-amber-600 text-xs mb-1">
-            {bankDetails?.bankName} — {bankDetails?.settlementAccount}
+          <p
+            className="text-[46px] font-black tracking-tight text-gray-900 leading-none mb-6"
+          >
+            ₦{fmt(numericAmount)}
           </p>
-          <p className="text-gray-400 text-xs mb-8">
-            Funds are typically received within minutes.
+
+          <div
+            className="w-full flex items-center gap-3 px-4 py-3.5 rounded-2xl mb-8"
+            style={{ background: "#f9fafb", border: "1px solid #e5e7eb" }}
+          >
+            <div
+              className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0"
+              style={{ background: "linear-gradient(135deg, #f59e0b, #b45309)" }}
+            >
+              <Building2 className="h-5 w-5 text-white" />
+            </div>
+            <div className="text-left">
+              <p className="text-[15px] font-bold text-gray-900">
+                {bankDetails?.accountName}
+              </p>
+              <p className="text-[13px] text-gray-400">
+                {bankDetails?.bankName} · {maskAccount(bankDetails?.settlementAccount)}
+              </p>
+            </div>
+          </div>
+
+          <p className="text-[13px] text-gray-400 mb-8">
+            Funds typically arrive within minutes.
           </p>
+
           <button
             onClick={() => router.replace("/home")}
-            className="px-8 py-3 rounded-2xl text-sm font-bold text-white shadow-md"
+            className="w-full py-4 rounded-2xl text-sm font-bold text-white shadow-md"
             style={{ background: "linear-gradient(135deg, #92400e, #f59e0b)" }}
           >
-            Back to Home
+            Done
           </button>
         </motion.div>
       </div>
     );
   }
 
-  return (
-    <div className="flex flex-col h-screen bg-amber-50">
+  // ══════════════════════════════════════════════════════════════════════════
+  // OTP
+  // ══════════════════════════════════════════════════════════════════════════
+  if (step === "otp") {
+    return (
+      <div className="flex flex-col min-h-screen bg-white">
+        {/* header */}
+        <div
+          className="px-4 pt-12 pb-5"
+          style={{
+            background:
+              "linear-gradient(135deg, #92400e 0%, #b45309 50%, #d97706 100%)",
+          }}
+        >
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => {
+                setStep("amount");
+                setOtpValue("");
+                setOtpError("");
+                setVerifyError("");
+              }}
+              className="w-9 h-9 rounded-full flex items-center justify-center"
+              style={{ background: "rgba(255,255,255,0.15)" }}
+            >
+              <ArrowLeft className="h-4 w-4 text-white" />
+            </button>
+            <h1 className="text-white font-extrabold text-xl tracking-tight">
+              Verify Withdrawal
+            </h1>
+          </div>
+        </div>
 
-      {/* ── Header ── */}
+        <div className="flex-1 overflow-auto px-5 py-7 space-y-5">
+          {/* hero */}
+          <div className="flex flex-col items-center text-center pb-1">
+            <div
+              className="w-14 h-14 rounded-2xl flex items-center justify-center mb-4"
+              style={{ background: "#fef3c7" }}
+            >
+              <Mail
+                className="h-6 w-6"
+                style={{ color: "#d97706" }}
+                strokeWidth={1.6}
+              />
+            </div>
+            <p className="text-[22px] font-extrabold text-gray-900 tracking-tight mb-1">
+              Check your email
+            </p>
+            <p className="text-[14px] text-gray-400 leading-relaxed max-w-[260px]">
+              Enter the 6-digit code to confirm your withdrawal of{" "}
+              <span className="font-bold text-gray-700">
+                ₦{fmt(numericAmount)}
+              </span>
+            </p>
+          </div>
+
+          {/* destination row */}
+          {maskedDestination && (
+            <div
+              className="flex items-center gap-3 px-4 py-3.5 rounded-2xl"
+              style={{ background: "#f9fafb", border: "1px solid #e5e7eb" }}
+            >
+              <div
+                className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0"
+                style={{ background: "linear-gradient(135deg, #f59e0b, #b45309)" }}
+              >
+                <Building2 className="h-4 w-4 text-white" />
+              </div>
+              <div>
+                <p className="text-[15px] font-semibold text-gray-900">
+                  {maskedDestination.accountName}
+                </p>
+                <p className="text-[13px] text-gray-400">
+                  {maskedDestination.bankName} · {maskedDestination.accountNumber}
+                </p>
+              </div>
+            </div>
+          )}
+
+          {/* OTP input */}
+          <div
+            className="rounded-2xl px-5 py-5"
+            style={{
+              background: "#f9fafb",
+              border:
+                otpError || verifyError
+                  ? "1.5px solid #fca5a5"
+                  : "1.5px solid #e5e7eb",
+            }}
+          >
+            <p className="text-[11px] font-bold uppercase tracking-widest text-gray-400 mb-3">
+              One-Time Password
+            </p>
+            <input
+              type="text"
+              inputMode="numeric"
+              placeholder="——————"
+              maxLength={6}
+              value={otpValue}
+              onChange={(e) => {
+                const d = e.target.value.replace(/\D/g, "").slice(0, 6);
+                setOtpValue(d);
+                setOtpError("");
+                setVerifyError("");
+              }}
+              autoFocus
+              className="w-full text-center bg-transparent outline-none"
+              style={{
+                fontSize: 40,
+                fontWeight: 300,
+                letterSpacing: 14,
+                color: "#111",
+                caretColor: "#d97706",
+              }}
+            />
+            <div
+              className="mt-3 h-[1.5px] rounded-full"
+              style={{
+                background:
+                  "linear-gradient(90deg, transparent, #d97706, transparent)",
+              }}
+            />
+          </div>
+
+          {/* inline error — no modal */}
+          <AnimatePresence>
+            {(otpError || verifyError) && (
+              <motion.div
+                initial={{ opacity: 0, y: -4 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0 }}
+                className="flex items-start gap-2 rounded-2xl px-4 py-3"
+                style={{ background: "#fef2f2" }}
+              >
+                <AlertCircle
+                  className="h-4 w-4 flex-shrink-0 mt-0.5"
+                  style={{ color: "#ef4444" }}
+                />
+                <p className="text-[13px]" style={{ color: "#dc2626" }}>
+                  {otpError || verifyError}
+                </p>
+              </motion.div>
+            )}
+          </AnimatePresence>
+
+          {/* resend */}
+          <div className="flex items-center justify-center gap-2">
+            <p className="text-[14px] text-gray-400">Didn't receive it?</p>
+            <button
+              onClick={handleResend}
+              disabled={resendCooldown > 0 || resending}
+              className="text-[14px] font-semibold disabled:opacity-40"
+              style={{ color: "#d97706" }}
+            >
+              {resending ? (
+                <span className="flex items-center gap-1">
+                  <Loader2 className="h-3 w-3 animate-spin" /> Sending…
+                </span>
+              ) : resendCooldown > 0 ? (
+                `Resend in ${resendCooldown}s`
+              ) : (
+                "Resend OTP"
+              )}
+            </button>
+          </div>
+
+          <div className="flex items-center gap-1.5 justify-center">
+            <ShieldCheck className="h-3 w-3 text-gray-300" />
+            <p className="text-[11px] text-gray-300">
+              Never share this code with anyone.
+            </p>
+          </div>
+        </div>
+
+        {/* CTA */}
+        <div className="px-5 pb-10 pt-3">
+          <motion.button
+            whileTap={{ scale: 0.97 }}
+            onClick={handleVerifyOtp}
+            disabled={verifying || otpValue.length !== 6}
+            className="w-full py-4 rounded-2xl text-white font-extrabold text-base shadow-lg flex items-center justify-center gap-2 disabled:opacity-40 transition-opacity"
+            style={{
+              background:
+                "linear-gradient(135deg, #92400e 0%, #b45309 40%, #d97706 75%, #f59e0b 100%)",
+            }}
+          >
+            {verifying ? (
+              <>
+                <Loader2 className="h-5 w-5 animate-spin" /> Verifying…
+              </>
+            ) : (
+              <>
+                <ShieldCheck className="h-5 w-5" /> Confirm Withdrawal
+              </>
+            )}
+          </motion.button>
+        </div>
+      </div>
+    );
+  }
+
+  // ══════════════════════════════════════════════════════════════════════════
+  // AMOUNT
+  // ══════════════════════════════════════════════════════════════════════════
+  return (
+    <div className="flex flex-col min-h-screen bg-white">
+      {/* header */}
       <div
-        className="px-4 pt-10 pb-5"
-        style={{ background: "linear-gradient(135deg, #92400e 0%, #b45309 50%, #d97706 100%)" }}
+        className="px-4 pt-12 pb-5"
+        style={{
+          background:
+            "linear-gradient(135deg, #92400e 0%, #b45309 50%, #d97706 100%)",
+        }}
       >
-        <div className="flex items-center gap-3 mb-4">
+        <div className="flex items-center gap-3 mb-5">
           <button
             onClick={() => router.back()}
             className="w-9 h-9 rounded-full flex items-center justify-center"
@@ -231,218 +566,206 @@ const WithdrawPage = () => {
           >
             <ArrowLeft className="h-4 w-4 text-white" />
           </button>
-          <h1 className="text-white font-extrabold text-xl tracking-tight">Withdraw Funds</h1>
+          <h1 className="text-white font-extrabold text-xl tracking-tight">
+            Withdraw Funds
+          </h1>
         </div>
 
-        {/* Balance pill */}
         <div
-          className="flex items-center gap-2 px-4 py-2.5 rounded-2xl w-fit"
-          style={{ background: "rgba(255,255,255,0.12)", border: "1px solid rgba(255,255,255,0.2)" }}
+          className="inline-flex items-center gap-2 px-4 py-2 rounded-2xl"
+          style={{
+            background: "rgba(255,255,255,0.12)",
+            border: "1px solid rgba(255,255,255,0.2)",
+          }}
         >
           <Wallet className="h-4 w-4 text-amber-200" />
-          <p className="text-xs text-amber-100">Available balance</p>
+          <p className="text-xs text-amber-100">Available</p>
           <p className="text-sm font-extrabold text-white">
             {walletBalance > 0 ? `₦${fmt(walletBalance)}` : "—"}
           </p>
         </div>
       </div>
 
-      {/* ── Main content ── */}
-      <div className="flex-1 overflow-auto px-4 py-5 space-y-4">
-
-        {/* ── Bank details card ── */}
+      <div className="flex-1 overflow-auto px-5 py-6 space-y-5">
+        {/* bank card */}
         <div>
-          <p className="text-xs font-bold uppercase tracking-widest text-amber-700 mb-2 px-1">
+          <p className="text-[11px] font-bold uppercase tracking-widest text-gray-400 mb-2.5">
             Withdrawal Account
           </p>
 
           {bankLoading ? (
-            <div className="bg-white rounded-2xl p-4 flex items-center gap-3 shadow-sm">
-              <Loader2 className="h-5 w-5 text-amber-500 animate-spin" />
-              <p className="text-sm text-amber-700">Loading bank details...</p>
+            <div
+              className="flex items-center gap-3 px-4 py-4 rounded-2xl"
+              style={{ background: "#f9fafb", border: "1px solid #e5e7eb" }}
+            >
+              <Loader2 className="h-4 w-4 text-amber-400 animate-spin" />
+              <p className="text-sm text-gray-400">Loading…</p>
             </div>
           ) : bankError ? (
-            <div className="bg-red-50 rounded-2xl p-4 flex items-center gap-3 border border-red-100">
-              <AlertCircle className="h-5 w-5 text-red-500 flex-shrink-0" />
-              <p className="text-sm text-red-600 flex-1">{bankError}</p>
-              <button onClick={fetchBankDetails} className="text-xs font-bold text-amber-600 underline">
+            <div
+              className="flex items-center gap-3 px-4 py-4 rounded-2xl"
+              style={{ background: "#fef2f2", border: "1px solid #fecaca" }}
+            >
+              <AlertCircle className="h-4 w-4 text-red-400 flex-shrink-0" />
+              <p className="text-sm text-red-500 flex-1">{bankError}</p>
+              <button
+                onClick={fetchBankDetails}
+                className="text-xs font-bold text-amber-600"
+              >
                 Retry
               </button>
             </div>
           ) : bankDetails ? (
-            /* ── Verified bank card: bankName + accountName + settlementAccount ── */
             <motion.div
-              initial={{ opacity: 0, y: 8 }}
+              initial={{ opacity: 0, y: 6 }}
               animate={{ opacity: 1, y: 0 }}
-              className="bg-white rounded-2xl shadow-sm overflow-hidden"
-              style={{ border: "1.5px solid rgba(251,191,36,0.3)" }}
+              className="flex items-center gap-3 px-4 py-4 rounded-2xl"
+              style={{ background: "#f9fafb", border: "1px solid #e5e7eb" }}
             >
-              {/* Top strip — bank name + change button */}
               <div
-                className="px-4 py-3 flex items-center gap-3"
-                style={{ background: "linear-gradient(135deg, #fffbeb, #fef3c7)" }}
+                className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 shadow-sm"
+                style={{ background: "linear-gradient(135deg, #f59e0b, #b45309)" }}
               >
-                <div
-                  className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 shadow-sm"
-                  style={{ background: "linear-gradient(135deg, #f59e0b, #b45309)" }}
-                >
-                  <Building2 className="h-5 w-5 text-white" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-extrabold text-amber-900 truncate">{bankDetails.bankName}</p>
-                  <p className="text-[11px] text-amber-500 font-mono tracking-widest">
-                    {maskAccount(bankDetails.settlementAccount)}
-                  </p>
-                </div>
-                <button
-                  onClick={() => router.push("/userProfile/merchantProfile/merchantHome/settings/settingUpAccount")}
-                  className="flex items-center gap-0.5 text-[11px] font-bold text-amber-600 bg-white px-2.5 py-1 rounded-lg border border-amber-200 shadow-sm"
-                >
-                  Change <ChevronRight className="h-3 w-3" />
-                </button>
+                <Building2 className="h-5 w-5 text-white" />
               </div>
-
-              {/* Thin divider */}
-              <div className="h-px mx-4" style={{ background: "rgba(251,191,36,0.2)" }} />
-
-              {/* Bottom section — account name row + account number row */}
-              <div className="px-4 py-3 space-y-3">
-
-                {/* Account Name */}
-                <div className="flex items-center gap-3">
-                  <div
-                    className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0"
-                    style={{ background: "linear-gradient(135deg, #d1fae5, #a7f3d0)" }}
-                  >
-                    <User className="h-4 w-4 text-emerald-600" />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider leading-none mb-0.5">
-                      Account Name
-                    </p>
-                    <p className="text-sm font-bold text-gray-800 truncate">
-                      {bankDetails.accountName}
-                    </p>
-                  </div>
-                  <span className="flex items-center gap-1 text-[10px] font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-100 flex-shrink-0">
-                    <CheckCircle2 className="h-3 w-3" /> Verified
-                  </span>
-                </div>
-
-                {/* Account Number */}
-                <div className="flex items-center gap-3">
-                  <div
-                    className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0"
-                    style={{ background: "linear-gradient(135deg, #fef3c7, #fde68a)" }}
-                  >
-                    <CreditCard className="h-4 w-4 text-amber-600" />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider leading-none mb-0.5">
-                      Account Number
-                    </p>
-                    <p className="text-sm font-bold text-gray-800 font-mono tracking-widest">
-                      {bankDetails.settlementAccount}
-                    </p>
-                  </div>
-                </div>
-
-              </div>
-            </motion.div>
-          ) : (
-            /* ── No bank details yet ── */
-            <motion.div
-              initial={{ opacity: 0, y: 8 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="bg-white rounded-2xl p-4 shadow-sm"
-              style={{ border: "1.5px solid rgba(251,191,36,0.25)" }}
-            >
-              <div className="flex items-center gap-3 mb-3">
-                <div
-                  className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0"
-                  style={{ background: "linear-gradient(135deg, #fef3c7, #fde68a)" }}
-                >
-                  <Building2 className="h-5 w-5 text-amber-400" />
-                </div>
-                <div>
-                  <p className="text-sm font-bold text-amber-900">No bank account linked</p>
-                  <p className="text-xs text-amber-500">Add a bank account to withdraw funds</p>
-                </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-[15px] font-bold text-gray-900 truncate">
+                  {bankDetails.bankName}
+                </p>
+                <p className="text-[13px] text-gray-400 font-mono tracking-wider">
+                  {maskAccount(bankDetails.settlementAccount)}
+                </p>
               </div>
               <button
-                onClick={() => router.push("/userProfile/merchantProfile/merchantHome/settings/settingUpAccount")}
-                className="w-full py-2.5 rounded-xl text-xs font-bold text-white flex items-center justify-center gap-1.5"
-                style={{ background: "linear-gradient(135deg, #92400e, #f59e0b)" }}
+                onClick={() =>
+                  router.push(
+                    "/userProfile/merchantProfile/merchantHome/settings/settingUpAccount"
+                  )
+                }
+                className="flex items-center gap-0.5 text-[12px] font-semibold"
+                style={{ color: "#d97706" }}
               >
-                <Building2 className="h-3.5 w-3.5" />
-                Set Up Withdrawal Account
-                <ChevronRight className="h-3.5 w-3.5" />
+                Change <ChevronRight className="h-3.5 w-3.5" />
               </button>
             </motion.div>
+          ) : (
+            <div
+              className="flex items-center gap-3 px-4 py-4 rounded-2xl"
+              style={{ background: "#f9fafb", border: "1px solid #e5e7eb" }}
+            >
+              <div
+                className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0"
+                style={{ background: "#fef3c7" }}
+              >
+                <Building2 className="h-5 w-5 text-amber-400" />
+              </div>
+              <div className="flex-1">
+                <p className="text-sm font-bold text-gray-700">
+                  No bank account linked
+                </p>
+                <p className="text-xs text-gray-400">Add one to withdraw funds</p>
+              </div>
+              <button
+                onClick={() =>
+                  router.push(
+                    "/userProfile/merchantProfile/merchantHome/settings/settingUpAccount"
+                  )
+                }
+                className="text-[12px] font-semibold flex items-center gap-0.5"
+                style={{ color: "#d97706" }}
+              >
+                Set up <ChevronRight className="h-3.5 w-3.5" />
+              </button>
+            </div>
           )}
         </div>
 
-        {/* ── Amount input ── */}
+        {/* amount input */}
         <div>
-          <p className="text-xs font-bold uppercase tracking-widest text-amber-700 mb-2 px-1">
+          <p className="text-[11px] font-bold uppercase tracking-widest text-gray-400 mb-2.5">
             Amount
           </p>
           <div
-            className="bg-white rounded-2xl px-4 pt-4 pb-3 shadow-sm"
-            style={{ border: amountError ? "1.5px solid #fca5a5" : "1.5px solid rgba(251,191,36,0.25)" }}
+            className="rounded-2xl px-5 pt-5 pb-4"
+            style={{
+              background: "#f9fafb",
+              border: amountError
+                ? "1.5px solid #fca5a5"
+                : "1.5px solid #e5e7eb",
+            }}
           >
-            <div className="flex items-baseline gap-2 mb-3">
-              <span className="text-2xl font-black text-amber-900">₦</span>
+            <div className="flex items-baseline gap-1.5 mb-3">
+              <span className="text-2xl font-black text-gray-300">₦</span>
               <input
                 type="text"
                 inputMode="numeric"
                 placeholder="0"
                 value={amountStr}
                 onChange={handleAmountChange}
-                className="flex-1 text-3xl font-extrabold bg-transparent outline-none text-amber-900 placeholder-amber-200 w-full"
-                style={{ letterSpacing: "-0.5px" }}
+                className="flex-1 text-4xl font-extrabold bg-transparent outline-none text-gray-900 placeholder-gray-200 w-full"
+                style={{ letterSpacing: "-1px" }}
               />
             </div>
 
-            <p className="text-[10px] text-amber-400 mb-3">
-              Minimum withdrawal:{" "}
-              <span className="font-bold text-amber-600">₦{fmt(MIN_AMOUNT)}</span>
+            <p className="text-[11px] text-gray-400 mb-4">
+              Min{" "}
+              <span className="font-semibold text-gray-600">
+                ₦{fmt(MIN_AMOUNT)}
+              </span>
               {walletBalance > 0 && (
-                <span className="ml-2 text-amber-400">
-                  · Max: <span className="font-bold text-amber-600">₦{fmt(walletBalance)}</span>
+                <span>
+                  {" "}
+                  · Max{" "}
+                  <span className="font-semibold text-gray-600">
+                    ₦{fmt(walletBalance)}
+                  </span>
                 </span>
               )}
             </p>
 
-            {/* Quick-pick presets */}
             <div className="flex gap-2 flex-wrap">
               {PRESETS.map((p) => {
-                const overBalance = walletBalance > 0 && p > walletBalance;
+                const over = walletBalance > 0 && p > walletBalance;
                 return (
                   <button
                     key={p}
-                    onClick={() => !overBalance && handlePreset(p)}
-                    disabled={overBalance}
-                    className="px-3 py-1.5 rounded-xl text-xs font-bold transition-all active:scale-95 disabled:opacity-30 disabled:cursor-not-allowed"
+                    onClick={() => !over && handlePreset(p)}
+                    disabled={over}
+                    className="px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all active:scale-95 disabled:opacity-30 disabled:cursor-not-allowed"
                     style={
                       numericAmount === p
-                        ? { background: "linear-gradient(135deg, #92400e, #f59e0b)", color: "#fff" }
-                        : { background: "#fef3c7", color: "#92400e" }
+                        ? {
+                            background:
+                              "linear-gradient(135deg, #92400e, #f59e0b)",
+                            color: "#fff",
+                          }
+                        : {
+                            background: "#fff",
+                            color: "#92400e",
+                            border: "1px solid #e5e7eb",
+                          }
                     }
                   >
                     ₦{p >= 1000 ? `${p / 1000}k` : p}
                   </button>
                 );
               })}
-
               {walletBalance > 0 && (
                 <button
                   onClick={() => handlePreset(walletBalance)}
-                  className="px-3 py-1.5 rounded-xl text-xs font-bold transition-all active:scale-95"
+                  className="px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all active:scale-95"
                   style={
                     numericAmount === walletBalance
-                      ? { background: "linear-gradient(135deg, #92400e, #f59e0b)", color: "#fff" }
-                      : { background: "#fef3c7", color: "#92400e" }
+                      ? {
+                          background:
+                            "linear-gradient(135deg, #92400e, #f59e0b)",
+                          color: "#fff",
+                        }
+                      : {
+                          background: "#fff",
+                          color: "#92400e",
+                          border: "1px solid #e5e7eb",
+                        }
                   }
                 >
                   All
@@ -459,92 +782,123 @@ const WithdrawPage = () => {
                 exit={{ opacity: 0 }}
                 className="flex items-center gap-1.5 mt-2 px-1"
               >
-                <AlertCircle className="h-3.5 w-3.5 text-red-500 flex-shrink-0" />
+                <AlertCircle className="h-3.5 w-3.5 text-red-400 flex-shrink-0" />
                 <p className="text-xs text-red-500">{amountError}</p>
               </motion.div>
             )}
           </AnimatePresence>
         </div>
 
-        {/* ── Summary ── */}
+        {/* summary */}
         <AnimatePresence>
           {numericAmount >= MIN_AMOUNT && numericAmount <= walletBalance && (
             <motion.div
-              initial={{ opacity: 0, y: 8 }}
+              initial={{ opacity: 0, y: 6 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0 }}
-              className="bg-white rounded-2xl px-4 py-3 shadow-sm space-y-2"
-              style={{ border: "1.5px solid rgba(251,191,36,0.2)" }}
+              className="rounded-2xl overflow-hidden"
+              style={{ background: "#f9fafb", border: "1px solid #e5e7eb" }}
             >
-              <p className="text-xs font-bold uppercase tracking-widest text-amber-700 mb-1">Summary</p>
-              <div className="flex justify-between text-sm">
-                <span className="text-amber-600">You withdraw</span>
-                <span className="font-bold text-amber-900">₦{fmt(numericAmount)}</span>
-              </div>
-              {/* Account name in summary */}
-              <div className="flex justify-between text-sm">
-                <span className="text-amber-600">Account name</span>
-                <span className="font-semibold text-amber-800 text-xs">{bankDetails?.accountName}</span>
-              </div>
-              <div className="flex justify-between text-sm">
-                <span className="text-amber-600">To account</span>
-                <span className="font-semibold text-amber-800 text-xs font-mono">{bankDetails?.settlementAccount}</span>
-              </div>
-              <div className="flex justify-between text-sm">
-                <span className="text-amber-600">Remaining balance</span>
-                <span className="font-bold text-amber-900">₦{fmt(walletBalance - numericAmount)}</span>
-              </div>
+              {[
+                {
+                  label: "You withdraw",
+                  value: `₦${fmt(numericAmount)}`,
+                  bold: true,
+                },
+                { label: "To", value: bankDetails?.accountName ?? "—" },
+                {
+                  label: "Remaining balance",
+                  value: `₦${fmt(walletBalance - numericAmount)}`,
+                  bold: true,
+                },
+              ].map((row, i, arr) => (
+                <div
+                  key={row.label}
+                  className="flex justify-between items-center px-4 py-3"
+                  style={
+                    i < arr.length - 1 ? { borderBottom: "1px solid #e5e7eb" } : {}
+                  }
+                >
+                  <span className="text-[13px] text-gray-400">{row.label}</span>
+                  <span
+                    className="text-[13px] text-gray-900"
+                    style={{ fontWeight: row.bold ? 700 : 500 }}
+                  >
+                    {row.value}
+                  </span>
+                </div>
+              ))}
             </motion.div>
           )}
         </AnimatePresence>
 
-        {/* Security note */}
-        <div className="flex items-center gap-2 px-1">
-          <ShieldCheck className="h-3.5 w-3.5 text-amber-400 flex-shrink-0" />
-          <p className="text-[10px] text-amber-400">
+        {/* initiate error — inline only, no modal */}
+        <AnimatePresence>
+          {initiateError && (
+            <motion.div
+              initial={{ opacity: 0, y: -4 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0 }}
+              className="flex items-start gap-2 rounded-2xl px-4 py-3"
+              style={{ background: "#fef2f2" }}
+            >
+              <AlertCircle
+                className="h-4 w-4 text-red-400 flex-shrink-0 mt-0.5"
+              />
+              <p className="text-[13px] text-red-500">{initiateError}</p>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        <div className="flex items-center gap-1.5 justify-center">
+          <ShieldCheck className="h-3 w-3 text-gray-300" />
+          <p className="text-[11px] text-gray-300">
             Secured &amp; encrypted. Funds typically arrive within minutes.
           </p>
         </div>
-
-        {/* Submit error */}
-        <AnimatePresence>
-          {submitError && (
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              className="flex items-center gap-2 bg-red-50 border border-red-100 rounded-xl px-3 py-2.5"
-            >
-              <AlertCircle className="h-4 w-4 text-red-500 flex-shrink-0" />
-              <p className="text-xs text-red-600">{submitError}</p>
-            </motion.div>
-          )}
-        </AnimatePresence>
       </div>
 
-      {/* ── Bottom CTA ── */}
-      <div className="px-4 pb-8 pt-3 bg-amber-50">
+      {/* CTA */}
+      <div className="px-5 pb-10 pt-3">
         <motion.button
           whileTap={{ scale: 0.97 }}
-          onClick={handleSubmit}
-          disabled={submitting || bankLoading || !!bankError || !bankDetails}
+          onClick={handleInitiate}
+          disabled={
+            initiating ||
+            bankLoading ||
+            !!bankError ||
+            !bankDetails ||
+            numericAmount < MIN_AMOUNT ||
+            numericAmount > walletBalance
+          }
           className="w-full py-4 rounded-2xl text-white font-extrabold text-base shadow-lg relative overflow-hidden disabled:opacity-50 disabled:cursor-not-allowed"
-          style={{ background: "linear-gradient(135deg, #92400e 0%, #b45309 40%, #d97706 75%, #f59e0b 100%)" }}
+          style={{
+            background:
+              "linear-gradient(135deg, #92400e 0%, #b45309 40%, #d97706 75%, #f59e0b 100%)",
+          }}
         >
-          {!submitting && (
+          {!initiating && (
             <motion.div
               className="absolute inset-0 -skew-x-12 pointer-events-none"
-              style={{ background: "linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.12) 50%, transparent 100%)" }}
+              style={{
+                background:
+                  "linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.12) 50%, transparent 100%)",
+              }}
               initial={{ x: "-100%" }}
               animate={{ x: "220%" }}
-              transition={{ duration: 1.8, delay: 0.5, ease: "easeInOut", repeat: Infinity, repeatDelay: 4 }}
+              transition={{
+                duration: 1.8,
+                delay: 0.5,
+                ease: "easeInOut",
+                repeat: Infinity,
+                repeatDelay: 4,
+              }}
             />
           )}
           <span className="relative z-10 flex items-center justify-center gap-2">
-            {submitting ? (
+            {initiating ? (
               <>
-                <Loader2 className="h-5 w-5 animate-spin" />
-                Processing...
+                <Loader2 className="h-5 w-5 animate-spin" /> Sending OTP…
               </>
             ) : (
               `Withdraw${numericAmount >= MIN_AMOUNT ? ` ₦${fmt(numericAmount)}` : ""}`
@@ -554,6 +908,4 @@ const WithdrawPage = () => {
       </div>
     </div>
   );
-};
-
-export default WithdrawPage;
+}

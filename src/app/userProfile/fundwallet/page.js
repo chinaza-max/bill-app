@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import {
   ArrowLeft,
   Banknote,
@@ -11,12 +11,14 @@ import {
   Loader2,
   Shield,
   Zap,
-  ChevronRight,
   RefreshCw,
   Building2,
   Hash,
   User,
   BadgeCheck,
+  CheckCircle2,
+  XCircle,
+  HelpCircle,
 } from "lucide-react";
 import { useRouter, usePathname } from "next/navigation";
 import ProtectedRoute from "@/app/component/protect";
@@ -28,11 +30,17 @@ import { motion, AnimatePresence } from "framer-motion";
 // ── Quick amount presets ──────────────────────────────────────────────────────
 const PRESETS = [1000, 2000, 5000, 10000, 50000];
 
+// ── Confirm polling config ────────────────────────────────────────────────────
+// Strategy: poll up to MAX_ATTEMPTS times with POLL_INTERVAL ms between each.
+// This covers the ~42 s webhook delay while not hammering the server.
+const POLL_INTERVAL_MS  = 5000;   // 5 s between polls
+const MAX_POLL_ATTEMPTS = 18;     // 18 × 5 s = 90 s max wait
+const INITIAL_DELAY_MS  = 3000;   // wait 3 s before first poll (let webhook breathe)
+
 // ── Format helpers ────────────────────────────────────────────────────────────
 const fmt = (n) => Number(n).toLocaleString("en-NG");
 
 // ── Parse the real API response ───────────────────────────────────────────────
-// Shape: { status, message, data: { status, message, data: { statusCode, message, data: { accountNumber, accountName, bankCode, validFor, amount, expiryDate, ... } } } }
 const parseVirtualAccount = (apiResponse) => {
   const inner =
     apiResponse?.data?.data?.data ??
@@ -41,20 +49,21 @@ const parseVirtualAccount = (apiResponse) => {
     apiResponse;
 
   return {
-    accountNumber: inner?.accountNumber ?? "—",
-    accountName:   inner?.accountName   ?? "—",
-    bankCode:      inner?.bankCode      ?? "—",
-    amount:        inner?.amount        ?? 0,
-    validFor:      inner?.validFor      ?? 900,       // seconds, default 15 min
-    expiryDate:    inner?.expiryDate    ?? null,
-    reference:     inner?.externalReference ?? inner?._id ?? "—",
-    status:        inner?.status        ?? "Active",
+    accountNumber:     inner?.accountNumber     ?? "—",
+    accountName:       inner?.accountName       ?? "—",
+    bankCode:          inner?.bankCode          ?? "—",
+    amount:            inner?.amount            ?? 0,
+    validFor:          inner?.validFor          ?? 900,
+    expiryDate:        inner?.expiryDate        ?? null,
+    reference:         inner?.externalReference ?? inner?._id ?? "—",
+    transactionId:     inner?.externalReference ?? "—",   // "NGTXM76DJW"
+    status:            inner?.status            ?? "Active",
   };
 };
 
-// ── Resolve bank name from code ───────────────────────────────────────────────
+// ── Bank name map ─────────────────────────────────────────────────────────────
 const BANK_NAMES = {
-  "090286": "Fido MFB",
+  "090286": "Safe Haven MFB",
   "000014": "Access Bank",
   "000004": "United Bank for Africa",
   "000016": "Zenith Bank",
@@ -79,9 +88,9 @@ const useCopy = () => {
 
 // ── Circular countdown ring ───────────────────────────────────────────────────
 const CountdownRing = ({ seconds, total }) => {
-  const r = 26;
+  const r    = 26;
   const circ = 2 * Math.PI * r;
-  const pct = seconds / total;
+  const pct  = seconds / total;
   const dash = circ * pct;
   const isUrgent = seconds < 60;
 
@@ -123,7 +132,9 @@ const DetailRow = ({ icon: Icon, label, value, copyKey, onCopy, copiedKey, accen
         onClick={() => onCopy(value, copyKey)}
         className="w-8 h-8 rounded-lg flex items-center justify-center transition-all active:scale-90"
         style={{
-          background: copiedKey === copyKey ? "linear-gradient(135deg,#d1fae5,#a7f3d0)" : "#fef3c7",
+          background: copiedKey === copyKey
+            ? "linear-gradient(135deg,#d1fae5,#a7f3d0)"
+            : "#fef3c7",
         }}
       >
         {copiedKey === copyKey
@@ -134,26 +145,50 @@ const DetailRow = ({ icon: Icon, label, value, copyKey, onCopy, copiedKey, accen
   </motion.div>
 );
 
+// ── Confirm status enum ───────────────────────────────────────────────────────
+// idle | checking | success | not_found | error
+const CONFIRM = {
+  IDLE:       "idle",
+  CHECKING:   "checking",
+  SUCCESS:    "success",
+  NOT_FOUND:  "not_found",   // still polling — webhook hasn't landed yet
+  ERROR:      "error",
+};
+
 // ─────────────────────────────────────────────────────────────────────────────
 const FundWalletPage = () => {
-  const router    = useRouter();
-  const pathname  = usePathname();
-  const accessToken    = useSelector((s) => s.user.accessToken);
-  const isAuthenticated = useSelector((s) => s.user.isAuthenticated);
+  const router          = useRouter();
+  const pathname        = usePathname();
+  const accessToken     = useSelector((s) => s.user.accessToken);
 
-  const [amountStr, setAmountStr]       = useState("1000");
-  const [amountError, setAmountError]   = useState("");
-  const [accountDetails, setAccountDetails] = useState(null); // parsed virtual account
-  const [isGenerating, setIsGenerating] = useState(false);
+  const [amountStr, setAmountStr]           = useState("1000");
+  const [amountError, setAmountError]       = useState("");
+  const [accountDetails, setAccountDetails] = useState(null);
+  const [isGenerating, setIsGenerating]     = useState(false);
 
-  // Countdown derived from API validFor (seconds)
+  // Countdown
   const [secondsLeft, setSecondsLeft]   = useState(0);
   const [totalSeconds, setTotalSeconds] = useState(900);
   const [expired, setExpired]           = useState(false);
 
+  // Confirm-transfer state
+  const [confirmStatus, setConfirmStatus]     = useState(CONFIRM.IDLE);
+  const [confirmMessage, setConfirmMessage]   = useState("");
+  const [pollAttempt, setPollAttempt]         = useState(0);
+  const pollTimerRef = useRef(null);          // holds the setTimeout id
+  const isMountedRef = useRef(true);
+
   const { copiedKey, copy } = useCopy();
 
-  // ── Tick countdown ──────────────────────────────────────────────────────────
+  // cleanup on unmount
+  useEffect(() => {
+    return () => {
+      isMountedRef.current = false;
+      clearTimeout(pollTimerRef.current);
+    };
+  }, []);
+
+  // ── Countdown tick ──────────────────────────────────────────────────────────
   useEffect(() => {
     if (!accountDetails || expired) return;
     if (secondsLeft <= 0) { setExpired(true); return; }
@@ -162,26 +197,134 @@ const FundWalletPage = () => {
   }, [accountDetails, secondsLeft, expired]);
 
   const fmtTime = (s) => {
-    const m = Math.floor(s / 60);
+    const m   = Math.floor(s / 60);
     const sec = s % 60;
     return `${m}:${sec < 10 ? "0" : ""}${sec}`;
   };
 
   const numericAmount = parseInt(amountStr.replace(/[^\d]/g, ""), 10) || 0;
 
-  // ── Mutation ────────────────────────────────────────────────────────────────
+  // ── Single confirm API call ─────────────────────────────────────────────────
+  const callConfirmTransfer = useCallback(async (transactionId) => {
+    const qs  = new URLSearchParams({ apiType: "confirmTransfer", token: accessToken });
+    const res = await fetch(`/api/user?${qs.toString()}`, {
+      method:  "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        apiType:       "confirmTransfer",
+        accessToken,
+        transactionId,
+      }),
+    });
+
+    if (!res.ok) {
+      const err = await res.json().catch(() => null);
+      const details = err?.details ?? err?.message ?? "";
+
+      // These all mean the webhook hasn't fired yet — keep polling silently
+      const stillWaiting =
+        res.status === 404 ||
+        res.status === 400 ||
+        /payment not yet confirmed/i.test(details) ||
+        /not yet confirmed/i.test(details) ||
+        /transaction not found/i.test(details) ||
+        /invalid request/i.test(err?.message ?? "");
+
+      if (stillWaiting) return { pending: true };
+
+      // Genuine error (auth failure, 500, network, etc.)
+      throw new Error(details || "Confirm failed");
+    }
+
+    const data = await res.json();
+    return { pending: false, data };
+  }, [accessToken]);
+
+  // ── Poll logic ──────────────────────────────────────────────────────────────
+  /**
+   * Strategy:
+   * 1. User clicks "I've Sent the Money"
+   * 2. We wait INITIAL_DELAY_MS (3 s) for the webhook to potentially land
+   * 3. We call confirmTransfer
+   * 4. If 200 → success. Done.
+   * 5. If "pending" (404 / transaction not found) → schedule next poll after POLL_INTERVAL_MS
+   * 6. Repeat up to MAX_POLL_ATTEMPTS times
+   * 7. After exhausting attempts, show "not found yet" UI with a manual retry button
+   */
+  const startPolling = useCallback((transactionId, attempt = 0) => {
+    if (!isMountedRef.current) return;
+
+    const delay = attempt === 0 ? INITIAL_DELAY_MS : POLL_INTERVAL_MS;
+
+    pollTimerRef.current = setTimeout(async () => {
+      if (!isMountedRef.current) return;
+
+      // Update attempt counter so UI can show progress
+      setPollAttempt(attempt + 1);
+
+      try {
+        const result = await callConfirmTransfer(transactionId);
+
+        if (!isMountedRef.current) return;
+
+        if (result.pending) {
+          // Webhook hasn't fired yet
+          if (attempt + 1 < MAX_POLL_ATTEMPTS) {
+            // Keep polling
+            startPolling(transactionId, attempt + 1);
+          } else {
+            // Exhausted — let user retry manually
+            setConfirmStatus(CONFIRM.NOT_FOUND);
+            setConfirmMessage(
+              "Your transfer hasn't reflected yet. Tap Check Again or wait a moment."
+            );
+          }
+        } else {
+          // Success!
+          setConfirmStatus(CONFIRM.SUCCESS);
+          setConfirmMessage("Transfer confirmed! Your wallet has been credited.");
+        }
+      } catch (err) {
+        if (!isMountedRef.current) return;
+        setConfirmStatus(CONFIRM.ERROR);
+        setConfirmMessage(
+          getErrorMessage(err) || "Something went wrong while confirming. Please try again."
+        );
+      }
+    }, delay);
+  }, [callConfirmTransfer]);
+
+  const handleConfirmTransfer = () => {
+    if (!accountDetails?.transactionId || confirmStatus === CONFIRM.CHECKING) return;
+    clearTimeout(pollTimerRef.current);
+    setConfirmStatus(CONFIRM.CHECKING);
+    setConfirmMessage("");
+    setPollAttempt(0);
+    startPolling(accountDetails.transactionId, 0);
+  };
+
+  // Manual "Check Again" after NOT_FOUND
+  const handleCheckAgain = () => {
+    clearTimeout(pollTimerRef.current);
+    setConfirmStatus(CONFIRM.CHECKING);
+    setConfirmMessage("");
+    setPollAttempt(0);
+    startPolling(accountDetails.transactionId, 0);
+  };
+
+  // ── Generate virtual account mutation ───────────────────────────────────────
   const generateMutation = useMutation({
     mutationFn: async (fundAmount) => {
       if (!accessToken) throw new Error("Access token not available");
-      const qs = new URLSearchParams({ apiType: "generateAccountVirtual", token: accessToken });
+      const qs  = new URLSearchParams({ apiType: "generateAccountVirtual", token: accessToken });
       const res = await fetch(`/api/user?${qs.toString()}`, {
-        method: "POST",
+        method:  "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          apiType: "generateAccountVirtual",
+          apiType:     "generateAccountVirtual",
           accessToken,
-          amount: fundAmount,
-          type: "fundWallet",
+          amount:      fundAmount,
+          type:        "fundWallet",
         }),
       });
       if (!res.ok) {
@@ -190,8 +333,8 @@ const FundWalletPage = () => {
       }
       return res.json();
     },
-    onMutate: () => setIsGenerating(true),
-    onSuccess: (data) => {
+    onMutate:   () => setIsGenerating(true),
+    onSuccess:  (data) => {
       const parsed = parseVirtualAccount(data);
       setAccountDetails(parsed);
       setSecondsLeft(parsed.validFor);
@@ -199,6 +342,11 @@ const FundWalletPage = () => {
       setExpired(false);
       setAmountError("");
       setIsGenerating(false);
+      // Reset confirm state for new account
+      setConfirmStatus(CONFIRM.IDLE);
+      setConfirmMessage("");
+      setPollAttempt(0);
+      clearTimeout(pollTimerRef.current);
     },
     onError: (error) => {
       setAmountError(getErrorMessage(error) || "Something went wrong. Please try again.");
@@ -216,10 +364,14 @@ const FundWalletPage = () => {
   };
 
   const handleReset = () => {
+    clearTimeout(pollTimerRef.current);
     setAccountDetails(null);
     setExpired(false);
     setSecondsLeft(0);
     setAmountError("");
+    setConfirmStatus(CONFIRM.IDLE);
+    setConfirmMessage("");
+    setPollAttempt(0);
   };
 
   const handleAmountChange = (e) => {
@@ -228,7 +380,16 @@ const FundWalletPage = () => {
     setAmountError(parseInt(digits) < 1000 ? "Minimum amount is ₦1,000" : "");
   };
 
-  const isLoading = isGenerating || generateMutation.isPending;
+  const isLoading    = isGenerating || generateMutation.isPending;
+  const isChecking   = confirmStatus === CONFIRM.CHECKING;
+
+  // ── Poll progress label ─────────────────────────────────────────────────────
+  const pollProgressLabel = () => {
+    if (pollAttempt === 0) return "Waiting for your bank…";
+    if (pollAttempt <= 3)  return "Checking payment status…";
+    if (pollAttempt <= 8)  return `Still waiting · attempt ${pollAttempt} of ${MAX_POLL_ATTEMPTS}…`;
+    return `Hang tight · checking again… (${pollAttempt}/${MAX_POLL_ATTEMPTS})`;
+  };
 
   // ────────────────────────────────────────────────────────────────────────────
   return (
@@ -252,7 +413,10 @@ const FundWalletPage = () => {
               <h1 className="text-white font-extrabold text-lg leading-none tracking-tight">Fund My Wallet</h1>
               <p className="text-amber-200 text-[11px] mt-0.5">Instant bank transfer</p>
             </div>
-            <div className="ml-auto flex items-center gap-1.5 px-2.5 py-1 rounded-full" style={{ background: "rgba(255,255,255,0.12)" }}>
+            <div
+              className="ml-auto flex items-center gap-1.5 px-2.5 py-1 rounded-full"
+              style={{ background: "rgba(255,255,255,0.12)" }}
+            >
               <Zap className="h-3 w-3 text-yellow-300" />
               <span className="text-[10px] text-amber-100 font-bold">Instant</span>
             </div>
@@ -279,7 +443,6 @@ const FundWalletPage = () => {
                 >
                   <p className="text-[10px] font-bold uppercase tracking-widest text-amber-500 mb-3">Enter Amount</p>
 
-                  {/* Big amount input */}
                   <div className="flex items-baseline gap-2 mb-4">
                     <span className="text-3xl font-black text-amber-900">₦</span>
                     <input
@@ -294,7 +457,6 @@ const FundWalletPage = () => {
                     />
                   </div>
 
-                  {/* Preset chips */}
                   <div className="flex gap-2 flex-wrap">
                     {PRESETS.map((p) => (
                       <button
@@ -313,7 +475,6 @@ const FundWalletPage = () => {
                     ))}
                   </div>
 
-                  {/* Error */}
                   <AnimatePresence>
                     {amountError && (
                       <motion.div
@@ -337,7 +498,7 @@ const FundWalletPage = () => {
                     { n: "1", text: "Enter the amount you want to add" },
                     { n: "2", text: "Tap Generate to get a one-time bank account" },
                     { n: "3", text: "Transfer the exact amount before it expires" },
-                    { n: "4", text: "Your wallet is credited instantly" },
+                    { n: "4", text: "Tap I've Sent the Money and we'll confirm automatically" },
                   ].map(({ n, text }) => (
                     <div key={n} className="flex items-start gap-3 mb-2.5 last:mb-0">
                       <div
@@ -351,7 +512,6 @@ const FundWalletPage = () => {
                   ))}
                 </div>
 
-                {/* Loading overlay card */}
                 <AnimatePresence>
                   {isLoading && (
                     <motion.div
@@ -381,153 +541,272 @@ const FundWalletPage = () => {
               >
 
                 {/* ── Countdown card ── */}
-                <div
-                  className="bg-white rounded-3xl p-5 shadow-sm"
-                  style={{
-                    border: expired
-                      ? "1.5px solid #fca5a5"
-                      : secondsLeft < 60
-                      ? "1.5px solid #fca5a5"
-                      : "1.5px solid rgba(251,191,36,0.3)",
-                  }}
-                >
-                  <div className="flex items-center gap-4">
-                    {/* Ring */}
-                    <div className="relative flex-shrink-0">
-                      <CountdownRing seconds={secondsLeft} total={totalSeconds} />
-                      <div className="absolute inset-0 flex items-center justify-center">
-                        <Clock className={`h-4 w-4 ${expired || secondsLeft < 60 ? "text-red-500" : "text-amber-500"}`} />
+                {confirmStatus !== CONFIRM.SUCCESS && (
+                  <div
+                    className="bg-white rounded-3xl p-5 shadow-sm"
+                    style={{
+                      border: expired || secondsLeft < 60
+                        ? "1.5px solid #fca5a5"
+                        : "1.5px solid rgba(251,191,36,0.3)",
+                    }}
+                  >
+                    <div className="flex items-center gap-4">
+                      <div className="relative flex-shrink-0">
+                        <CountdownRing seconds={secondsLeft} total={totalSeconds} />
+                        <div className="absolute inset-0 flex items-center justify-center">
+                          <Clock className={`h-4 w-4 ${expired || secondsLeft < 60 ? "text-red-500" : "text-amber-500"}`} />
+                        </div>
+                      </div>
+                      <div className="flex-1">
+                        {expired ? (
+                          <>
+                            <p className="text-sm font-extrabold text-red-600">Account Expired</p>
+                            <p className="text-xs text-red-400 mt-0.5">Generate a new account to continue</p>
+                          </>
+                        ) : (
+                          <>
+                            <p className="text-xs text-amber-500 font-semibold mb-0.5">Time remaining to transfer</p>
+                            <p className={`text-2xl font-black tabular-nums ${secondsLeft < 60 ? "text-red-500" : "text-amber-900"}`}>
+                              {fmtTime(secondsLeft)}
+                            </p>
+                            <p className="text-[10px] text-amber-400 mt-0.5">
+                              Expires {accountDetails.expiryDate
+                                ? new Date(accountDetails.expiryDate).toLocaleTimeString("en-NG", { hour: "2-digit", minute: "2-digit" })
+                                : "soon"}
+                            </p>
+                          </>
+                        )}
+                      </div>
+                      <div
+                        className="px-3 py-2 rounded-2xl text-center flex-shrink-0"
+                        style={{ background: "linear-gradient(135deg, #fef3c7, #fde68a)" }}
+                      >
+                        <p className="text-[10px] font-bold text-amber-600 uppercase tracking-wide">Send</p>
+                        <p className="text-base font-extrabold text-amber-900">₦{fmt(accountDetails.amount)}</p>
                       </div>
                     </div>
-                    {/* Text */}
-                    <div className="flex-1">
-                      {expired ? (
-                        <>
-                          <p className="text-sm font-extrabold text-red-600">Account Expired</p>
-                          <p className="text-xs text-red-400 mt-0.5">Generate a new account to continue</p>
-                        </>
-                      ) : (
-                        <>
-                          <p className="text-xs text-amber-500 font-semibold mb-0.5">Time remaining to transfer</p>
-                          <p
-                            className={`text-2xl font-black tabular-nums ${
-                              secondsLeft < 60 ? "text-red-500" : "text-amber-900"
-                            }`}
-                          >
-                            {fmtTime(secondsLeft)}
-                          </p>
-                          <p className="text-[10px] text-amber-400 mt-0.5">
-                            Expires {accountDetails.expiryDate
-                              ? new Date(accountDetails.expiryDate).toLocaleTimeString("en-NG", { hour: "2-digit", minute: "2-digit" })
-                              : "soon"}
-                          </p>
-                        </>
-                      )}
-                    </div>
-                    {/* Amount badge */}
-                    <div
-                      className="px-3 py-2 rounded-2xl text-center flex-shrink-0"
-                      style={{ background: "linear-gradient(135deg, #fef3c7, #fde68a)" }}
-                    >
-                      <p className="text-[10px] font-bold text-amber-600 uppercase tracking-wide">Send</p>
-                      <p className="text-base font-extrabold text-amber-900">₦{fmt(accountDetails.amount)}</p>
-                    </div>
                   </div>
-                </div>
+                )}
 
-                {/* ── Bank details card ── */}
-                <div
-                  className="bg-white rounded-3xl overflow-hidden shadow-sm"
-                  style={{ border: "1.5px solid rgba(251,191,36,0.3)" }}
-                >
-                  {/* Card header */}
-                  <div
-                    className="px-5 py-3.5 flex items-center gap-2"
-                    style={{ background: "linear-gradient(135deg, #fffbeb, #fef3c7)" }}
-                  >
-                    <BadgeCheck className="h-4 w-4 text-emerald-600" />
-                    <p className="text-xs font-extrabold text-amber-800 uppercase tracking-widest">
-                      Transfer Exactly ₦{fmt(accountDetails.amount)}
-                    </p>
-                  </div>
-
-                  <div className="px-5 py-2">
-                    <DetailRow
-                      icon={Building2}
-                      label="Bank Name"
-                      value={getBankName(accountDetails.bankCode)}
-                      copyKey="bank"
-                      onCopy={copy}
-                      copiedKey={copiedKey}
-                    />
-                    <DetailRow
-                      icon={Hash}
-                      label="Account Number"
-                      value={accountDetails.accountNumber}
-                      copyKey="accnum"
-                      onCopy={copy}
-                      copiedKey={copiedKey}
-                      accent="linear-gradient(135deg,#ede9fe,#ddd6fe)"
-                    />
-                    <DetailRow
-                      icon={User}
-                      label="Account Name"
-                      value={accountDetails.accountName}
-                      copyKey="accname"
-                      onCopy={copy}
-                      copiedKey={copiedKey}
-                      accent="linear-gradient(135deg,#d1fae5,#a7f3d0)"
-                    />
-                    <DetailRow
-                      icon={Banknote}
-                      label="Exact Amount"
-                      value={`₦${fmt(accountDetails.amount)}`}
-                      copyKey="amount"
-                      onCopy={copy}
-                      copiedKey={copiedKey}
-                    />
-                  </div>
-
-                  {/* Copy all button */}
-                  <div className="px-5 pb-4">
-                    <button
-                      onClick={() =>
-                        copy(
-                          `Bank: ${getBankName(accountDetails.bankCode)}\nAccount: ${accountDetails.accountNumber}\nName: ${accountDetails.accountName}\nAmount: ₦${fmt(accountDetails.amount)}`,
-                          "all"
-                        )
-                      }
-                      className="w-full py-2.5 rounded-2xl text-xs font-bold flex items-center justify-center gap-2 transition-all active:scale-97"
+                {/* ── Confirm status card (CHECKING / NOT_FOUND / ERROR / SUCCESS) ── */}
+                <AnimatePresence>
+                  {confirmStatus !== CONFIRM.IDLE && (
+                    <motion.div
+                      key="confirm-card"
+                      initial={{ opacity: 0, y: 10, scale: 0.98 }}
+                      animate={{ opacity: 1, y: 0, scale: 1 }}
+                      exit={{ opacity: 0 }}
+                      className="bg-white rounded-3xl p-5 shadow-sm overflow-hidden"
                       style={{
-                        background: copiedKey === "all" ? "linear-gradient(135deg,#d1fae5,#a7f3d0)" : "#fef3c7",
-                        color: copiedKey === "all" ? "#065f46" : "#92400e",
+                        border:
+                          confirmStatus === CONFIRM.SUCCESS  ? "1.5px solid #6ee7b7" :
+                          confirmStatus === CONFIRM.ERROR    ? "1.5px solid #fca5a5" :
+                          confirmStatus === CONFIRM.NOT_FOUND? "1.5px solid #fde68a" :
+                                                               "1.5px solid rgba(251,191,36,0.3)",
                       }}
                     >
-                      {copiedKey === "all" ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
-                      {copiedKey === "all" ? "Copied all details!" : "Copy All Details"}
-                    </button>
-                  </div>
-                </div>
+                      {/* CHECKING */}
+                      {confirmStatus === CONFIRM.CHECKING && (
+                        <div className="flex items-center gap-4">
+                          <div className="relative flex-shrink-0">
+                            {/* Pulsing ring */}
+                            <div
+                              className="w-12 h-12 rounded-full flex items-center justify-center"
+                              style={{ background: "linear-gradient(135deg, #fef3c7, #fde68a)" }}
+                            >
+                              <Loader2 className="h-5 w-5 text-amber-600 animate-spin" />
+                            </div>
+                          </div>
+                          <div className="flex-1">
+                            <p className="text-sm font-extrabold text-amber-900 mb-0.5">Confirming Transfer</p>
+                            <p className="text-xs text-amber-500">{pollProgressLabel()}</p>
+                            {/* Progress bar */}
+                            <div className="mt-2 h-1 rounded-full bg-amber-100 overflow-hidden">
+                              <motion.div
+                                className="h-full rounded-full"
+                                style={{ background: "linear-gradient(90deg, #b45309, #f59e0b)" }}
+                                initial={{ width: "5%" }}
+                                animate={{ width: `${Math.min(100, ((pollAttempt + 1) / MAX_POLL_ATTEMPTS) * 100)}%` }}
+                                transition={{ duration: 0.4, ease: "easeOut" }}
+                              />
+                            </div>
+                            <p className="text-[10px] text-amber-300 mt-1">
+                              Bank update can take up to 90 seconds — sit tight
+                            </p>
+                          </div>
+                        </div>
+                      )}
 
-                {/* ── Warning / info strip ── */}
-                <div
-                  className="rounded-2xl px-4 py-3 flex items-start gap-3"
-                  style={{ background: "#fffbeb", border: "1px solid rgba(251,191,36,0.3)" }}
-                >
-                  <AlertCircle className="h-4 w-4 text-amber-500 flex-shrink-0 mt-0.5" />
-                  <p className="text-xs text-amber-700 leading-relaxed">
-                    Transfer the <span className="font-bold">exact amount</span> shown. Sending a different amount may delay crediting. This account is single-use and expires once the timer runs out.
-                  </p>
-                </div>
+                      {/* SUCCESS */}
+                      {confirmStatus === CONFIRM.SUCCESS && (
+                        <div className="text-center py-2">
+                          <motion.div
+                            initial={{ scale: 0 }} animate={{ scale: 1 }}
+                            transition={{ type: "spring", stiffness: 300, damping: 18 }}
+                            className="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-3"
+                            style={{ background: "linear-gradient(135deg, #d1fae5, #a7f3d0)" }}
+                          >
+                            <CheckCircle2 className="h-8 w-8 text-emerald-600" />
+                          </motion.div>
+                          <p className="text-base font-extrabold text-emerald-700 mb-1">Wallet Credited! 🎉</p>
+                          <p className="text-xs text-emerald-500">{confirmMessage}</p>
+                          <button
+                            onClick={handleReset}
+                            className="mt-4 px-5 py-2 rounded-xl text-sm font-bold text-white"
+                            style={{ background: "linear-gradient(135deg, #065f46, #059669)" }}
+                          >
+                            Done
+                          </button>
+                        </div>
+                      )}
 
-                {/* ── Security strip ── */}
-                <div className="flex items-center gap-2 px-1">
-                  <Shield className="h-3.5 w-3.5 text-amber-400 flex-shrink-0" />
-                  <p className="text-[10px] text-amber-400">
-                    Secured by 256-bit encryption · Reference: {accountDetails.reference}
-                  </p>
-                </div>
+                      {/* NOT_FOUND — exhausted polls, offer manual retry */}
+                      {confirmStatus === CONFIRM.NOT_FOUND && (
+                        <div className="flex items-start gap-3">
+                          <div
+                            className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0"
+                            style={{ background: "#fef3c7" }}
+                          >
+                            <HelpCircle className="h-5 w-5 text-amber-500" />
+                          </div>
+                          <div className="flex-1">
+                            <p className="text-sm font-extrabold text-amber-900 mb-0.5">Transfer Not Found Yet</p>
+                            <p className="text-xs text-amber-600 leading-relaxed">{confirmMessage}</p>
+                            <button
+                              onClick={handleCheckAgain}
+                              className="mt-3 flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold"
+                              style={{ background: "linear-gradient(135deg,#fef3c7,#fde68a)", color: "#92400e" }}
+                            >
+                              <RefreshCw className="h-3.5 w-3.5" />
+                              Check Again
+                            </button>
+                          </div>
+                        </div>
+                      )}
 
+                      {/* ERROR */}
+                      {confirmStatus === CONFIRM.ERROR && (
+                        <div className="flex items-start gap-3">
+                          <div
+                            className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0"
+                            style={{ background: "#fee2e2" }}
+                          >
+                            <XCircle className="h-5 w-5 text-red-500" />
+                          </div>
+                          <div className="flex-1">
+                            <p className="text-sm font-extrabold text-red-700 mb-0.5">Confirmation Failed</p>
+                            <p className="text-xs text-red-500 leading-relaxed">{confirmMessage}</p>
+                            <button
+                              onClick={handleCheckAgain}
+                              className="mt-3 flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold"
+                              style={{ background: "#fee2e2", color: "#b91c1c" }}
+                            >
+                              <RefreshCw className="h-3.5 w-3.5" />
+                              Try Again
+                            </button>
+                          </div>
+                        </div>
+                      )}
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+
+                {/* ── Bank details card (hide after success) ── */}
+                {confirmStatus !== CONFIRM.SUCCESS && (
+                  <>
+                    <div
+                      className="bg-white rounded-3xl overflow-hidden shadow-sm"
+                      style={{ border: "1.5px solid rgba(251,191,36,0.3)" }}
+                    >
+                      <div
+                        className="px-5 py-3.5 flex items-center gap-2"
+                        style={{ background: "linear-gradient(135deg, #fffbeb, #fef3c7)" }}
+                      >
+                        <BadgeCheck className="h-4 w-4 text-emerald-600" />
+                        <p className="text-xs font-extrabold text-amber-800 uppercase tracking-widest">
+                          Transfer Exactly ₦{fmt(accountDetails.amount)}
+                        </p>
+                      </div>
+
+                      <div className="px-5 py-2">
+                        <DetailRow
+                          icon={Building2}
+                          label="Bank Name"
+                          value={getBankName(accountDetails.bankCode)}
+                          copyKey="bank"
+                          onCopy={copy}
+                          copiedKey={copiedKey}
+                        />
+                        <DetailRow
+                          icon={Hash}
+                          label="Account Number"
+                          value={accountDetails.accountNumber}
+                          copyKey="accnum"
+                          onCopy={copy}
+                          copiedKey={copiedKey}
+                          accent="linear-gradient(135deg,#ede9fe,#ddd6fe)"
+                        />
+                        <DetailRow
+                          icon={User}
+                          label="Account Name"
+                          value={accountDetails.accountName}
+                          copyKey="accname"
+                          onCopy={copy}
+                          copiedKey={copiedKey}
+                          accent="linear-gradient(135deg,#d1fae5,#a7f3d0)"
+                        />
+                        <DetailRow
+                          icon={Banknote}
+                          label="Exact Amount"
+                          value={`₦${fmt(accountDetails.amount)}`}
+                          copyKey="amount"
+                          onCopy={copy}
+                          copiedKey={copiedKey}
+                        />
+                      </div>
+
+                      <div className="px-5 pb-4">
+                        <button
+                          onClick={() =>
+                            copy(
+                              `Bank: ${getBankName(accountDetails.bankCode)}\nAccount: ${accountDetails.accountNumber}\nName: ${accountDetails.accountName}\nAmount: ₦${fmt(accountDetails.amount)}`,
+                              "all"
+                            )
+                          }
+                          className="w-full py-2.5 rounded-2xl text-xs font-bold flex items-center justify-center gap-2 transition-all active:scale-97"
+                          style={{
+                            background: copiedKey === "all"
+                              ? "linear-gradient(135deg,#d1fae5,#a7f3d0)"
+                              : "#fef3c7",
+                            color: copiedKey === "all" ? "#065f46" : "#92400e",
+                          }}
+                        >
+                          {copiedKey === "all" ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
+                          {copiedKey === "all" ? "Copied all details!" : "Copy All Details"}
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Warning */}
+                    <div
+                      className="rounded-2xl px-4 py-3 flex items-start gap-3"
+                      style={{ background: "#fffbeb", border: "1px solid rgba(251,191,36,0.3)" }}
+                    >
+                      <AlertCircle className="h-4 w-4 text-amber-500 flex-shrink-0 mt-0.5" />
+                      <p className="text-xs text-amber-700 leading-relaxed">
+                        Transfer the <span className="font-bold">exact amount</span> shown. Sending a different amount may delay crediting. This account is single-use and expires once the timer runs out.
+                      </p>
+                    </div>
+
+                    {/* Security strip */}
+                    <div className="flex items-center gap-2 px-1">
+                      <Shield className="h-3.5 w-3.5 text-amber-400 flex-shrink-0" />
+                      <p className="text-[10px] text-amber-400">
+                        Secured by 256-bit encryption · Ref: {accountDetails.reference}
+                      </p>
+                    </div>
+                  </>
+                )}
               </motion.div>
             )}
 
@@ -540,10 +819,10 @@ const FundWalletPage = () => {
           style={{ borderTop: "1px solid rgba(251,191,36,0.2)", boxShadow: "0 -8px 32px rgba(0,0,0,0.06)" }}
         >
           <div className="flex gap-3">
-            {/* Back / reset */}
+            {/* Back / reset button */}
             <button
-              onClick={() => accountDetails ? handleReset() : router.back()}
-              disabled={isLoading}
+              onClick={handleReset}
+              disabled={isLoading || isChecking}
               className="flex items-center justify-center gap-2 px-4 py-3.5 rounded-2xl font-bold text-sm transition-all active:scale-95 disabled:opacity-40"
               style={{ background: "#fef3c7", color: "#92400e", minWidth: 56 }}
             >
@@ -551,8 +830,9 @@ const FundWalletPage = () => {
               {accountDetails ? <span>New</span> : null}
             </button>
 
-            {/* Main action */}
+            {/* Main CTA */}
             {!accountDetails ? (
+              /* ── Generate button ── */
               <motion.button
                 whileTap={{ scale: 0.97 }}
                 onClick={handleGenerate}
@@ -560,7 +840,6 @@ const FundWalletPage = () => {
                 className="flex-1 py-3.5 rounded-2xl font-extrabold text-sm text-white relative overflow-hidden disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                 style={{ background: "linear-gradient(135deg, #92400e 0%, #b45309 40%, #d97706 75%, #f59e0b 100%)" }}
               >
-                {/* Shimmer */}
                 {!isLoading && (
                   <motion.div
                     className="absolute inset-0 -skew-x-12 pointer-events-none"
@@ -571,34 +850,67 @@ const FundWalletPage = () => {
                   />
                 )}
                 <span className="relative z-10 flex items-center gap-2">
-                  {isLoading ? (
-                    <><Loader2 className="h-4 w-4 animate-spin" /> Generating…</>
-                  ) : (
-                    <><Zap className="h-4 w-4" /> Generate Account</>
-                  )}
+                  {isLoading
+                    ? <><Loader2 className="h-4 w-4 animate-spin" /> Generating…</>
+                    : <><Zap className="h-4 w-4" /> Generate Account</>}
                 </span>
               </motion.button>
+
+            ) : confirmStatus === CONFIRM.SUCCESS ? (
+              /* ── All done ── */
+              <motion.button
+                whileTap={{ scale: 0.97 }}
+                onClick={handleReset}
+                className="flex-1 py-3.5 rounded-2xl font-extrabold text-sm text-white flex items-center justify-center gap-2"
+                style={{ background: "linear-gradient(135deg, #065f46, #059669)" }}
+              >
+                <CheckCircle2 className="h-4 w-4" />
+                Fund Again
+              </motion.button>
+
             ) : expired ? (
-              /* Expired — show regenerate */
+              /* ── Expired ── */
               <motion.button
                 whileTap={{ scale: 0.97 }}
                 onClick={handleGenerate}
-                disabled={isLoading}
+                disabled={isLoading || isChecking}
                 className="flex-1 py-3.5 rounded-2xl font-extrabold text-sm text-white flex items-center justify-center gap-2 disabled:opacity-50"
                 style={{ background: "linear-gradient(135deg, #92400e, #f59e0b)" }}
               >
                 <RefreshCw className="h-4 w-4" />
                 Generate New Account
               </motion.button>
-            ) : (
-              /* Active — show "I've Sent the Money" (informational) */
+
+            ) : isChecking ? (
+              /* ── Actively polling — disable the button ── */
               <div
-                className="flex-1 py-3.5 rounded-2xl font-extrabold text-sm text-center flex items-center justify-center gap-2"
-                style={{ background: "linear-gradient(135deg,#d1fae5,#a7f3d0)", color: "#065f46" }}
+                className="flex-1 py-3.5 rounded-2xl font-extrabold text-sm flex items-center justify-center gap-2 opacity-70"
+                style={{ background: "linear-gradient(135deg,#fef3c7,#fde68a)", color: "#92400e" }}
               >
-                <BadgeCheck className="h-4 w-4" />
-                Waiting for Transfer…
+                <Loader2 className="h-4 w-4 animate-spin" />
+                Checking…
               </div>
+
+            ) : (
+              /* ── Normal active state — "I've Sent the Money" ── */
+              <motion.button
+                whileTap={{ scale: 0.97 }}
+                onClick={handleConfirmTransfer}
+                className="flex-1 py-3.5 rounded-2xl font-extrabold text-sm text-white relative overflow-hidden flex items-center justify-center gap-2"
+                style={{ background: "linear-gradient(135deg, #065f46 0%, #059669 55%, #10b981 100%)" }}
+              >
+                <motion.div
+                  className="absolute inset-0 -skew-x-12 pointer-events-none"
+                  style={{ background: "linear-gradient(90deg,transparent 0%,rgba(255,255,255,0.12) 50%,transparent 100%)" }}
+                  initial={{ x: "-100%" }}
+                  animate={{ x: "220%" }}
+                  transition={{ duration: 2, delay: 1, ease: "easeInOut", repeat: Infinity, repeatDelay: 5 }}
+                />
+                <span className="relative z-10 flex items-center gap-2">
+                  <BadgeCheck className="h-4 w-4" />
+                  I've Sent the Money
+                </span>
+              </motion.button>
             )}
           </div>
         </div>

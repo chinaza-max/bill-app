@@ -364,6 +364,7 @@ const AccountSettingsPage = () => {
         accountNumber: data?.accountNumber || data?.account_number || accNum,
         bankCode: bank.bankCode?.trim(),
         bankName: bank.name,
+        sessionId:data.sessionId
       });
     } catch (err) {
       console.error('Name enquiry error:', err);
@@ -418,6 +419,7 @@ const AccountSettingsPage = () => {
           bankCode: verifiedAccount.bankCode,
           bankName: verifiedAccount.bankName,
           accountName: verifiedAccount.accountName, // ← from name enquiry
+          sessionId: verifiedAccount.sessionId, 
         }),
       });
 
