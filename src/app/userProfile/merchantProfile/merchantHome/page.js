@@ -620,6 +620,7 @@ const MerchantApp = () => {
           apiType: "hasMerchantAds",
         }).toString();
         const result = await checkMerchantAds("/api/user?" + queryParams);
+
         const hasAds = result?.data?.data ?? result?.data ?? true;
         if (!hasAds) setShowAdsSetupDialog(true);
       } catch (error) {
@@ -842,7 +843,7 @@ const MerchantApp = () => {
               <div>
                 <p className="text-sm text-white/70">Welcome back,</p>
                 <p className="font-semibold">
-                  {myUserData ? myUserData?.user?.MerchantProfile.displayName : ""}
+                  {myUserData ? myUserData?.user?.MerchantProfile?.displayName : ""}
                 </p>
               </div>
             </div>

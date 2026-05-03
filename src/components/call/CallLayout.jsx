@@ -22,8 +22,8 @@ export default function CallLayout({ children }) {
 
 
 
-    //const url = "https://fidopoint.onrender.com";
-    const url = "http://localhost:5000";
+    const url = "https://fidopoint.onrender.com";
+    //const url = "http://localhost:5000";
 
     const { io } = require("socket.io-client");
     const s = io(url, {
@@ -40,8 +40,48 @@ export default function CallLayout({ children }) {
       console.log("⚠️ Socket disconnected:", reason);
     });
 
+
+    const handleSWMessage = (event) => {
+
+
+      console.log("Received message from Service Worker:", event);
+            console.log("Received message from Service Worker:", event.data.data);
+
+  if (event.data?.data?.type === "INCOMING_CALL") {
+    // App was opened from push notification — show call
+   // if (!activeCall) {
+      setIncomingCall(event.data.payload);
+      playRingtone();
+   // }
+  }
+
+  if (event.data?.type === "DECLINE_CALL") {
+    // User declined from notification action button
+    const data = event.data.payload;
+    if (socket) {
+      socket.emit("callDeclined", {
+        orderId:    data.orderId,
+        callerId:   data.callerId,
+        declinedBy: userId,
+      });
+    }
+    setIncomingCall(null);
+    callLockRef.current = false;
+  }
+    };
+
+if ("serviceWorker" in navigator) {
+  navigator.serviceWorker.addEventListener("message", handleSWMessage);
+}
+
     setSocket(s);
-    return () => { s.disconnect(); };
+    return () => { 
+      s.disconnect();
+    if ("serviceWorker" in navigator) {
+  navigator.serviceWorker.removeEventListener("message", handleSWMessage);
+}
+
+    };
   }, []);
 
   // ── Join user-level room when userId is available ───────────────────────────

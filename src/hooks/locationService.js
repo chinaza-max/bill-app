@@ -123,7 +123,7 @@ export const useLocationService = (accessToken) => {
 
       throw new Error("Server rejected location");
     } catch (err) {
-      console.error("❌ Failed to send:", err);
+      console.log("❌ Failed to send:", err);
       setLocationStatus("error");
       pendingUpdateRef.current = null;
 
@@ -276,7 +276,7 @@ export const useLocationService = (accessToken) => {
 
         throw new Error("Save failed");
       } catch (err) {
-        console.error("Location error:", err);
+        console.log("Location error:", err);
 
         if (err.code === 1) setLocationPermission("denied");
 
