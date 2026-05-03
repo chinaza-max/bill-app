@@ -549,7 +549,7 @@ const ReportBottomSheet = ({ isOpen, onClose, accessToken, userId, numericOrderI
                     <CheckCircle className="h-7 w-7 text-amber-600" />
                   </div>
                   <h3 className="text-lg font-semibold text-amber-900 mb-1">Report submitted!</h3>
-                  <p className="text-amber-600 text-sm">We'll look into this and follow up with you.</p>
+                  <p className="text-amber-600 text-sm">We will look into this and follow up with you.</p>
                 </motion.div>
               ) : (
                 <>

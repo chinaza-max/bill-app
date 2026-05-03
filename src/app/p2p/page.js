@@ -560,7 +560,7 @@ const P2PPage = () => {
                         <Check className="h-7 w-7 text-amber-600" />
                       </div>
                       <h3 className="text-lg font-semibold text-amber-900 mb-1">Message sent!</h3>
-                      <p className="text-amber-600 text-sm">We'll look into this and get back to you.</p>
+                      <p className="text-amber-600 text-sm">We will look into this and get back to you.</p>
                     </motion.div>
                   ) : (
                     <>

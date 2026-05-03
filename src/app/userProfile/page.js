@@ -204,7 +204,7 @@ const ProfilePictureSheet = ({ onClose, onUploaded, accessToken }) => {
         {stage === "picker" && (
           <div style={{ padding: "8px 24px 0" }}>
             <p style={{ fontSize: 18, fontWeight: 500, color: "#78350f", marginBottom: 4 }}>Update profile photo</p>
-            <p style={{ fontSize: 13, color: "#a16207", marginBottom: 24 }}>Choose how you'd like to update your photo.</p>
+            <p style={{ fontSize: 13, color: "#a16207", marginBottom: 24 }}>Choose how you would like to update your photo.</p>
             <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
               <button type="button" onClick={() => setStage("camera")} style={{ display: "flex", alignItems: "center", gap: 14, padding: "14px 16px", borderRadius: 14, background: "linear-gradient(135deg,#fef3c7,#fde68a)", border: "1px solid #fbbf24", cursor: "pointer", width: "100%" }}>
                 <div style={{ width: 42, height: 42, borderRadius: 12, background: "#f59e0b", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}><Camera className="h-5 w-5 text-white" /></div>

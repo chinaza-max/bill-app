@@ -523,7 +523,7 @@ const FundWalletPage = () => {
                     >
                       <Loader2 className="h-8 w-8 text-amber-500 animate-spin mx-auto mb-3" />
                       <p className="text-sm font-bold text-amber-900 mb-1">Generating your account…</p>
-                      <p className="text-xs text-amber-500">Please don't close this page</p>
+                      <p className="text-xs text-amber-500">Please do not close this page</p>
                     </motion.div>
                   )}
                 </AnimatePresence>
@@ -908,7 +908,7 @@ const FundWalletPage = () => {
                 />
                 <span className="relative z-10 flex items-center gap-2">
                   <BadgeCheck className="h-4 w-4" />
-                  I've Sent the Money
+                  I have Sent the Money
                 </span>
               </motion.button>
             )}

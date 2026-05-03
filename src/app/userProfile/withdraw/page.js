@@ -491,7 +491,7 @@ export default function WithdrawPage() {
 
           {/* resend */}
           <div className="flex items-center justify-center gap-2">
-            <p className="text-[14px] text-gray-400">Didn't receive it?</p>
+            <p className="text-[14px] text-gray-400">Did not receive it?</p>
             <button
               onClick={handleResend}
               disabled={resendCooldown > 0 || resending}

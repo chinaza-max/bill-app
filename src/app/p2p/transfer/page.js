@@ -1125,7 +1125,7 @@ const TransferPage = () => {
                 >
                   {isChecking
                     ? <><Loader2 className="h-5 w-5 animate-spin" /><span>Checking…</span></>
-                    : <><BadgeCheck className="h-5 w-5" />I've Sent the Money</>}
+                    : <><BadgeCheck className="h-5 w-5" />I have Sent the Money</>}
                 </motion.button>
               )}
 

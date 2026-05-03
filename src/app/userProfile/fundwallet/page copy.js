@@ -363,7 +363,7 @@ const FundWalletPage = () => {
                     >
                       <Loader2 className="h-8 w-8 text-amber-500 animate-spin mx-auto mb-3" />
                       <p className="text-sm font-bold text-amber-900 mb-1">Generating your account…</p>
-                      <p className="text-xs text-amber-500">Please don't close this page</p>
+                      <p className="text-xs text-amber-500">Please do not close this page</p>
                     </motion.div>
                   )}
                 </AnimatePresence>
