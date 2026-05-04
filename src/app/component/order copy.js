@@ -33,51 +33,29 @@ import { useSocket } from "@/components/call/CallLayout";
 import { useCall } from "@/components/call/CallProvider";
 
 // ─────────────────────────────────────────────────────────────────────────────
-// IDEMPOTENCY UTILITIES
-// ─────────────────────────────────────────────────────────────────────────────
-
-/**
- * useIdempotentAction
- *
- * Wraps an async action so it:
- *   1. Cannot be invoked while already in-flight (prevents double-click races).
- *   2. Exposes `isPending` so callers can disable / style buttons accordingly.
- *   3. Guarantees the in-flight lock is always released, even on throw.
- *
- * Usage:
- *   const { run: handleCancel, isPending: cancelling } = useIdempotentAction(cancelFn);
- */
-const useIdempotentAction = (asyncFn) => {
-  const inFlight = useRef(false);
-  const [isPending, setIsPending] = useState(false);
-
-  const run = useCallback(
-    async (...args) => {
-      if (inFlight.current) return; // ← hard guard — not just UI state
-      inFlight.current = true;
-      setIsPending(true);
-      try {
-        await asyncFn(...args);
-      } finally {
-        inFlight.current = false;
-        setIsPending(false);
-      }
-    },
-    [asyncFn]
-  );
-
-  return { run, isPending };
-};
-
-// ─────────────────────────────────────────────────────────────────────────────
 // ONBOARDING TOOLTIP
 // ─────────────────────────────────────────────────────────────────────────────
 
+/**
+ * QROnboardingTooltip
+ *
+ * Shows a small animated tooltip anchored beneath the header icon on the
+ * user's FIRST visit. Persisted in localStorage so it never shows again
+ * after being dismissed.
+ *
+ * Props:
+ *   isMerchant  – boolean, controls copy and icon shown
+ *   onDismiss   – called when the user explicitly closes the tooltip
+ */
 const QROnboardingTooltip = ({ isMerchant, onDismiss }) => {
-  const heading = isMerchant ? "Scan customer QR code" : "View your order QR code";
+  const heading = isMerchant
+    ? "Scan customer QR code"
+    : "View your order QR code";
+
   const body = isMerchant
     ? "Tap the scan icon to open the camera and verify the customer's barcode at delivery."
     : "Tap the QR icon to display your barcode. Show it to the merchant to complete your order.";
+
   const Icon = isMerchant ? ScanLine : QrCode;
 
   return (
@@ -85,25 +63,36 @@ const QROnboardingTooltip = ({ isMerchant, onDismiss }) => {
       <motion.div
         key="qr-onboarding-tooltip"
         initial={{ opacity: 0, y: -6, scale: 0.96 }}
-        animate={{ opacity: 1, y: 0, scale: 1 }}
-        exit={{ opacity: 0, y: -6, scale: 0.96 }}
+        animate={{ opacity: 1, y: 0,  scale: 1 }}
+        exit={{    opacity: 0, y: -6, scale: 0.96 }}
         transition={{ type: "spring", stiffness: 340, damping: 28 }}
+        // Position: fixed, just below the header (header is ~56 px tall + 8 px gap)
         className="fixed top-[68px] right-3 z-[200] w-64 rounded-2xl bg-white shadow-xl border border-amber-100"
         style={{ pointerEvents: "auto" }}
       >
+        {/* Caret pointing up toward the icon */}
         <div
           className="absolute -top-2 right-5 w-4 h-4 bg-white border-l border-t border-amber-100 rotate-45 rounded-tl-sm"
           aria-hidden="true"
         />
+
         <div className="p-4 pt-5">
+          {/* Icon + title row */}
           <div className="flex items-start gap-3">
             <div className="flex-shrink-0 w-9 h-9 rounded-xl bg-amber-50 flex items-center justify-center">
               <Icon className="h-5 w-5 text-amber-500" />
             </div>
+
             <div className="flex-1 min-w-0">
-              <p className="text-sm font-semibold text-amber-900 leading-snug">{heading}</p>
-              <p className="mt-1 text-xs text-amber-600 leading-relaxed">{body}</p>
+              <p className="text-sm font-semibold text-amber-900 leading-snug">
+                {heading}
+              </p>
+              <p className="mt-1 text-xs text-amber-600 leading-relaxed">
+                {body}
+              </p>
             </div>
+
+            {/* Dismiss ✕ */}
             <button
               onClick={onDismiss}
               className="flex-shrink-0 -mt-0.5 p-1 rounded-full text-amber-400 hover:text-amber-600 hover:bg-amber-50 transition-colors"
@@ -112,6 +101,8 @@ const QROnboardingTooltip = ({ isMerchant, onDismiss }) => {
               <X className="h-4 w-4" />
             </button>
           </div>
+
+          {/* Dismiss button (secondary CTA for clarity) */}
           <button
             onClick={onDismiss}
             className="mt-3 w-full py-2 rounded-xl bg-amber-500 text-white text-xs font-medium hover:bg-amber-600 transition-colors"
@@ -165,28 +156,24 @@ const LeafletMap = ({ orderData }) => {
       const L = leafletModule.default || leafletModule;
 
       if (!document.getElementById("leaflet-css")) {
-        const link = document.createElement("link");
-        link.id = "leaflet-css";
-        link.rel = "stylesheet";
-        link.href = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.css";
+        const link  = document.createElement("link");
+        link.id     = "leaflet-css";
+        link.rel    = "stylesheet";
+        link.href   = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.css";
         document.head.appendChild(link);
       }
 
-      if (mapRef.current) {
-        mapRef.current.remove();
-        mapRef.current = null;
-      }
+      if (mapRef.current) { mapRef.current.remove(); mapRef.current = null; }
 
-      const source = orderData.userDetails.sourceCoordinate;
+      const source      = orderData.userDetails.sourceCoordinate;
       const destination = orderData.userDetails.destinationCoordinate;
+
       const newMap = L.map(mapContainer).setView(
-        [parseFloat(source.lat), parseFloat(source.lng)],
-        13
+        [parseFloat(source.lat), parseFloat(source.lng)], 13
       );
 
       L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-        attribution:
-          '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
+        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
       }).addTo(newMap);
 
       const sourceIcon = L.divIcon({
@@ -195,23 +182,18 @@ const LeafletMap = ({ orderData }) => {
                <div class="bg-white rounded-full w-8 h-8 flex items-center justify-center border-2 border-blue-500">
                  <div class="w-3 h-3 bg-blue-500 rounded-full"></div>
                </div>`,
-        iconSize: [40, 40],
-        iconAnchor: [20, 40],
+        iconSize: [40, 40], iconAnchor: [20, 40],
       });
-      L.marker([parseFloat(source.lat), parseFloat(source.lng)], {
-        icon: sourceIcon,
-      }).addTo(newMap);
+      L.marker([parseFloat(source.lat), parseFloat(source.lng)], { icon: sourceIcon }).addTo(newMap);
 
-      const createDestinationIcon = (isVisible) =>
-        L.divIcon({
-          className: "relative",
-          html: `<div class="bg-red-500 text-white px-2 py-1 rounded-full font-medium text-sm whitespace-nowrap">Destination</div>
+      const createDestinationIcon = (isVisible) => L.divIcon({
+        className: "relative",
+        html: `<div class="bg-red-500 text-white px-2 py-1 rounded-full font-medium text-sm whitespace-nowrap">Destination</div>
                <div class="bg-white rounded-full w-8 h-8 flex items-center justify-center border-2 border-red-500 ${isVisible ? "opacity-100" : "opacity-30"}">
                  <div class="w-3 h-3 bg-red-500 rounded-full ${isVisible ? "animate-pulse" : ""}"></div>
                </div>`,
-          iconSize: [40, 40],
-          iconAnchor: [20, 40],
-        });
+        iconSize: [40, 40], iconAnchor: [20, 40],
+      });
 
       const destinationMarker = L.marker(
         [parseFloat(destination.lat), parseFloat(destination.lng)],
@@ -225,10 +207,8 @@ const LeafletMap = ({ orderData }) => {
       }, 1000);
 
       const routeLine = L.polyline(
-        [
-          [parseFloat(source.lat), parseFloat(source.lng)],
-          [parseFloat(destination.lat), parseFloat(destination.lng)],
-        ],
+        [[parseFloat(source.lat), parseFloat(source.lng)],
+         [parseFloat(destination.lat), parseFloat(destination.lng)]],
         { color: "#f59e0b", weight: 4, dashArray: "10, 5" }
       ).addTo(newMap);
 
@@ -239,8 +219,7 @@ const LeafletMap = ({ orderData }) => {
 
     return () => {
       if (mapRef.current) {
-        if (mapRef.current._blinkInterval)
-          clearInterval(mapRef.current._blinkInterval);
+        if (mapRef.current._blinkInterval) clearInterval(mapRef.current._blinkInterval);
         mapRef.current.remove();
         mapRef.current = null;
       }
@@ -252,11 +231,6 @@ const LeafletMap = ({ orderData }) => {
 
 // ─────────────────────────────────────────────────────────────────────────────
 // MERCHANT SCANNER
-//
-// FIX: Scanner's "start" / "stop" / "retry" buttons are all guarded so only
-//      one scan submission can be in-flight at a time (useIdempotentAction).
-//      The QR decode callback is a one-shot: once triggered it disables itself
-//      via `scanHandledRef` so a second rapid decode cannot fire a second POST.
 // ─────────────────────────────────────────────────────────────────────────────
 
 const MerchantScanner = ({ onClose, onScan, accessToken, orderId, socket }) => {
@@ -264,124 +238,66 @@ const MerchantScanner = ({ onClose, onScan, accessToken, orderId, socket }) => {
   const [isScanning,  setIsScanning]  = useState(false);
   const [scanSuccess, setScanSuccess] = useState(false);
   const [error,       setError]       = useState(null);
+  const scannerRef = useRef(null);
+  const { qrSubmissionData, submitQRData, qrSubmissionLoading, qrSubmissionError, qrErrorDetail } = useQRSubmission();
 
-  const scannerRef    = useRef(null);
-  // ← ONE-SHOT GUARD: ensures the decode callback body runs at most once
-  const scanHandledRef = useRef(false);
-
-  const { qrSubmissionData, submitQRData, qrSubmissionLoading, qrSubmissionError, qrErrorDetail } =
-    useQRSubmission();
-
-  // ── camera enumeration ──────────────────────────────────────────────────────
   useEffect(() => {
     Html5Qrcode.getCameras()
       .then((devices) => setHasCamera(devices && devices.length > 0))
       .catch(() => setError("Camera access denied or no cameras found"));
     return () => stopScanner();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // ── error toast ─────────────────────────────────────────────────────────────
   useEffect(() => {
     if (qrSubmissionError || qrErrorDetail) {
-      toast.custom(
-        (t) => (
-          <div className="bg-red-50 border border-red-300 text-red-700 px-4 py-3 rounded-md shadow-md w-full max-w-md flex items-start justify-between space-x-3">
-            <div>
-              <div className="font-semibold flex items-center gap-2">
-                <XCircle className="h-5 w-5 text-red-500" />
-                <span>Error Submitting QR Code</span>
-              </div>
-              {qrSubmissionError && (
-                <p className="mt-1 text-sm">{qrSubmissionError.toString()}</p>
-              )}
-              {qrErrorDetail && (
-                <p className="mt-1 text-xs text-red-600">{qrErrorDetail.toString()}</p>
-              )}
+      toast.custom((t) => (
+        <div className="bg-red-50 border border-red-300 text-red-700 px-4 py-3 rounded-md shadow-md w-full max-w-md flex items-start justify-between space-x-3">
+          <div>
+            <div className="font-semibold flex items-center gap-2">
+              <XCircle className="h-5 w-5 text-red-500" />
+              <span>Error Submitting QR Code</span>
             </div>
-            <button
-              onClick={() => toast.dismiss(t)}
-              className="text-red-400 hover:text-red-600"
-            >
-              ✕
-            </button>
+            {qrSubmissionError && <p className="mt-1 text-sm">{qrSubmissionError.toString()}</p>}
+            {qrErrorDetail     && <p className="mt-1 text-xs text-red-600">{qrErrorDetail.toString()}</p>}
           </div>
-        ),
-        { id: "qr-error-toast", duration: Infinity, dismissible: true, important: true }
-      );
+          <button onClick={() => toast.dismiss(t)} className="text-red-400 hover:text-red-600">✕</button>
+        </div>
+      ), { id: "qr-error-toast", duration: Infinity, dismissible: true, important: true });
     }
-  }, [qrSubmissionError, qrErrorDetail]);
+  }, [qrSubmissionError]);
 
-  // ── success side-effect ─────────────────────────────────────────────────────
   useEffect(() => {
     if (qrSubmissionData) {
-      toast.success("QR Code submitted successfully!", {
-        duration: 10000,
-        id: "qr-success-toast",
-      });
-      if (socket)
-        socket.emit("qrVerified", {
-          orderId,
-          status: "verified",
-          timestamp: new Date().toISOString(),
-        });
+      toast.success("QR Code submitted successfully!", { duration: 10000, id: "qr-success-toast" });
+      if (socket) socket.emit("qrVerified", { orderId, status: "verified", timestamp: new Date().toISOString() });
       if ("vibrate" in navigator) navigator.vibrate([300, 100, 300, 100, 300]);
     }
   }, [qrSubmissionData, orderId, socket]);
 
-  // ── core QR submission — wrapped in idempotent guard ────────────────────────
-  const submitQR = useCallback(
-    async (decodedText) => {
-      await submitQRData(`/api/user`, "POST", {
-        accessToken,
-        apiType: "verifyCompleteOrder",
-        orderId,
-        hash: decodedText,
-      });
-      if (socket)
-        socket.emit("qrScanned", {
-          orderId,
-          merchantId: accessToken,
-          hash: decodedText,
-          timestamp: new Date().toISOString(),
-        });
-      setTimeout(() => onScan(decodedText), 1500);
-    },
-    [submitQRData, accessToken, orderId, socket, onScan]
-  );
-
-  const { run: runSubmitQR, isPending: isSubmittingQR } = useIdempotentAction(submitQR);
-
-  // ── scanner start / stop ────────────────────────────────────────────────────
   const startScanner = async () => {
     try {
-      scanHandledRef.current = false; // reset one-shot guard on every new scan session
       if (!scannerRef.current) scannerRef.current = new Html5Qrcode("reader");
       await scannerRef.current.start(
         { facingMode: "environment" },
         { fps: 10, qrbox: { width: 250, height: 250 } },
         async (decodedText) => {
-          // ← ONE-SHOT: if a second decode fires before the first completes, ignore it
-          if (scanHandledRef.current) return;
-          scanHandledRef.current = true;
-
           await stopScanner();
           setScanSuccess(true);
           try {
-            await runSubmitQR(decodedText);
-          } catch (err) {
-            setError("Failed to submit QR code data");
-          }
+            await submitQRData(`/api/user`, "POST", {
+              accessToken, apiType: "verifyCompleteOrder", orderId, hash: decodedText,
+            });
+            if (socket) socket.emit("qrScanned", {
+              orderId, merchantId: accessToken, hash: decodedText, timestamp: new Date().toISOString(),
+            });
+            setTimeout(() => onScan(decodedText), 1500);
+          } catch (err) { setError("Failed to submit QR code data"); }
         },
-        (msg) => {
-          if (!msg.includes("No QR code found")) console.error(msg);
-        }
+        (msg) => { if (!msg.includes("No QR code found")) console.error(msg); }
       );
       setIsScanning(true);
       setError(null);
-    } catch (err) {
-      setError("Failed to start camera. Please check permissions.");
-    }
+    } catch (err) { setError("Failed to start camera. Please check permissions."); }
   };
 
   const stopScanner = async () => {
@@ -391,40 +307,19 @@ const MerchantScanner = ({ onClose, onScan, accessToken, orderId, socket }) => {
     }
   };
 
-  // ── idempotent start / stop / retry wrappers ────────────────────────────────
-  const { run: runStartScanner, isPending: isStartingScanner } =
-    useIdempotentAction(startScanner);
-
-  const { run: runStopScanner, isPending: isStoppingScanner } =
-    useIdempotentAction(stopScanner);
-
-  const handleRetry = useCallback(async () => {
-    setScanSuccess(false);
-    setError(null);
-    await runStartScanner();
-  }, [runStartScanner]);
-
-  const { run: runRetry, isPending: isRetrying } = useIdempotentAction(handleRetry);
-
   return (
     <div className="bg-white rounded-lg overflow-hidden">
       <div className="p-4 bg-amber-500 text-white flex justify-between items-center">
         <h3 className="text-lg font-semibold">Scan Customer QR Code</h3>
-        <button onClick={onClose} aria-label="Close scanner">
-          <X className="h-6 w-6" />
-        </button>
+        <button onClick={onClose}><X className="h-6 w-6" /></button>
       </div>
       <div className="p-4">
         {error ? (
           <div className="text-center p-4">
             <AlertTriangle className="h-12 w-12 text-red-500 mx-auto mb-2" />
             <p className="text-red-500 mb-4">{error}</p>
-            <button
-              onClick={runRetry}
-              disabled={isRetrying}
-              className="bg-amber-500 text-white px-4 py-2 rounded-lg hover:bg-amber-600 disabled:opacity-60 disabled:cursor-not-allowed flex items-center gap-2 mx-auto"
-            >
-              {isRetrying && <Loader2 className="h-4 w-4 animate-spin" />}
+            <button onClick={() => { setScanSuccess(false); setError(null); startScanner(); }}
+              className="bg-amber-500 text-white px-4 py-2 rounded-lg hover:bg-amber-600">
               Retry Camera Access
             </button>
           </div>
@@ -432,65 +327,30 @@ const MerchantScanner = ({ onClose, onScan, accessToken, orderId, socket }) => {
           <div className="text-center p-4">
             <CheckCircle className="h-16 w-16 text-green-500 mx-auto mb-2" />
             <p className="text-lg font-medium text-green-600 mb-4">
-              {qrSubmissionLoading || isSubmittingQR ? "Processing..." : "Scan Successful!"}
+              {qrSubmissionLoading ? "Processing..." : "Scan Successful!"}
             </p>
-            {/*
-              FIX: "Scan Another Code" is disabled while a submission is in-flight
-              so the merchant cannot trigger a second verification for the same scan.
-            */}
-            <button
-              onClick={runRetry}
-              disabled={qrSubmissionLoading || isSubmittingQR || isRetrying}
-              className="bg-amber-500 text-white px-4 py-2 rounded-lg hover:bg-amber-600 disabled:opacity-60 disabled:cursor-not-allowed flex items-center gap-2 mx-auto"
-            >
-              {isRetrying && <Loader2 className="h-4 w-4 animate-spin" />}
+            <button onClick={() => { setScanSuccess(false); setError(null); startScanner(); }}
+              className="bg-amber-500 text-white px-4 py-2 rounded-lg hover:bg-amber-600"
+              disabled={qrSubmissionLoading}>
               Scan Another Code
             </button>
           </div>
         ) : (
           <div className="space-y-4">
-            <div
-              id="reader"
-              className="w-full max-w-sm mx-auto overflow-hidden rounded-lg"
-            ></div>
+            <div id="reader" className="w-full max-w-sm mx-auto overflow-hidden rounded-lg"></div>
             {!isScanning && (
               <div className="text-center">
-                {/*
-                  FIX: disabled + spinner while camera is initialising so
-                  a second tap doesn't spawn two Html5Qrcode instances.
-                */}
-                <button
-                  onClick={runStartScanner}
-                  disabled={isStartingScanner}
-                  className="bg-amber-500 text-white px-6 py-3 rounded-lg hover:bg-amber-600 transition-colors flex items-center justify-center mx-auto space-x-2 disabled:opacity-60 disabled:cursor-not-allowed"
-                >
-                  {isStartingScanner ? (
-                    <Loader2 className="h-5 w-5 animate-spin" />
-                  ) : (
-                    <Camera className="h-5 w-5" />
-                  )}
-                  <span>
-                    {isStartingScanner
-                      ? "Starting…"
-                      : hasCamera
-                      ? "Start Scanning"
-                      : "Enable Camera"}
-                  </span>
+                <button onClick={startScanner}
+                  className="bg-amber-500 text-white px-6 py-3 rounded-lg hover:bg-amber-600 transition-colors flex items-center justify-center mx-auto space-x-2">
+                  <Camera className="h-5 w-5" />
+                  <span>{hasCamera ? "Start Scanning" : "Enable Camera"}</span>
                 </button>
               </div>
             )}
             {isScanning && (
               <div className="text-center">
-                {/*
-                  FIX: disabled while stop is in-flight so rapid clicks
-                  cannot call stopScanner() multiple times concurrently.
-                */}
-                <button
-                  onClick={runStopScanner}
-                  disabled={isStoppingScanner}
-                  className="bg-red-500 text-white px-6 py-3 rounded-lg hover:bg-red-600 transition-colors disabled:opacity-60 disabled:cursor-not-allowed flex items-center gap-2 mx-auto"
-                >
-                  {isStoppingScanner && <Loader2 className="h-4 w-4 animate-spin" />}
+                <button onClick={stopScanner}
+                  className="bg-red-500 text-white px-6 py-3 rounded-lg hover:bg-red-600 transition-colors">
                   Stop Scanning
                 </button>
               </div>
@@ -512,12 +372,8 @@ const ClientQRCode = ({ onClose, orderData, accessToken }) => {
   useEffect(() => {
     if (orderData?.orderId && accessToken) {
       QRCode.toDataURL(orderData.qrCodeHash, {
-        width: 300,
-        margin: 2,
-        color: { dark: "#000000", light: "#FFFFFF" },
-      })
-        .then(setQrCodeUrl)
-        .catch(console.error);
+        width: 300, margin: 2, color: { dark: "#000000", light: "#FFFFFF" },
+      }).then(setQrCodeUrl).catch(console.error);
     }
   }, [orderData, accessToken]);
 
@@ -525,26 +381,17 @@ const ClientQRCode = ({ onClose, orderData, accessToken }) => {
     <div className="bg-white rounded-lg overflow-hidden">
       <div className="p-4 bg-amber-500 text-white flex justify-between items-center">
         <h3 className="text-lg font-semibold">Your Order QR Code</h3>
-        <button onClick={onClose} aria-label="Close QR code">
-          <X className="h-6 w-6" />
-        </button>
+        <button onClick={onClose}><X className="h-6 w-6" /></button>
       </div>
       <div className="p-8 text-center flex flex-col justify-center items-center">
         <div className="w-64 h-64 bg-white rounded-lg flex items-center justify-center border-2 border-amber-200">
-          {qrCodeUrl ? (
-            <img
-              src={qrCodeUrl}
-              alt="Order QR Code"
-              className="w-full h-full object-contain"
-            />
-          ) : (
-            <QrCode className="h-48 w-48 text-amber-500" />
-          )}
+          {qrCodeUrl
+            ? <img src={qrCodeUrl} alt="Order QR Code" className="w-full h-full object-contain" />
+            : <QrCode className="h-48 w-48 text-amber-500" />
+          }
         </div>
         <p className="mt-4 text-amber-700">Show this code to the merchant</p>
-        <p className="mt-2 text-sm text-amber-600">
-          Order ID: {orderData?.orderId}
-        </p>
+        <p className="mt-2 text-sm text-amber-600">Order ID: {orderData?.orderId}</p>
       </div>
     </div>
   );
@@ -565,9 +412,7 @@ const OrderStatusBadge = ({ status, startTime, endTime }) => {
 
   return (
     <div className="space-y-2">
-      <span className={`px-3 py-1 rounded-full text-sm font-medium ${config.color}`}>
-        {config.text}
-      </span>
+      <span className={`px-3 py-1 rounded-full text-sm font-medium ${config.color}`}>{config.text}</span>
       {startTime && (
         <div className="flex items-center space-x-2 text-sm text-amber-600">
           <Clock className="h-4 w-4" />
@@ -585,24 +430,16 @@ const OrderStatusBadge = ({ status, startTime, endTime }) => {
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
-// MODAL
+// MODAL (centre overlay — for QR, map, cancel, success)
 // ─────────────────────────────────────────────────────────────────────────────
 
 const Modal = ({ isOpen, onClose, children }) => (
   <AnimatePresence>
     {isOpen && (
-      <motion.div
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        exit={{ opacity: 0 }}
-        className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50"
-      >
-        <motion.div
-          initial={{ scale: 0.95 }}
-          animate={{ scale: 1 }}
-          exit={{ scale: 0.95 }}
-          className="bg-white rounded-lg w-full max-w-md p-4"
-        >
+      <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+        className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
+        <motion.div initial={{ scale: 0.95 }} animate={{ scale: 1 }} exit={{ scale: 0.95 }}
+          className="bg-white rounded-lg w-full max-w-md p-4">
           {children}
         </motion.div>
       </motion.div>
@@ -611,12 +448,7 @@ const Modal = ({ isOpen, onClose, children }) => (
 );
 
 // ─────────────────────────────────────────────────────────────────────────────
-// REPORT ISSUE — BOTTOM SHEET
-//
-// FIX: Submit button uses useIdempotentAction so rapid taps cannot enqueue
-//      multiple concurrent POST requests.  The ref-level lock means even if
-//      React hasn't flushed the isPending state yet, the second call exits
-//      immediately at the ref check.
+// REPORT ISSUE — BOTTOM SHEET with complaint form
 // ─────────────────────────────────────────────────────────────────────────────
 
 const ISSUE_TYPES = [
@@ -626,16 +458,11 @@ const ISSUE_TYPES = [
   "Other Issue",
 ];
 
-const ReportBottomSheet = ({
-  isOpen,
-  onClose,
-  accessToken,
-  userId,
-  numericOrderId,
-}) => {
-  const [selectedIssue, setSelectedIssue] = useState("");
-  const [complaint,     setComplaint]     = useState("");
-  const [submitted,     setSubmitted]     = useState(false);
+const ReportBottomSheet = ({ isOpen, onClose, accessToken, userId, numericOrderId }) => {
+  const [selectedIssue,      setSelectedIssue]      = useState("");
+  const [complaint,          setComplaint]          = useState("");
+  const [isSubmitting,       setIsSubmitting]       = useState(false);
+  const [submitted,          setSubmitted]          = useState(false);
 
   useEffect(() => {
     if (isOpen) {
@@ -645,39 +472,43 @@ const ReportBottomSheet = ({
     }
   }, [isOpen]);
 
-  const submitReport = useCallback(async () => {
-    if (!selectedIssue || !complaint.trim()) return;
-
-    await fetch("/api/user", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        accessToken,
-        apiType:       "submitSupportRequest",
-        userId,
-        orderId:       numericOrderId,
-        title:         selectedIssue,
-        message:       complaint,
-        complaintType: "service",
-      }),
-    });
-    // Artificial delay to let the server settle before showing success UI
-    await new Promise((r) => setTimeout(r, 800));
-    setSubmitted(true);
-    setTimeout(() => {
-      onClose();
-      setSubmitted(false);
-    }, 2800);
-  }, [selectedIssue, complaint, accessToken, userId, numericOrderId, onClose]);
-
-  const { run: runSubmit, isPending: isSubmitting } =
-    useIdempotentAction(submitReport);
-
   const handleClose = useCallback(() => {
     if (!isSubmitting) onClose();
   }, [isSubmitting, onClose]);
 
-  const handleComplaintChange = useCallback((e) => setComplaint(e.target.value), []);
+  const handleComplaintChange = useCallback((e) => {
+    setComplaint(e.target.value);
+  }, []);
+
+  const handleSubmit = useCallback(async () => {
+    if (!selectedIssue || !complaint.trim()) return;
+    setIsSubmitting(true);
+    try {
+      await fetch("/api/user", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          accessToken,
+          apiType:       "submitSupportRequest",
+          userId,
+          orderId:       numericOrderId,
+          title:         selectedIssue,
+          message:       complaint,
+          complaintType: "service",
+        }),
+      });
+      await new Promise((r) => setTimeout(r, 800));
+      setSubmitted(true);
+      setTimeout(() => {
+        onClose();
+        setSubmitted(false);
+      }, 2800);
+    } catch (err) {
+      console.error("Failed to submit report:", err);
+    } finally {
+      setIsSubmitting(false);
+    }
+  }, [selectedIssue, complaint, accessToken, userId, numericOrderId, onClose]);
 
   const canSubmit = !!selectedIssue && complaint.trim().length > 0 && !isSubmitting;
 
@@ -694,6 +525,7 @@ const ReportBottomSheet = ({
             className="fixed inset-0 z-40 bg-black/50"
             onClick={handleClose}
           />
+
           <motion.div
             key="report-sheet"
             initial={{ y: "100%" }}
@@ -705,6 +537,7 @@ const ReportBottomSheet = ({
             <div className="flex justify-center pt-3 pb-1">
               <div className="w-10 h-1 bg-amber-200 rounded-full" />
             </div>
+
             <div className="px-5 pb-10 pt-2">
               {submitted ? (
                 <motion.div
@@ -715,12 +548,8 @@ const ReportBottomSheet = ({
                   <div className="w-14 h-14 rounded-full bg-amber-100 flex items-center justify-center mb-4">
                     <CheckCircle className="h-7 w-7 text-amber-600" />
                   </div>
-                  <h3 className="text-lg font-semibold text-amber-900 mb-1">
-                    Report submitted!
-                  </h3>
-                  <p className="text-amber-600 text-sm">
-                    We will look into this and follow up with you.
-                  </p>
+                  <h3 className="text-lg font-semibold text-amber-900 mb-1">Report submitted!</h3>
+                  <p className="text-amber-600 text-sm">We will look into this and follow up with you.</p>
                 </motion.div>
               ) : (
                 <>
@@ -728,12 +557,8 @@ const ReportBottomSheet = ({
                     <div className="flex items-center space-x-2">
                       <Flag className="h-5 w-5 text-amber-500" />
                       <div>
-                        <h2 className="text-base font-semibold text-amber-900">
-                          Report an Issue
-                        </h2>
-                        <p className="text-xs text-amber-500 mt-0.5">
-                          Order #{numericOrderId}
-                        </p>
+                        <h2 className="text-base font-semibold text-amber-900">Report an Issue</h2>
+                        <p className="text-xs text-amber-500 mt-0.5">Order #{numericOrderId}</p>
                       </div>
                     </div>
                     <button
@@ -753,9 +578,7 @@ const ReportBottomSheet = ({
                         key={issue}
                         type="button"
                         onClick={() => setSelectedIssue(issue)}
-                        // FIX: issue type selection is also locked while submitting
-                        disabled={isSubmitting}
-                        className={`py-2.5 px-3 rounded-xl text-sm font-medium border transition-colors text-left disabled:opacity-60 disabled:cursor-not-allowed ${
+                        className={`py-2.5 px-3 rounded-xl text-sm font-medium border transition-colors text-left ${
                           selectedIssue === issue
                             ? "bg-amber-500 text-white border-amber-500"
                             : "bg-amber-50 text-amber-800 border-amber-200 hover:bg-amber-100"
@@ -774,9 +597,7 @@ const ReportBottomSheet = ({
                     onChange={handleComplaintChange}
                     placeholder="Tell us what happened..."
                     rows={4}
-                    // FIX: textarea locked while submitting
-                    disabled={isSubmitting}
-                    className="w-full p-3 rounded-xl text-sm text-amber-900 placeholder-amber-300 bg-amber-50 border border-amber-200 focus:outline-none focus:ring-2 focus:ring-amber-400 resize-none leading-relaxed disabled:opacity-60"
+                    className="w-full p-3 rounded-xl text-sm text-amber-900 placeholder-amber-300 bg-amber-50 border border-amber-200 focus:outline-none focus:ring-2 focus:ring-amber-400 resize-none leading-relaxed"
                   />
 
                   <div className="flex gap-2 mt-3">
@@ -790,7 +611,7 @@ const ReportBottomSheet = ({
                     </button>
                     <button
                       type="button"
-                      onClick={runSubmit}
+                      onClick={handleSubmit}
                       disabled={!canSubmit}
                       className="flex-1 py-2.5 rounded-xl text-sm font-medium bg-amber-500 text-white hover:bg-amber-600 transition-colors flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                     >
@@ -821,6 +642,7 @@ const ReportBottomSheet = ({
 // MAIN PAGE
 // ─────────────────────────────────────────────────────────────────────────────
 
+// localStorage key — change version suffix to re-show after major UX changes
 const ONBOARDING_SEEN_KEY = "qr_icon_onboarding_seen_v1";
 
 const OrderTrackingPage = () => {
@@ -835,22 +657,27 @@ const OrderTrackingPage = () => {
   const [userType,             setUserType]             = useState("");
   const [showSuccessModal,     setShowSuccessModal]     = useState(false);
   const [successMessage,       setSuccessMessage]       = useState("");
-  const [showOnboarding,       setShowOnboarding]       = useState(false);
 
-  // ── call guards ─────────────────────────────────────────────────────────────
-  // FIX: track whether we've already requested a call this render cycle so
-  //      rapid button taps cannot enqueue multiple outgoing calls.
-  const callInitiatedRef = useRef(false);
+  // ── Onboarding tooltip state ────────────────────────────────────────────────
+  // Start as false; we resolve from localStorage inside the useEffect below
+  // so we avoid a SSR/hydration mismatch.
+  const [showOnboarding, setShowOnboarding] = useState(false);
 
   const dismissOnboarding = useCallback(() => {
     setShowOnboarding(false);
-    try { localStorage.setItem(ONBOARDING_SEEN_KEY, "1"); } catch (_) {}
+    try {
+      localStorage.setItem(ONBOARDING_SEEN_KEY, "1");
+    } catch (_) {
+      // localStorage unavailable (private/incognito edge-case) — ignore
+    }
   }, []);
 
-  const accessToken = useSelector((s) => s.user.accessToken);
-  const userId      = useSelector((s) => s.user.user?.user?.id ?? null);
-  const user        = useSelector((s) => s.user.user?.user);
+  // ── Redux ───────────────────────────────────────────────────────────────────
+  const accessToken = useSelector((state) => state.user.accessToken);
+  const userId      = useSelector((state) => state.user.user?.user?.id ?? null);
+  const user        = useSelector((state) => state.user.user?.user);
 
+  // ── Socket + call ───────────────────────────────────────────────────────────
   const socket = useSocket();
   const { startCall, activeCall } = useCall();
 
@@ -866,10 +693,11 @@ const OrderTrackingPage = () => {
   const orderId   = params?.orderId;
   const router    = useRouter();
   const orderData = OrderDetails?.data?.data?.orderDetails;
+
   const numericOrderId = orderData?.id ? Number(orderData.id) : null;
 
-  // ── outgoing call — idempotent ──────────────────────────────────────────────
-  const initiateCall = useCallback(async () => {
+  // ── Outgoing call ───────────────────────────────────────────────────────────
+  const handleStartCall = () => {
     if (activeCall) { console.warn("Already in a call"); return; }
     if (!socket)    { console.warn("Socket not ready");  return; }
     startCall({
@@ -880,40 +708,38 @@ const OrderTrackingPage = () => {
       myAvatar:        user?.imageUrl  || "",
       receiverId:      isMerchant ? orderData?.clientId : orderData?.merchantId,
     });
-  }, [activeCall, socket, startCall, orderData, user, isMerchant]);
+  };
 
-  const { run: handleStartCall, isPending: isCallStarting } =
-    useIdempotentAction(initiateCall);
-
-  // ── geolocation + userType + onboarding ────────────────────────────────────
+  // ── Geolocation + userType + onboarding check ───────────────────────────────
   useEffect(() => {
     const stored = localStorage.getItem("who");
     if (stored) { setUserType(stored); setIsMerchant(stored === "merchant"); }
-    else        { setUserType("merchant"); setIsMerchant(true); }
+    else         { setUserType("merchant"); setIsMerchant(true); }
 
+    // Show onboarding tooltip only if user hasn't seen it before
     try {
       const seen = localStorage.getItem(ONBOARDING_SEEN_KEY);
       if (!seen) {
+        // Small delay so the page header has time to render before the tooltip pops in
         const timer = setTimeout(() => setShowOnboarding(true), 600);
         return () => clearTimeout(timer);
       }
-    } catch (_) {}
+    } catch (_) {
+      // localStorage blocked — skip onboarding silently
+    }
 
     if (navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(
-        (pos) =>
-          setCurrentLocation({
-            latitude:  pos.coords.latitude,
-            longitude: pos.coords.longitude,
-          }),
+        (pos) => setCurrentLocation({ latitude: pos.coords.latitude, longitude: pos.coords.longitude }),
         (err) => console.error("Geolocation error:", err)
       );
     }
   }, []);
 
-  // ── socket listeners ────────────────────────────────────────────────────────
+  // ── Socket listeners ────────────────────────────────────────────────────────
   useEffect(() => {
     if (!socket || !orderData?.id) return;
+
     socket.emit("joinOrderRoom", { orderId: orderData.id, userType });
 
     const onQrScanSuccess = () => {
@@ -939,10 +765,9 @@ const OrderTrackingPage = () => {
       socket.off("qrScanSuccess",     onQrScanSuccess);
       socket.off("orderStatusUpdate", onOrderStatusUpdate);
     };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [socket, orderData?.id, userType]);
 
-  // ── fetch order ─────────────────────────────────────────────────────────────
+  // ── Fetch order ─────────────────────────────────────────────────────────────
   useEffect(() => {
     if (accessToken && userType) {
       const q = new URLSearchParams({
@@ -950,68 +775,41 @@ const OrderTrackingPage = () => {
       }).toString();
       fetchOrderDetails(`/api/user?${q}`, "GET");
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [accessToken, userType, orderId]);
 
-  const refreshOrder = useCallback(() => {
+  const refreshOrder = () => {
     const q = new URLSearchParams({
       token: accessToken, apiType: "getMyOrderDetails", userType, orderId,
     }).toString();
     fetchOrderDetails(`/api/user?${q}`, "GET");
-  }, [accessToken, userType, orderId, fetchOrderDetails]);
+  };
 
-  // ── Google Maps ─────────────────────────────────────────────────────────────
-  const openGoogleMaps = useCallback(() => {
+  const openGoogleMaps = () => {
     const dest = orderData?.userDetails?.destinationCoordinate;
     if (!dest) return alert("Destination coordinates not available.");
     const url = currentLocation
       ? `https://www.google.com/maps/dir/?api=1&origin=${currentLocation.latitude},${currentLocation.longitude}&destination=${dest.lat},${dest.lng}&travelmode=driving`
       : `https://www.google.com/maps/search/?api=1&query=${dest.lat},${dest.lng}`;
     window.open(url, "_blank");
-  }, [orderData, currentLocation]);
+  };
 
-  // ─────────────────────────────────────────────────────────────────────────
-  // CANCEL ORDER
-  //
-  // ROOT CAUSE OF DOUBLE-REFUND: the Cancel Order button had no disabled state
-  // and no in-flight guard.  A user could tap it, see no immediate feedback,
-  // tap again, and produce two simultaneous POST /api/user requests — each
-  // triggering a refund on the backend.
-  //
-  // FIX STRATEGY (defence in depth):
-  //   1. useIdempotentAction wraps the async cancel fn.
-  //      → ref-level lock: second tap exits immediately regardless of React's
-  //        render cycle lag.
-  //   2. The modal's "Yes, Cancel Order" button is disabled while isPending.
-  //      → visual feedback + additional UI-level guard.
-  //   3. The modal itself closes only after the request resolves — preventing
-  //      a re-open-and-resubmit race.
-  //   4. (Recommended backend complement) Your API route should make the
-  //      cancel operation idempotent: if the order is already "cancelled",
-  //      return 200 without re-processing the refund.
-  // ─────────────────────────────────────────────────────────────────────────
+  const handleCancelOrder = async () => {
+    try {
+      await cancelOrder(`/api/user`, "POST", {
+        accessToken, apiType: "orderAcceptOrCancel", orderId, type: "cancel",
+      });
+      setShowCancelOrderModal(false);
+      refreshOrder();
+    } catch (err) { console.error("Failed to cancel order:", err); }
+  };
 
-  const performCancelOrder = useCallback(async () => {
-    await cancelOrder(`/api/user`, "POST", {
-      accessToken,
-      apiType: "orderAcceptOrCancel",
-      orderId,
-      type:    "cancel",
-    });
-    setShowCancelOrderModal(false);
-    refreshOrder();
-  }, [cancelOrder, accessToken, orderId, refreshOrder]);
-
-  const { run: handleCancelOrder, isPending: isCancelling } =
-    useIdempotentAction(performCancelOrder);
-
-  // ── loading / error screens ─────────────────────────────────────────────────
+  // ── Loading / Error ─────────────────────────────────────────────────────────
   if (loadingFetchOrderDetails) {
     return (
       <ProtectedRoute>
         <div className="flex items-center justify-center h-screen bg-amber-50">
           <div className="text-center">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-amber-500 mx-auto mb-4" />
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-amber-500 mx-auto mb-4"></div>
             <p className="text-amber-700">Loading order details...</p>
           </div>
         </div>
@@ -1026,10 +824,7 @@ const OrderTrackingPage = () => {
           <div className="text-center text-red-500">
             <AlertTriangle className="h-12 w-12 mx-auto mb-4" />
             <p>Failed to load order details</p>
-            <button
-              onClick={() => router.back()}
-              className="mt-4 px-4 py-2 bg-amber-500 text-white rounded-lg"
-            >
+            <button onClick={() => router.back()} className="mt-4 px-4 py-2 bg-amber-500 text-white rounded-lg">
               Go Back
             </button>
           </div>
@@ -1038,13 +833,17 @@ const OrderTrackingPage = () => {
     );
   }
 
-  // ── render ──────────────────────────────────────────────────────────────────
+  // ── Render ──────────────────────────────────────────────────────────────────
   return (
     <ProtectedRoute>
       <Toaster position="top-right" richColors />
 
+      {/* ── QR icon onboarding tooltip (first-visit only) ─────────────────── */}
       {showOnboarding && (
-        <QROnboardingTooltip isMerchant={isMerchant} onDismiss={dismissOnboarding} />
+        <QROnboardingTooltip
+          isMerchant={isMerchant}
+          onDismiss={dismissOnboarding}
+        />
       )}
 
       {/* Active call banner */}
@@ -1066,27 +865,24 @@ const OrderTrackingPage = () => {
         )}
       </AnimatePresence>
 
-      <div
-        className="flex flex-col h-screen bg-amber-50"
-        style={{ paddingBottom: "700px" }}
-      >
-        {/* ── Fixed Header ──────────────────────────────────────────────────── */}
+      <div className="flex flex-col h-screen bg-amber-50" style={{ paddingBottom: "700px" }}>
+
+        {/* Fixed Header */}
         <div className="fixed top-0 left-0 right-0 z-10 bg-gradient-to-r from-amber-600 to-amber-500 text-white px-4 py-3">
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-3">
-              <ArrowLeft
-                onClick={() => router.back()}
-                className="h-6 w-6 cursor-pointer"
-              />
+              <ArrowLeft onClick={() => router.back()} className="h-6 w-6 cursor-pointer" />
               <h1 className="text-lg font-semibold">Order Details</h1>
             </div>
 
+            {/*
+              ── QR / Scan icon ─────────────────────────────────────────────
+              Tapping this icon dismisses the onboarding tooltip automatically
+              (user clearly understood what the button does).
+            */}
             {isMerchant ? (
               <button
-                onClick={() => {
-                  dismissOnboarding();
-                  setShowQRScanner(true);
-                }}
+                onClick={() => { dismissOnboarding(); setShowQRScanner(true); }}
                 className="flex items-center space-x-2 bg-white/20 px-3 py-2 rounded-lg hover:bg-white/30 transition-colors"
                 aria-label="Scan customer QR code"
               >
@@ -1095,10 +891,7 @@ const OrderTrackingPage = () => {
               </button>
             ) : (
               <button
-                onClick={() => {
-                  dismissOnboarding();
-                  setShowQRScanner(true);
-                }}
+                onClick={() => { dismissOnboarding(); setShowQRScanner(true); }}
                 className="p-2 bg-amber-100 rounded-full text-black hover:bg-amber-200"
                 aria-label="View your order QR code"
               >
@@ -1108,9 +901,10 @@ const OrderTrackingPage = () => {
           </div>
         </div>
 
-        {/* ── Main Content ──────────────────────────────────────────────────── */}
+        {/* Main Content */}
         <div className="flex-1 pt-16 px-4 pb-4">
           <div className="bg-white rounded-lg shadow-md p-4 mt-4">
+
             <div className="mb-4">
               <OrderStatusBadge
                 status={orderData?.orderStatus}
@@ -1119,7 +913,7 @@ const OrderTrackingPage = () => {
               />
             </div>
 
-            {/* User Info + action buttons */}
+            {/* User Info */}
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center space-x-3">
                 <div className="relative">
@@ -1141,57 +935,29 @@ const OrderTrackingPage = () => {
                   <h3 className="font-semibold text-amber-900">
                     {orderData?.userDetails?.displayname || "Unknown User"}
                   </h3>
-                  <p className="text-sm text-amber-600">
-                    Order ID: {orderData?.orderId}
-                  </p>
+                  <p className="text-sm text-amber-600">Order ID: {orderData?.orderId}</p>
                 </div>
               </div>
 
               <div className="flex space-x-3">
-                {/*
-                  FIX: Phone button
-                    • disabled while a call is already active (original bug — unchanged)
-                    • ALSO disabled while the call is initialising (isCallStarting)
-                      so a second tap cannot fire startCall() again before the first
-                      resolves, which previously caused duplicate socket emissions.
-                */}
                 <button
                   onClick={handleStartCall}
-                  disabled={!!activeCall || isCallStarting}
+                  disabled={!!activeCall}
                   className={`p-2 rounded-full transition-colors ${
-                    activeCall || isCallStarting
-                      ? "bg-green-100 text-green-600 cursor-not-allowed opacity-60"
+                    activeCall
+                      ? "bg-green-100 text-green-600 cursor-not-allowed"
                       : "bg-amber-100 text-amber-600 hover:bg-amber-200"
                   }`}
-                  title={
-                    activeCall
-                      ? "Call in progress"
-                      : isCallStarting
-                      ? "Connecting…"
-                      : "Start audio call"
-                  }
+                  title={activeCall ? "Call in progress" : "Start audio call"}
                 >
-                  {isCallStarting ? (
-                    <Loader2 className="h-5 w-5 animate-spin" />
-                  ) : (
-                    <Phone className="h-5 w-5" />
-                  )}
+                  <Phone className="h-5 w-5" />
                 </button>
 
                 <button
-                  onClick={() =>
-                    router.push(
-                      `/orders/${orderData?.id}/${Math.min(
-                        orderData?.clientId,
-                        orderData?.merchantId
-                      )}-${Math.max(
-                        orderData?.clientId,
-                        orderData?.merchantId
-                      )}room/chat`
-                    )
-                  }
-                  className="p-2 bg-amber-100 rounded-full text-amber-600 hover:bg-amber-200"
-                >
+                  onClick={() => router.push(
+                    `/orders/${orderData?.id}/${Math.min(orderData?.clientId, orderData?.merchantId)}-${Math.max(orderData?.clientId, orderData?.merchantId)}room/chat`
+                  )}
+                  className="p-2 bg-amber-100 rounded-full text-amber-600 hover:bg-amber-200">
                   <MessageCircle className="h-5 w-5" />
                 </button>
               </div>
@@ -1208,21 +974,15 @@ const OrderTrackingPage = () => {
                   <div className="space-y-2">
                     <div className="flex justify-between text-sm">
                       <span className="text-amber-700">Order Amount</span>
-                      <span className="font-medium text-amber-900">
-                        ₦{orderData?.amountOrder || "0"}
-                      </span>
+                      <span className="font-medium text-amber-900">₦{orderData?.amountOrder || "0"}</span>
                     </div>
                     <div className="flex justify-between text-sm">
                       <span className="text-amber-700">Distance</span>
-                      <span className="font-medium text-amber-900">
-                        {orderData?.distance || "0"} m
-                      </span>
+                      <span className="font-medium text-amber-900">{orderData?.distance || "0"} m</span>
                     </div>
                     <div className="flex justify-between text-sm">
                       <span className="text-amber-700">Estimated Time</span>
-                      <span className="font-medium text-amber-900">
-                        {orderData?.estimatedDeliveryTime || "N/A"}
-                      </span>
+                      <span className="font-medium text-amber-900">{orderData?.estimatedDeliveryTime || "N/A"}</span>
                     </div>
                   </div>
                 </div>
@@ -1231,196 +991,105 @@ const OrderTrackingPage = () => {
 
             {/* Map Options */}
             <div className="space-y-3">
-              <button
-                onClick={() => setShowInAppMap(true)}
-                className="w-full p-3 bg-amber-100 text-amber-600 rounded-lg flex items-center justify-center space-x-2 hover:bg-amber-200"
-              >
-                <MapPin className="h-5 w-5" />
-                <span>Track in App</span>
+              <button onClick={() => setShowInAppMap(true)}
+                className="w-full p-3 bg-amber-100 text-amber-600 rounded-lg flex items-center justify-center space-x-2 hover:bg-amber-200">
+                <MapPin className="h-5 w-5" /><span>Track in App</span>
               </button>
-              <button
-                onClick={openGoogleMaps}
-                className="w-full p-3 bg-amber-100 text-amber-600 rounded-lg flex items-center justify-center space-x-2 hover:bg-amber-200"
-              >
-                <Navigation className="h-5 w-5" />
-                <span>Navigate with Google Maps</span>
+              <button onClick={openGoogleMaps}
+                className="w-full p-3 bg-amber-100 text-amber-600 rounded-lg flex items-center justify-center space-x-2 hover:bg-amber-200">
+                <Navigation className="h-5 w-5" /><span>Navigate with Google Maps</span>
               </button>
             </div>
 
-            {/*
-              FIX — PRIMARY CANCEL BUTTON:
-              Previously this button:
-                1. Had no disabled state while cancelLoading (from useRequest) was true.
-                2. Only used the useRequest loading flag which is async-React state —
-                   not a synchronous ref — so two near-simultaneous clicks could both
-                   slip through before the first re-render with cancelLoading=true.
-
-              Now it:
-                1. Opens the confirmation modal (no API call here — this is safe).
-                2. The actual API call lives in handleCancelOrder (see modal below),
-                   which is fully guarded by useIdempotentAction.
-            */}
-            {(orderData?.orderStatus === "pending" ||
-              orderData?.orderStatus === "inProgress") && (
-              <button
-                onClick={() => setShowCancelOrderModal(true)}
-                className="w-full mt-4 p-3 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
-                // Disable while a cancel is already in-flight (e.g. modal is
-                // still showing from a previous click that hasn't resolved yet)
-                disabled={isCancelling}
-              >
-                Cancel Order
+            {(orderData?.orderStatus === "pending" || orderData?.orderStatus === "inProgress") && (
+              <button onClick={() => setShowCancelOrderModal(true)}
+                className="w-full mt-4 p-3 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors"
+                disabled={cancelLoading}>
+                {cancelLoading ? "Cancelling..." : "Cancel Order"}
               </button>
             )}
           </div>
         </div>
 
-        {/* ── QR Scanner Modal ──────────────────────────────────────────────── */}
+        {/* QR Scanner Modal */}
         <Modal isOpen={showQRScanner} onClose={() => setShowQRScanner(false)}>
-          {isMerchant ? (
-            <MerchantScanner
-              onClose={() => setShowQRScanner(false)}
-              onScan={() => {
-                setScanComplete(true);
-                setShowQRScanner(false);
-              }}
-              accessToken={accessToken}
-              orderId={orderData?.id}
-              socket={socket}
-            />
-          ) : (
-            <ClientQRCode
-              onClose={() => setShowQRScanner(false)}
-              orderData={orderData}
-              accessToken={accessToken}
-            />
-          )}
+          {isMerchant
+            ? <MerchantScanner
+                onClose={() => setShowQRScanner(false)}
+                onScan={() => { setScanComplete(true); setShowQRScanner(false); }}
+                accessToken={accessToken}
+                orderId={orderData?.id}
+                socket={socket}
+              />
+            : <ClientQRCode
+                onClose={() => setShowQRScanner(false)}
+                orderData={orderData}
+                accessToken={accessToken}
+              />
+          }
         </Modal>
 
-        {/* ── External Map Modal ────────────────────────────────────────────── */}
-        <Modal
-          isOpen={showExternalMapModal}
-          onClose={() => setShowExternalMapModal(false)}
-        >
+        {/* External Map Modal */}
+        <Modal isOpen={showExternalMapModal} onClose={() => setShowExternalMapModal(false)}>
           <div className="flex items-start justify-between mb-4">
             <div className="flex items-center space-x-2">
               <AlertTriangle className="h-6 w-6 text-amber-500" />
               <h3 className="text-lg font-semibold text-amber-900">Leave App?</h3>
             </div>
-            <button onClick={() => setShowExternalMapModal(false)}>
-              <X className="h-6 w-6 text-amber-500" />
-            </button>
+            <button onClick={() => setShowExternalMapModal(false)}><X className="h-6 w-6 text-amber-500" /></button>
           </div>
-          <p className="text-amber-700 mb-4">
-            You are about to leave the app and open Google Maps. Continue?
-          </p>
+          <p className="text-amber-700 mb-4">You are about to leave the app and open Google Maps. Continue?</p>
           <div className="flex space-x-3">
-            <button
-              onClick={() => setShowExternalMapModal(false)}
-              className="flex-1 p-2 border border-amber-200 text-amber-600 rounded-lg hover:bg-amber-50"
-            >
-              Cancel
-            </button>
-            <button
-              onClick={() => window.open("https://maps.google.com", "_blank")}
-              className="flex-1 p-2 bg-amber-500 text-white rounded-lg hover:bg-amber-600"
-            >
-              Continue
-            </button>
+            <button onClick={() => setShowExternalMapModal(false)}
+              className="flex-1 p-2 border border-amber-200 text-amber-600 rounded-lg hover:bg-amber-50">Cancel</button>
+            <button onClick={() => window.open("https://maps.google.com", "_blank")}
+              className="flex-1 p-2 bg-amber-500 text-white rounded-lg hover:bg-amber-600">Continue</button>
           </div>
         </Modal>
 
-        {/* ── In-App Map Modal ──────────────────────────────────────────────── */}
+        {/* In-App Map Modal */}
         <Modal isOpen={showInAppMap} onClose={() => setShowInAppMap(false)}>
           <div className="flex items-start justify-between mb-4">
             <h3 className="text-lg font-semibold text-amber-900">Live Tracking</h3>
-            <button onClick={() => setShowInAppMap(false)}>
-              <X className="h-6 w-6 text-amber-500" />
-            </button>
+            <button onClick={() => setShowInAppMap(false)}><X className="h-6 w-6 text-amber-500" /></button>
           </div>
           <LeafletMap orderData={orderData} />
         </Modal>
 
-        {/* ── Cancel Order Modal ────────────────────────────────────────────── */}
-        <Modal
-          isOpen={showCancelOrderModal}
-          // FIX: prevent closing the modal while a cancel is in-flight —
-          // closing it would let the user re-open it and fire again.
-          onClose={() => { if (!isCancelling) setShowCancelOrderModal(false); }}
-        >
+        {/* Cancel Order Modal */}
+        <Modal isOpen={showCancelOrderModal} onClose={() => setShowCancelOrderModal(false)}>
           <div className="flex items-start justify-between mb-4">
             <div className="flex items-center space-x-2">
               <AlertTriangle className="h-6 w-6 text-amber-500" />
               <h3 className="text-lg font-semibold text-amber-900">Cancel Order</h3>
             </div>
-            <button
-              onClick={() => { if (!isCancelling) setShowCancelOrderModal(false); }}
-              disabled={isCancelling}
-              className="disabled:opacity-40"
-            >
-              <X className="h-6 w-6 text-amber-500" />
-            </button>
+            <button onClick={() => setShowCancelOrderModal(false)}><X className="h-6 w-6 text-amber-500" /></button>
           </div>
-          <p className="text-amber-700 mb-4">
-            Are you sure you want to cancel this order?
-          </p>
+          <p className="text-amber-700 mb-4">Are you sure you want to cancel this order?</p>
           <div className="flex space-x-3">
-            <button
-              onClick={() => { if (!isCancelling) setShowCancelOrderModal(false); }}
-              disabled={isCancelling}
-              className="flex-1 p-2 border border-amber-200 text-amber-600 rounded-lg hover:bg-amber-50 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
+            <button onClick={() => setShowCancelOrderModal(false)}
+              className="flex-1 p-2 border border-amber-200 text-amber-600 rounded-lg hover:bg-amber-50">
               No, Keep Order
             </button>
-
-            {/*
-              FIX — CANCEL CONFIRMATION BUTTON:
-              This is the button that was causing double-refunds.
-
-              Before:
-                onClick={handleCancelOrder}   ← raw async, no lock
-                disabled={cancelLoading}      ← React state: too slow to block
-                                                 a second simultaneous click
-
-              After:
-                onClick={handleCancelOrder}   ← wrapped by useIdempotentAction
-                disabled={isCancelling}       ← ref-backed: blocks instantly on
-                                                 first click, even before React re-renders
-                + spinner feedback so user knows the first click registered
-            */}
-            <button
-              onClick={handleCancelOrder}
-              disabled={isCancelling}
-              className="flex-1 p-2 bg-red-500 text-white rounded-lg hover:bg-red-600 disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-            >
-              {isCancelling ? (
-                <>
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                  <span>Cancelling…</span>
-                </>
-              ) : (
-                "Yes, Cancel Order"
-              )}
+            <button onClick={handleCancelOrder}
+              className="flex-1 p-2 bg-red-500 text-white rounded-lg hover:bg-red-600">
+              Yes, Cancel Order
             </button>
           </div>
         </Modal>
 
-        {/* ── Success Modal ─────────────────────────────────────────────────── */}
+        {/* Success Modal */}
         <Modal isOpen={showSuccessModal} onClose={() => setShowSuccessModal(false)}>
           <div className="text-center p-6">
             <CheckCircle className="h-16 w-16 text-green-500 mx-auto mb-4" />
             <h3 className="text-lg font-semibold text-green-700 mb-2">Success!</h3>
             <p className="text-green-600 mb-4">{successMessage}</p>
-            <button
-              onClick={() => setShowSuccessModal(false)}
-              className="px-6 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600"
-            >
-              OK
-            </button>
+            <button onClick={() => setShowSuccessModal(false)}
+              className="px-6 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600">OK</button>
           </div>
         </Modal>
 
-        {/* ── Report Issue — Bottom Sheet ───────────────────────────────────── */}
+        {/* Report Issue — Bottom Sheet */}
         <ReportBottomSheet
           isOpen={showReportSheet}
           onClose={() => setShowReportSheet(false)}
@@ -1429,16 +1098,16 @@ const OrderTrackingPage = () => {
           numericOrderId={numericOrderId}
         />
 
-        {/* ── Fixed Report Button ───────────────────────────────────────────── */}
+        {/* Fixed Report Button */}
         <div className="fixed bottom-0 left-0 right-0 p-4 bg-white shadow-lg z-10">
           <button
             onClick={() => setShowReportSheet(true)}
             className="w-full p-3 bg-amber-100 text-amber-600 rounded-lg flex items-center justify-center space-x-2 hover:bg-amber-200"
           >
-            <Flag className="h-5 w-5" />
-            <span>Report Issue</span>
+            <Flag className="h-5 w-5" /><span>Report Issue</span>
           </button>
         </div>
+
       </div>
     </ProtectedRoute>
   );
