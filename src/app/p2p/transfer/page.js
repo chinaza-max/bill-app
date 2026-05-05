@@ -34,11 +34,11 @@ import getErrorMessage from "@/app/component/error";
 
 // ── Polling config ────────────────────────────────────────────────────────────
 const POLL_INTERVAL_MS  = 5000;
-const MAX_POLL_ATTEMPTS = 18;
+const MAX_POLL_ATTEMPTS = 47;   // 3s initial + (47 × 5s) ≈ 4 minutes total
 const INITIAL_DELAY_MS  = 3000;
 
-// ── Account TTL: 30 min ───────────────────────────────────────────────────────
-const ACCOUNT_TTL_SECONDS = 1800;
+// ── Account TTL: 4 min ───────────────────────────────────────────────────────
+const ACCOUNT_TTL_SECONDS = 240;
 
 const CONFIRM = {
   IDLE:      "idle",
@@ -144,8 +144,8 @@ const CountdownTimerBanner = ({ onExpire }) => {
   }, [onExpire]);
 
   const pct    = (secs / ACCOUNT_TTL_SECONDS) * 100;
-  const urgent = secs <= 300;
-  const danger = secs <= 60;
+  const urgent = secs <= 120;  // last 2 min → amber
+  const danger = secs <= 30;   // last 30 s  → red
 
   const bgColor    = danger ? "#ef4444" : urgent ? "#f59e0b" : "#10b981";
   const bgLight    = danger ? "rgba(239,68,68,0.08)" : urgent ? "rgba(245,158,11,0.08)" : "rgba(16,185,129,0.08)";
@@ -261,7 +261,6 @@ const TransferPage = () => {
   // ── Scroll refs ───────────────────────────────────────────────────────────
   const accountCardRef  = useRef(null);
   const transferSecRef  = useRef(null);
-  // ✅ NEW: ref for the confirm status card so we can scroll to it
   const confirmCardRef  = useRef(null);
 
   const sliderControls  = useAnimation();
@@ -364,10 +363,9 @@ const TransferPage = () => {
   const getAmountToPay  = () => transferType === "wallet" ? getWalletAmount() : getDirectAmount();
   const hasSufficientBalance = () => !!chargeData && walletBalance >= getWalletAmount();
 
-  // ── ✅ Scroll to confirm card whenever status changes away from IDLE ───────
+  // ── Scroll to confirm card whenever status changes away from IDLE ─────────
   useEffect(() => {
     if (confirmStatus !== CONFIRM.IDLE) {
-      // Small delay lets AnimatePresence mount + render the card first
       setTimeout(() => {
         confirmCardRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
       }, 120);
@@ -466,13 +464,11 @@ const TransferPage = () => {
     clearTimeout(pollTimerRef.current);
     const selectedMerchantId = localStorage.getItem("selectedMerchantId");
     try {
-
-
       await generateAccount("/api/user", "POST", {
-        accessToken, apiType: "generateAccountVirtual", 
-        type: "order",orderAmount:Number(amount),
+        accessToken, apiType: "generateAccountVirtual",
+        type: "order", orderAmount: Number(amount),
         userId2: selectedMerchantId,
-         amount: getDirectAmount(),
+        amount: getDirectAmount(),
       });
     } catch { setIsGeneratingAccount(false); setPaymentError("Failed to generate account. Please try again."); }
   };
@@ -951,12 +947,12 @@ const TransferPage = () => {
                         </AnimatePresence>
                       </div>
 
-                      {/* ── ✅ Confirm Status Card — now with confirmCardRef ── */}
+                      {/* ── Confirm Status Card ── */}
                       <AnimatePresence>
                         {virtualAccount && confirmStatus !== CONFIRM.IDLE && (
                           <motion.div
                             key="confirm-card"
-                            ref={confirmCardRef}           // ← attached here
+                            ref={confirmCardRef}
                             initial={{ opacity: 0, y: 12, scale: 0.98 }}
                             animate={{ opacity: 1, y: 0, scale: 1 }}
                             exit={{ opacity: 0 }}
@@ -990,7 +986,9 @@ const TransferPage = () => {
                                     transition={{ duration: 0.5, ease: "easeOut" }}
                                   />
                                 </div>
-                                <p className="text-[10px] text-gray-300 mt-1.5 text-center">Bank updates can take up to 90 seconds</p>
+                                <p className="text-[10px] text-gray-300 mt-1.5 text-center">
+                                  Checking for up to 4 minutes · bank updates can take time
+                                </p>
                               </div>
                             )}
 

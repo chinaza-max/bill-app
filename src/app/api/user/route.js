@@ -14,24 +14,33 @@ const axiosInstance = axios.create({
 // Structure: { windowMs, max, banAfterViolations, banDurationMs }
 
 const RATE_LIMIT_CONFIG = {
+  // 🔁 Polling — high-frequency status checks (e.g. confirmTransfer)
+  // 47 attempts × 5s = ~4 min per payment session
+  // Allow up to 60 calls per 5-min window to safely cover 1–2 concurrent sessions
+  polling: {
+    windowMs: 5 * 60 * 1000,    // 5 minute window
+    max: 60,                     // max 60 requests per window ← adjust here
+    banAfterViolations: 10,      // very lenient — polling is expected ← adjust here
+    banDurationMs: 15 * 60 * 1000, // 15 min ban ← adjust here
+  },
   // ⚠️ Sensitive — financial / auth operations
   sensitive: {
     windowMs: 15 * 60 * 1000,   // 15 minute window
-    max: 10,                      // max 10 requests per window  ← adjust here
-    banAfterViolations: 3,        // ban after hitting limit 3 times ← adjust here
+    max: 10,                     // max 10 requests per window ← adjust here
+    banAfterViolations: 3,       // ban after hitting limit 3 times ← adjust here
     banDurationMs: 60 * 60 * 1000, // 1 hour ban ← adjust here
   },
   // 🔒 Restricted — write/mutation operations
   restricted: {
     windowMs: 60 * 1000,         // 1 minute window
-    max: 20,                      // max 20 requests per minute ← adjust here
+    max: 20,                     // max 20 requests per minute ← adjust here
     banAfterViolations: 5,
     banDurationMs: 30 * 60 * 1000, // 30 min ban ← adjust here
   },
   // 🟢 General — read operations
   general: {
     windowMs: 60 * 1000,         // 1 minute window
-    max: 60,                      // max 60 requests per minute ← adjust here
+    max: 60,                     // max 60 requests per minute ← adjust here
     banAfterViolations: 10,
     banDurationMs: 15 * 60 * 1000, // 15 min ban ← adjust here
   },
@@ -40,8 +49,11 @@ const RATE_LIMIT_CONFIG = {
 // Map each apiType to a tier
 // To change a tier, just move the apiType to a different group below
 const API_TYPE_TIERS = {
-  sensitive: [
+  // confirmTransfer is polling-based — called every 5s for up to 4 minutes
+  polling: [
     "confirmTransfer",
+  ],
+  sensitive: [
     "initiateWithdrawal",
     "verifyWithdrawalOtp",
     "makeOrderPayment",
@@ -91,6 +103,7 @@ const API_TYPE_TIERS = {
     "nameEnquiry",
     "getSettings",
     "bank-details",
+    "getWalletBalance",
   ],
 };
 
@@ -106,7 +119,8 @@ function getClientIp(req) {
 }
 
 function getTierForApiType(apiType) {
-  if (API_TYPE_TIERS.sensitive.includes(apiType)) return "sensitive";
+  if (API_TYPE_TIERS.polling.includes(apiType))    return "polling";
+  if (API_TYPE_TIERS.sensitive.includes(apiType))  return "sensitive";
   if (API_TYPE_TIERS.restricted.includes(apiType)) return "restricted";
   return "general"; // default fallback
 }
@@ -668,6 +682,10 @@ export async function GET(req) {
 
       case "bank-details":
         response = await axiosInstance.get("/user/bank-details", { headers, params: additionalParams });
+        break;
+
+      case "getWalletBalance":
+        response = await axiosInstance.get("/user/getWalletBalance", { headers, params: additionalParams });
         break;
 
       default:
