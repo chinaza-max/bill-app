@@ -23,8 +23,6 @@ import {
   Sparkles,
   ArrowRight,
   Timer,
-  PlusCircle,
-  Info,
 } from "lucide-react";
 import { motion, AnimatePresence, useAnimation } from "framer-motion";
 import { useRouter } from "next/navigation";
@@ -36,14 +34,11 @@ import getErrorMessage from "@/app/component/error";
 
 // ── Polling config ────────────────────────────────────────────────────────────
 const POLL_INTERVAL_MS  = 5000;
-const MAX_POLL_ATTEMPTS = 47;
+const MAX_POLL_ATTEMPTS = 47;   // 3s initial + (47 × 5s) ≈ 4 minutes total
 const INITIAL_DELAY_MS  = 3000;
 
 // ── Account TTL: 4 min ───────────────────────────────────────────────────────
 const ACCOUNT_TTL_SECONDS = 240;
-
-// ── Fund Wallet min ──────────────────────────────────────────────────────────
-const FUND_WALLET_MIN = 100;
 
 const CONFIRM = {
   IDLE:      "idle",
@@ -133,17 +128,7 @@ const fetchWalletBalance = async (accessToken) => {
   return data?.data?.walletBalance ?? data?.walletBalance ?? null;
 };
 
-// New: fund wallet API
-const fundWalletAccount = async (accessToken, amount) => {
-  const res = await fetch("/api/user", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ accessToken, apiType: "generateAccountVirtual", type: "wallet", amount: Number(amount) }),
-  });
-  return res.json();
-};
-
-// ── Countdown Timer ────────────────────────────────────────────────────────────
+// ── Countdown Timer (Prominent Banner version) ────────────────────────────────
 const CountdownTimerBanner = ({ onExpire }) => {
   const [secs, setSecs] = useState(ACCOUNT_TTL_SECONDS);
   const ref = useRef(null);
@@ -159,13 +144,13 @@ const CountdownTimerBanner = ({ onExpire }) => {
   }, [onExpire]);
 
   const pct    = (secs / ACCOUNT_TTL_SECONDS) * 100;
-  const urgent = secs <= 120;
-  const danger = secs <= 30;
+  const urgent = secs <= 120;  // last 2 min → amber
+  const danger = secs <= 30;   // last 30 s  → red
 
-  const bgColor   = danger ? "#ef4444" : urgent ? "#f59e0b" : "#10b981";
-  const bgLight   = danger ? "rgba(239,68,68,0.08)" : urgent ? "rgba(245,158,11,0.08)" : "rgba(16,185,129,0.08)";
-  const borderClr = danger ? "rgba(239,68,68,0.25)" : urgent ? "rgba(245,158,11,0.25)" : "rgba(16,185,129,0.25)";
-  const label     = danger ? "⚠️ Expiring very soon!" : urgent ? "⏳ Account expiring" : "✅ Account valid for";
+  const bgColor    = danger ? "#ef4444" : urgent ? "#f59e0b" : "#10b981";
+  const bgLight    = danger ? "rgba(239,68,68,0.08)" : urgent ? "rgba(245,158,11,0.08)" : "rgba(16,185,129,0.08)";
+  const borderClr  = danger ? "rgba(239,68,68,0.25)" : urgent ? "rgba(245,158,11,0.25)" : "rgba(16,185,129,0.25)";
+  const label      = danger ? "⚠️ Expiring very soon!" : urgent ? "⏳ Account expiring" : "✅ Account valid for";
 
   const R    = 18;
   const circ = 2 * Math.PI * R;
@@ -178,13 +163,16 @@ const CountdownTimerBanner = ({ onExpire }) => {
       className="rounded-2xl overflow-hidden"
       style={{ background: bgLight, border: `1.5px solid ${borderClr}` }}
     >
+      {/* Progress bar along the top */}
       <div className="h-1 w-full" style={{ background: "rgba(0,0,0,0.06)" }}>
         <motion.div
           className="h-full rounded-full"
           style={{ background: bgColor, width: `${pct}%`, transition: "width 1s linear, background 0.4s" }}
         />
       </div>
+
       <div className="flex items-center gap-3 px-4 py-3">
+        {/* SVG ring */}
         <div className="relative flex-shrink-0" style={{ width: 44, height: 44 }}>
           <svg width="44" height="44" viewBox="0 0 44 44">
             <circle cx="22" cy="22" r={R} fill="none" stroke="rgba(0,0,0,0.08)" strokeWidth="3.5" />
@@ -200,6 +188,8 @@ const CountdownTimerBanner = ({ onExpire }) => {
             <Timer style={{ color: bgColor }} className="h-3.5 w-3.5" />
           </div>
         </div>
+
+        {/* Text */}
         <div className="flex-1 min-w-0">
           <p className="text-[10px] font-bold uppercase tracking-widest" style={{ color: bgColor }}>{label}</p>
           <p className="text-[26px] font-bold leading-none tabular-nums" style={{ color: bgColor, fontFamily: "ui-monospace, monospace" }}>
@@ -209,6 +199,8 @@ const CountdownTimerBanner = ({ onExpire }) => {
             {secs === 0 ? "Expired — generate a new account" : "Transfer before this timer runs out"}
           </p>
         </div>
+
+        {/* Pulse dot when urgent */}
         {urgent && secs > 0 && (
           <div className="relative w-3 h-3 flex-shrink-0">
             <span className="absolute inline-flex h-full w-full rounded-full opacity-75 animate-ping" style={{ background: bgColor }} />
@@ -245,223 +237,11 @@ const InfoRow = ({ icon: Icon, iconBg, iconColor, label, value, onCopy, isCopied
   </div>
 );
 
-// ── FundWalletModal ────────────────────────────────────────────────────────────
-const FundWalletModal = ({ accessToken, onClose, onSuccess }) => {
-  const [fundAmount, setFundAmount]       = useState("");
-  const [isLoading, setIsLoading]         = useState(false);
-  const [error, setError]                 = useState(null);
-  const [fundAccount, setFundAccount]     = useState(null);
-  const [expired, setExpired]             = useState(false);
-  const { copiedKey, copy }               = useCopy();
-
-  const isValid = () => {
-    const n = parseFloat(fundAmount);
-    return n >= FUND_WALLET_MIN;
-  };
-
-  const handleGenerate = async () => {
-    if (!isValid()) return;
-    setIsLoading(true);
-    setError(null);
-    setFundAccount(null);
-    setExpired(false);
-    try {
-      const data = await fundWalletAccount(accessToken, fundAmount);
-      const level3     = data?.data?.data?.data ?? data?.data?.data ?? data?.data ?? data;
-      const accountObj = level3?.data ?? level3;
-      setFundAccount(accountObj);
-    } catch {
-      setError("Failed to generate account. Please try again.");
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  return (
-    <motion.div
-      initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-      className="fixed inset-0 flex items-end justify-center p-4 z-50"
-      style={{ background: "rgba(0,0,0,0.5)", backdropFilter: "blur(10px)" }}
-      onClick={(e) => e.target === e.currentTarget && onClose()}
-    >
-      <motion.div
-        initial={{ y: 100, opacity: 0 }} animate={{ y: 0, opacity: 1 }}
-        exit={{ y: 100, opacity: 0 }} transition={{ type: "spring", stiffness: 300, damping: 28 }}
-        className="bg-white rounded-3xl w-full max-w-sm overflow-hidden"
-        style={{ boxShadow: "0 -8px 40px rgba(0,0,0,0.18)" }}
-      >
-        {/* Header */}
-        <div className="px-5 pt-5 pb-4 border-b border-gray-50">
-          <div className="w-10 h-1 rounded-full bg-gray-200 mx-auto mb-4" />
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-2xl flex items-center justify-center" style={{ background: "rgba(255,149,0,0.1)" }}>
-              <PlusCircle className="h-5 w-5" style={{ color: "#FF9500" }} />
-            </div>
-            <div>
-              <h3 className="text-[17px] font-bold text-gray-900">Fund Wallet</h3>
-              <p className="text-[12px] text-gray-400">Min ₦{fmt(FUND_WALLET_MIN)} via bank transfer</p>
-            </div>
-          </div>
-        </div>
-
-        <div className="px-5 py-4 space-y-4">
-          {/* Amount Input */}
-          <div className="bg-gray-50 rounded-2xl px-4 py-3">
-            <p className="text-[10px] font-bold uppercase tracking-widest text-gray-400 mb-1">Amount to Fund</p>
-            <div className="flex items-center gap-2">
-              <span className="text-[22px] font-bold text-gray-300">₦</span>
-              <input
-                type="text"
-                inputMode="numeric"
-                value={fundAmount}
-                onChange={(e) => {
-                  const v = e.target.value.replace(/[^0-9]/g, "");
-                  setFundAmount(v);
-                  setError(null);
-                  setFundAccount(null);
-                  setExpired(false);
-                }}
-                placeholder="0"
-                className="flex-1 text-[26px] font-bold text-gray-900 bg-transparent outline-none placeholder-gray-200"
-              />
-            </div>
-            {fundAmount && !isValid() && (
-              <p className="text-[11px] text-red-500 mt-1">Minimum amount is ₦{fmt(FUND_WALLET_MIN)}</p>
-            )}
-          </div>
-
-          {/* Quick amounts */}
-          <div className="flex gap-2">
-            {[500, 1000, 5000, 10000].map((preset) => (
-              <motion.button
-                key={preset}
-                whileTap={{ scale: 0.94 }}
-                onClick={() => { setFundAmount(String(preset)); setFundAccount(null); setExpired(false); setError(null); }}
-                className="flex-1 py-2 rounded-xl text-[12px] font-semibold"
-                style={{
-                  background: fundAmount === String(preset) ? "rgba(255,149,0,0.12)" : "#f3f4f6",
-                  color: fundAmount === String(preset) ? "#FF9500" : "#6b7280",
-                  border: fundAmount === String(preset) ? "1px solid rgba(255,149,0,0.3)" : "1px solid transparent",
-                }}
-              >
-                ₦{preset >= 1000 ? `${preset / 1000}k` : preset}
-              </motion.button>
-            ))}
-          </div>
-
-          {/* Error */}
-          <AnimatePresence>
-            {error && (
-              <motion.div
-                initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-                className="flex items-center gap-2 px-3 py-2.5 rounded-xl"
-                style={{ background: "rgba(239,68,68,0.07)", border: "1px solid rgba(239,68,68,0.18)" }}
-              >
-                <AlertCircle className="h-4 w-4 text-red-500 flex-shrink-0" />
-                <p className="text-[12px] text-red-600">{error}</p>
-              </motion.div>
-            )}
-          </AnimatePresence>
-
-          {/* Generated Account */}
-          <AnimatePresence>
-            {fundAccount && !expired && (
-              <motion.div
-                initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
-                className="rounded-2xl overflow-hidden"
-                style={{ border: "1.5px solid rgba(255,149,0,0.2)", background: "rgba(255,149,0,0.03)" }}
-              >
-                <div className="px-3 pt-3">
-                  <CountdownTimerBanner onExpire={() => setExpired(true)} />
-                </div>
-                <div className="px-4 py-2">
-                  <InfoRow icon={Building2} iconBg="bg-orange-50" iconColor="text-[#FF9500]"
-                    label="Bank" value={fundAccount.bankName || getBankName(fundAccount.bankCode) || "—"} />
-                  <InfoRow icon={Hash} iconBg="bg-purple-50" iconColor="text-purple-600"
-                    label="Account Number" value={fundAccount.accountNumber || "—"}
-                    onCopy={() => copy(fundAccount.accountNumber, "fw-accnum")}
-                    isCopied={copiedKey === "fw-accnum"} />
-                  <InfoRow icon={User} iconBg="bg-blue-50" iconColor="text-blue-600"
-                    label="Account Name" value={fundAccount.accountName || "—"} />
-                  <InfoRow icon={Banknote} iconBg="bg-emerald-50" iconColor="text-emerald-600"
-                    label="Transfer Exactly" value={`₦${fmt(fundAmount)}`}
-                    onCopy={() => copy(String(fundAmount), "fw-amt")}
-                    isCopied={copiedKey === "fw-amt"} />
-                </div>
-                <div className="px-4 pb-3">
-                  <motion.button
-                    whileTap={{ scale: 0.97 }}
-                    onClick={() => copy(
-                      `Bank: ${fundAccount.bankName || getBankName(fundAccount.bankCode)}\nAccount: ${fundAccount.accountNumber}\nName: ${fundAccount.accountName}\nAmount: ₦${fmt(fundAmount)}`,
-                      "fw-all"
-                    )}
-                    className="w-full py-2.5 rounded-xl text-[12px] font-bold flex items-center justify-center gap-2"
-                    style={{
-                      background: copiedKey === "fw-all" ? "#d1fae5" : "#f3f4f6",
-                      color: copiedKey === "fw-all" ? "#065f46" : "#374151",
-                    }}
-                  >
-                    {copiedKey === "fw-all" ? <><Check className="h-3.5 w-3.5" />Copied!</> : <><Copy className="h-3.5 w-3.5" />Copy All Details</>}
-                  </motion.button>
-                </div>
-              </motion.div>
-            )}
-          </AnimatePresence>
-
-          {/* Expired notice */}
-          <AnimatePresence>
-            {expired && (
-              <motion.div
-                initial={{ opacity: 0 }} animate={{ opacity: 1 }}
-                className="flex items-start gap-2 px-3 py-3 rounded-xl"
-                style={{ background: "rgba(239,68,68,0.07)", border: "1px solid rgba(239,68,68,0.2)" }}
-              >
-                <XCircle className="h-4 w-4 text-red-500 flex-shrink-0 mt-0.5" />
-                <div>
-                  <p className="text-[13px] font-bold text-red-700">Account Expired</p>
-                  <p className="text-[11px] text-red-400 mt-0.5">Tap Generate Account below to get a fresh one.</p>
-                </div>
-              </motion.div>
-            )}
-          </AnimatePresence>
-
-          {/* Generate / Regenerate Button */}
-          <motion.button
-            whileTap={{ scale: isLoading || !isValid() ? 1 : 0.97 }}
-            onClick={handleGenerate}
-            disabled={isLoading || !isValid()}
-            className="w-full py-3.5 rounded-2xl text-[15px] font-bold text-white flex items-center justify-center gap-2 disabled:opacity-50"
-            style={{
-              background: "linear-gradient(135deg,#FF9500,#FF5E00)",
-              boxShadow: isValid() && !isLoading ? "0 6px 20px rgba(255,149,0,0.38)" : "none",
-            }}
-          >
-            {isLoading
-              ? <><Loader2 className="h-5 w-5 animate-spin" />Generating…</>
-              : fundAccount
-              ? <><RefreshCw className="h-5 w-5" />Regenerate Account</>
-              : <><Sparkles className="h-5 w-5" />Generate Account</>}
-          </motion.button>
-
-          <motion.button
-            whileTap={{ scale: 0.97 }}
-            onClick={onClose}
-            className="w-full py-3 rounded-2xl text-[14px] font-semibold text-gray-500 bg-gray-100"
-          >
-            Close
-          </motion.button>
-        </div>
-      </motion.div>
-    </motion.div>
-  );
-};
-
 // ─────────────────────────────────────────────────────────────────────────────
 const TransferPage = () => {
   const [amount, setAmount]                   = useState("");
   const [transferType, setTransferType]       = useState("");
   const [showSuccessModal, setShowSuccessModal] = useState(false);
-  const [showFundWallet, setShowFundWallet]   = useState(false);
   const [sliderPosition, setSliderPosition]   = useState("start");
   const [chargeData, setChargeData]           = useState(null);
   const [walletBalance, setWalletBalance]     = useState(0);
@@ -471,7 +251,6 @@ const TransferPage = () => {
   const [transactionId, setTransactionId]     = useState(null);
   const [isGeneratingAccount, setIsGeneratingAccount] = useState(false);
   const [accountExpired, setAccountExpired]   = useState(false);
-  const [showFeeInfo, setShowFeeInfo]         = useState(false);
 
   const [confirmStatus, setConfirmStatus]     = useState(CONFIRM.IDLE);
   const [confirmMessage, setConfirmMessage]   = useState("");
@@ -479,6 +258,7 @@ const TransferPage = () => {
   const pollTimerRef        = useRef(null);
   const isMountedRef        = useRef(true);
 
+  // ── Scroll refs ───────────────────────────────────────────────────────────
   const accountCardRef  = useRef(null);
   const transferSecRef  = useRef(null);
   const confirmCardRef  = useRef(null);
@@ -577,20 +357,13 @@ const TransferPage = () => {
 
   // ── Helpers ───────────────────────────────────────────────────────────────
   const isValidAmount   = (v) => { const n = parseFloat(v); return n >= range.min && n <= range.max; };
+  const getDirectAmount = () => chargeData?.totalAmount ?? 0;
+  const getWalletAmount = () => (chargeData?.totalAmount ?? 0) - (chargeData?.gatewayCharge ?? 0);
 
-  // FIX 1: Direct amount now folds gateway fee in transparently
-  const getServiceCharge  = () => chargeData?.serviceCharge ?? 0;
-  const getMerchantCharge = () => chargeData?.merchantCharge ?? 0;
-  const getGatewayCharge  = () => chargeData?.gatewayCharge ?? 0;
-  // For bank transfer: total = amount + serviceCharge + merchantCharge + gatewayCharge (all shown clearly)
-  const getDirectAmount   = () => chargeData?.totalAmount ?? 0;
-  // For wallet: no gateway fee
-  const getWalletAmount   = () => (chargeData?.totalAmount ?? 0) - getGatewayCharge();
-
-  const getAmountToPay    = () => transferType === "wallet" ? getWalletAmount() : getDirectAmount();
+  const getAmountToPay  = () => transferType === "wallet" ? getWalletAmount() : getDirectAmount();
   const hasSufficientBalance = () => !!chargeData && walletBalance >= getWalletAmount();
 
-  // ── Scroll to confirm card ─────────────────────────────────────────────────
+  // ── Scroll to confirm card whenever status changes away from IDLE ─────────
   useEffect(() => {
     if (confirmStatus !== CONFIRM.IDLE) {
       setTimeout(() => {
@@ -798,22 +571,10 @@ const TransferPage = () => {
               >
                 <div className="px-5 pt-5 pb-4">
                   <p className="text-[11px] font-bold uppercase tracking-widest text-orange-100 mb-1">Wallet Balance</p>
-                  <div className="flex items-baseline gap-1 mb-1">
+                  <div className="flex items-baseline gap-1 mb-3">
                     <span className="text-[14px] text-orange-200 font-medium">₦</span>
                     <span className="text-[36px] font-bold text-white leading-none tracking-tight">{fmt(walletBalance)}</span>
                   </div>
-
-                  {/* FIX 2: Fund Wallet Button on card */}
-                  <motion.button
-                    whileTap={{ scale: 0.95 }}
-                    onClick={() => setShowFundWallet(true)}
-                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl mb-3 mt-1"
-                    style={{ background: "rgba(255,255,255,0.18)", border: "1px solid rgba(255,255,255,0.25)" }}
-                  >
-                    <PlusCircle className="h-3.5 w-3.5 text-white" />
-                    <span className="text-[12px] font-semibold text-white">Fund Wallet</span>
-                  </motion.button>
-
                   {merchantInfo && (
                     <>
                       <div className="flex items-center gap-2 mb-3">
@@ -867,7 +628,7 @@ const TransferPage = () => {
                     )}
                   </div>
 
-                  {/* FIX 1: Charge breakdown — transparent, no hidden fees */}
+                  {/* Charge breakdown */}
                   <AnimatePresence>
                     {chargeData && (
                       <motion.div
@@ -878,83 +639,29 @@ const TransferPage = () => {
                         <div className="px-5 pb-4">
                           <div className="h-px bg-gray-100 my-3" />
                           <div className="space-y-2">
-                            <div className="flex justify-between">
-                              <span className="text-[13px] text-gray-400">Order amount</span>
-                              <span className="text-[13px] text-gray-600 font-medium">₦{fmt(amount)}</span>
-                            </div>
-                            <div className="flex justify-between">
-                              <span className="text-[13px] text-gray-400">Service fee</span>
-                              <span className="text-[13px] text-gray-600 font-medium">₦{fmt(getServiceCharge())}</span>
-                            </div>
-                            {getMerchantCharge() > 0 && (
-                              <div className="flex justify-between">
-                                <span className="text-[13px] text-gray-400">Merchant fee</span>
-                                <span className="text-[13px] text-gray-600 font-medium">₦{fmt(getMerchantCharge())}</span>
+                            {[
+                              { label: "Amount", value: `₦${fmt(amount)}` },
+                              { label: "Service fee", value: `₦${fmt(chargeData.serviceCharge || 0)}` },
+                              { label: "Merchant fee", value: `₦${fmt(chargeData.merchantCharge || 0)}` },
+                              ...(transferType === "direct" ? [{ label: "Gateway fee", value: `₦${fmt(chargeData.gatewayCharge || 0)}` }] : []),
+                            ].map(({ label, value }) => (
+                              <div key={label} className="flex justify-between">
+                                <span className="text-[13px] text-gray-400">{label}</span>
+                                <span className="text-[13px] text-gray-600 font-medium">{value}</span>
                               </div>
-                            )}
-
-                            {/* Gateway fee row — only shown for bank transfer, with info tooltip */}
-                            {transferType === "direct" && getGatewayCharge() > 0 && (
-                              <div className="flex justify-between items-center">
-                                <div className="flex items-center gap-1">
-                                  <span className="text-[13px] text-gray-400">Bank transfer fee</span>
-                                  <motion.button
-                                    whileTap={{ scale: 0.9 }}
-                                    onClick={() => setShowFeeInfo((p) => !p)}
-                                  >
-                                    <Info className="h-3.5 w-3.5 text-gray-300" />
-                                  </motion.button>
-                                </div>
-                                <span className="text-[13px] text-gray-600 font-medium">₦{fmt(getGatewayCharge())}</span>
-                              </div>
-                            )}
-
-                            {/* Fee info expand */}
-                            <AnimatePresence>
-                              {showFeeInfo && transferType === "direct" && (
-                                <motion.div
-                                  initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }}
-                                  exit={{ height: 0, opacity: 0 }}
-                                  className="overflow-hidden"
-                                >
-                                  <div
-                                    className="flex items-start gap-2 px-3 py-2.5 rounded-xl"
-                                    style={{ background: "rgba(255,149,0,0.06)", border: "1px solid rgba(255,149,0,0.15)" }}
-                                  >
-                                    <Info className="h-3.5 w-3.5 text-orange-400 flex-shrink-0 mt-0.5" />
-                                    <p className="text-[11px] text-orange-700 leading-relaxed">
-                                      This is charged by the bank/payment processor for processing your bank transfer. It is not our fee — choose <span className="font-bold">Wallet Pay</span> to skip it entirely.
-                                    </p>
-                                  </div>
-                                </motion.div>
-                              )}
-                            </AnimatePresence>
-
-                            {/* Wallet savings hint */}
-                            {!transferType && getGatewayCharge() > 0 && (
-                              <div className="flex items-center gap-1.5 pt-0.5">
-                                <Sparkles className="h-3 w-3 text-emerald-500" />
-                                <p className="text-[11px] text-emerald-600 font-medium">
-                                  Pay with wallet to save ₦{fmt(getGatewayCharge())} in bank fees
-                                </p>
-                              </div>
-                            )}
-
+                            ))}
                             <div className="h-px bg-gray-100" />
                             <div className="flex justify-between items-center">
                               <span className="text-[14px] font-semibold text-gray-700">
                                 {transferType === "wallet" ? "Wallet deduction" : "You pay"}
                               </span>
-                              <span className="text-[17px] font-bold text-gray-900">
-                                ₦{fmt(getAmountToPay())}
-                              </span>
+                              <span className="text-[17px] font-bold text-gray-900">₦{fmt(getAmountToPay())}</span>
                             </div>
-
                             {transferType === "wallet" && (
                               <div className="flex items-center gap-1.5">
                                 <Sparkles className="h-3 w-3 text-emerald-500" />
                                 <p className="text-[11px] text-emerald-600 font-medium">
-                                  Bank transfer fee (₦{fmt(getGatewayCharge())}) waived for wallet!
+                                  Gateway fee (₦{fmt(chargeData.gatewayCharge || 0)}) waived for wallet!
                                 </p>
                               </div>
                             )}
@@ -976,7 +683,7 @@ const TransferPage = () => {
                       {/* Bank Transfer */}
                       <motion.button
                         whileTap={{ scale: 0.96 }}
-                        onClick={() => { handleSelectTransferType("direct"); setShowFeeInfo(false); }}
+                        onClick={() => handleSelectTransferType("direct")}
                         className="relative p-4 rounded-3xl text-left overflow-hidden"
                         style={{
                           background: transferType === "direct" ? "linear-gradient(135deg,#FF9500,#FF5E00)" : "white",
@@ -988,12 +695,6 @@ const TransferPage = () => {
                         </div>
                         <p className={`text-[14px] font-semibold ${transferType === "direct" ? "text-white" : "text-gray-800"}`}>Bank Transfer</p>
                         <p className={`text-[11px] mt-0.5 ${transferType === "direct" ? "text-orange-100" : "text-gray-400"}`}>₦{fmt(getDirectAmount())}</p>
-                        {/* Show gateway fee label on card */}
-                        {getGatewayCharge() > 0 && (
-                          <p className={`text-[10px] mt-0.5 ${transferType === "direct" ? "text-orange-200" : "text-gray-400"}`}>
-                            incl. ₦{fmt(getGatewayCharge())} bank fee
-                          </p>
-                        )}
                         {transferType === "direct" && (
                           <div className="absolute top-3 right-3 w-5 h-5 rounded-full bg-white/30 flex items-center justify-center">
                             <Check className="h-3 w-3 text-white" />
@@ -1018,20 +719,7 @@ const TransferPage = () => {
                         </div>
                         <p className={`text-[14px] font-semibold ${transferType === "wallet" ? "text-white" : "text-gray-800"}`}>Wallet Pay</p>
                         <p className={`text-[11px] mt-0.5 ${transferType === "wallet" ? "text-green-100" : "text-emerald-600"}`}>₦{fmt(getWalletAmount())}</p>
-                        {!hasSufficientBalance() && (
-                          <div>
-                            <p className="text-[10px] text-red-400 font-medium mt-0.5">Low balance</p>
-                            <motion.button
-                              whileTap={{ scale: 0.95 }}
-                              onClick={(e) => { e.stopPropagation(); setShowFundWallet(true); }}
-                              className="mt-1.5 flex items-center gap-1 px-2 py-1 rounded-lg"
-                              style={{ background: "rgba(255,149,0,0.12)" }}
-                            >
-                              <PlusCircle className="h-3 w-3" style={{ color: "#FF9500" }} />
-                              <span className="text-[10px] font-bold" style={{ color: "#FF9500" }}>Fund Wallet</span>
-                            </motion.button>
-                          </div>
-                        )}
+                        {!hasSufficientBalance() && <p className="text-[10px] text-red-400 font-medium mt-0.5">Low balance</p>}
                         {transferType === "wallet" && (
                           <div className="absolute top-3 right-3 w-5 h-5 rounded-full bg-white/30 flex items-center justify-center">
                             <Check className="h-3 w-3 text-white" />
@@ -1080,6 +768,7 @@ const TransferPage = () => {
                         className="bg-white rounded-3xl overflow-hidden scroll-mt-4"
                         style={{ boxShadow: "0 2px 20px rgba(0,0,0,0.06)" }}
                       >
+                        {/* Card Header */}
                         <div className="px-5 pt-4 pb-3 border-b border-gray-50">
                           <div className="flex items-center justify-between mb-1">
                             <p className="text-[14px] font-semibold text-gray-800">Account Details</p>
@@ -1089,7 +778,9 @@ const TransferPage = () => {
                               disabled={isGeneratingAccount || isChecking}
                               className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-[13px] font-bold disabled:opacity-50 transition-all"
                               style={{
-                                background: virtualAccount ? "rgba(255,149,0,0.10)" : "linear-gradient(135deg,#FF9500,#FF5E00)",
+                                background: virtualAccount
+                                  ? "rgba(255,149,0,0.10)"
+                                  : "linear-gradient(135deg,#FF9500,#FF5E00)",
                                 color: virtualAccount ? "#FF9500" : "#fff",
                                 boxShadow: virtualAccount ? "none" : "0 4px 14px rgba(255,149,0,0.40)",
                               }}
@@ -1110,12 +801,15 @@ const TransferPage = () => {
                           )}
                         </div>
 
+                        {/* Countdown Timer */}
                         <AnimatePresence>
                           {virtualAccount && !accountExpired && (
                             <motion.div
                               key="countdown-banner"
-                              initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }}
-                              exit={{ height: 0, opacity: 0 }} transition={{ duration: 0.3 }}
+                              initial={{ height: 0, opacity: 0 }}
+                              animate={{ height: "auto", opacity: 1 }}
+                              exit={{ height: 0, opacity: 0 }}
+                              transition={{ duration: 0.3 }}
                               className="overflow-hidden px-4 pt-3"
                             >
                               <CountdownTimerBanner onExpire={() => setAccountExpired(true)} />
@@ -1123,11 +817,14 @@ const TransferPage = () => {
                           )}
                         </AnimatePresence>
 
+                        {/* Expired notice */}
                         <AnimatePresence>
                           {accountExpired && (
                             <motion.div
                               key="expired-banner"
-                              initial={{ opacity: 0, scale: 0.97 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0 }}
+                              initial={{ opacity: 0, scale: 0.97 }}
+                              animate={{ opacity: 1, scale: 1 }}
+                              exit={{ opacity: 0 }}
                               className="mx-4 mt-3 flex items-start gap-3 p-3.5 rounded-2xl"
                               style={{ background: "rgba(239,68,68,0.07)", border: "1px solid rgba(239,68,68,0.2)" }}
                             >
@@ -1135,13 +832,14 @@ const TransferPage = () => {
                               <div>
                                 <p className="text-[13px] font-bold text-red-700">Account Expired</p>
                                 <p className="text-[11px] text-red-400 mt-0.5">
-                                  This account is no longer valid. Tap <span className="font-semibold">Regenerate</span> above.
+                                  This account is no longer valid. Tap <span className="font-semibold">Regenerate</span> above to get a new one.
                                 </p>
                               </div>
                             </motion.div>
                           )}
                         </AnimatePresence>
 
+                        {/* Card Body */}
                         <AnimatePresence mode="wait">
                           {isGeneratingAccount ? (
                             <motion.div key="gen-loading"
@@ -1173,6 +871,7 @@ const TransferPage = () => {
                                 onCopy={() => copy(String(getDirectAmount()), "amt")}
                                 isCopied={copiedKey === "amt"} />
 
+                              {/* Copy All */}
                               <div className="pt-2 pb-1">
                                 <motion.button
                                   whileTap={{ scale: 0.97 }}
@@ -1193,6 +892,7 @@ const TransferPage = () => {
                                 </motion.button>
                               </div>
 
+                              {/* Single-use notice */}
                               <div
                                 className="flex items-start gap-2.5 px-3.5 py-3 rounded-2xl mt-2 mb-1"
                                 style={{ background: "rgba(255,149,0,0.06)", border: "1px solid rgba(255,149,0,0.16)" }}
@@ -1208,6 +908,7 @@ const TransferPage = () => {
                                 </div>
                               </div>
 
+                              {/* Reference */}
                               {(virtualAccount.reference || virtualAccount.externalReference) && (
                                 <div className="flex items-center gap-1.5 pt-2 pb-1">
                                   <Shield className="h-3 w-3 text-gray-300" />
@@ -1230,7 +931,7 @@ const TransferPage = () => {
                               <div className="text-center">
                                 <p className="text-[14px] font-semibold text-gray-700">No account yet</p>
                                 <p className="text-[12px] text-gray-400 mt-1">
-                                  Tap <span className="font-bold text-[#FF9500]">Generate Account</span> above to receive your unique bank details
+                                  Tap <span className="font-bold text-[#FF9500]">Generate Account</span> above to receive your unique bank details for this transfer
                                 </p>
                               </div>
                               <motion.div
@@ -1265,6 +966,7 @@ const TransferPage = () => {
                                                                        "1px solid rgba(255,149,0,0.2)",
                             }}
                           >
+                            {/* CHECKING */}
                             {confirmStatus === CONFIRM.CHECKING && (
                               <div className="p-5">
                                 <div className="flex items-center gap-4 mb-3">
@@ -1290,6 +992,7 @@ const TransferPage = () => {
                               </div>
                             )}
 
+                            {/* SUCCESS */}
                             {confirmStatus === CONFIRM.SUCCESS && (
                               <div className="p-6 text-center">
                                 <motion.div
@@ -1309,6 +1012,7 @@ const TransferPage = () => {
                               </div>
                             )}
 
+                            {/* NOT_FOUND */}
                             {confirmStatus === CONFIRM.NOT_FOUND && (
                               <div className="p-5 flex items-start gap-3">
                                 <div className="w-10 h-10 rounded-2xl bg-amber-50 flex items-center justify-center flex-shrink-0">
@@ -1326,6 +1030,7 @@ const TransferPage = () => {
                               </div>
                             )}
 
+                            {/* ERROR */}
                             {confirmStatus === CONFIRM.ERROR && (
                               <div className="p-5 flex items-start gap-3">
                                 <div className="w-10 h-10 rounded-2xl bg-red-50 flex items-center justify-center flex-shrink-0">
@@ -1371,7 +1076,7 @@ const TransferPage = () => {
                               ? <Check className="h-5 w-5 text-emerald-600" />
                               : <XCircle className="h-5 w-5 text-red-500" />}
                           </div>
-                          <div className="flex-1">
+                          <div>
                             <p className={`text-[14px] font-semibold ${hasSufficientBalance() ? "text-emerald-800" : "text-red-700"}`}>
                               {hasSufficientBalance() ? "Sufficient Balance" : "Insufficient Balance"}
                             </p>
@@ -1379,16 +1084,6 @@ const TransferPage = () => {
                               Balance: ₦{fmt(walletBalance)}
                               {!hasSufficientBalance() && ` · Need ₦${fmt(getWalletAmount())}`}
                             </p>
-                            {!hasSufficientBalance() && (
-                              <motion.button
-                                whileTap={{ scale: 0.95 }}
-                                onClick={() => setShowFundWallet(true)}
-                                className="mt-2 flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[12px] font-semibold text-white"
-                                style={{ background: "linear-gradient(135deg,#FF9500,#FF5E00)" }}
-                              >
-                                <PlusCircle className="h-3.5 w-3.5" /> Fund Wallet
-                              </motion.button>
-                            )}
                           </div>
                         </div>
                       </div>
@@ -1413,6 +1108,7 @@ const TransferPage = () => {
                 borderTop: "0.5px solid rgba(0,0,0,0.08)",
               }}
             >
+              {/* DIRECT: confirm button */}
               {transferType === "direct" && virtualAccount && confirmStatus !== CONFIRM.SUCCESS && !accountExpired && (
                 <motion.button
                   whileTap={{ scale: isChecking ? 1 : 0.97 }}
@@ -1431,6 +1127,7 @@ const TransferPage = () => {
                 </motion.button>
               )}
 
+              {/* DIRECT: expired → regenerate */}
               {transferType === "direct" && virtualAccount && accountExpired && (
                 <motion.button
                   whileTap={{ scale: 0.97 }}
@@ -1445,6 +1142,7 @@ const TransferPage = () => {
                 </motion.button>
               )}
 
+              {/* DIRECT: no account yet */}
               {transferType === "direct" && !virtualAccount && !isGeneratingAccount && (
                 <motion.button
                   whileTap={{ scale: 0.97 }}
@@ -1456,6 +1154,7 @@ const TransferPage = () => {
                 </motion.button>
               )}
 
+              {/* DIRECT: generating */}
               {transferType === "direct" && !virtualAccount && isGeneratingAccount && (
                 <div className="w-full py-4 rounded-2xl flex items-center justify-center gap-2"
                   style={{ background: "rgba(255,149,0,0.1)" }}>
@@ -1464,6 +1163,7 @@ const TransferPage = () => {
                 </div>
               )}
 
+              {/* DIRECT: success */}
               {transferType === "direct" && confirmStatus === CONFIRM.SUCCESS && (
                 <motion.button whileTap={{ scale: 0.97 }} onClick={handleViewOrder}
                   className="w-full py-4 rounded-2xl font-bold text-[16px] text-white flex items-center justify-center gap-2"
@@ -1472,6 +1172,7 @@ const TransferPage = () => {
                 </motion.button>
               )}
 
+              {/* WALLET: slider */}
               {transferType === "wallet" && (
                 sliderPosition === "end" ? (
                   <div className="flex items-center justify-between px-4 py-3.5 rounded-2xl"
@@ -1560,17 +1261,6 @@ const TransferPage = () => {
                 </div>
               </motion.div>
             </motion.div>
-          )}
-        </AnimatePresence>
-
-        {/* ── Fund Wallet Modal ── */}
-        <AnimatePresence>
-          {showFundWallet && (
-            <FundWalletModal
-              accessToken={accessToken}
-              onClose={() => setShowFundWallet(false)}
-              onSuccess={() => { setShowFundWallet(false); refreshWalletBalance(); }}
-            />
           )}
         </AnimatePresence>
       </div>
