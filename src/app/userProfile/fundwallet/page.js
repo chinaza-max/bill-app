@@ -28,14 +28,12 @@ import getErrorMessage from "@/app/component/error";
 import { motion, AnimatePresence } from "framer-motion";
 
 // ── Quick amount presets ──────────────────────────────────────────────────────
-const PRESETS = [1000, 2000, 5000, 10000, 50000];
+const PRESETS = [100, 500, 1000, 5000, 10000];
 
 // ── Confirm polling config ────────────────────────────────────────────────────
-// Strategy: poll up to MAX_ATTEMPTS times with POLL_INTERVAL ms between each.
-// This covers the ~42 s webhook delay while not hammering the server.
-const POLL_INTERVAL_MS  = 5000;   // 5 s between polls
-const MAX_POLL_ATTEMPTS = 18;     // 18 × 5 s = 90 s max wait
-const INITIAL_DELAY_MS  = 3000;   // wait 3 s before first poll (let webhook breathe)
+const POLL_INTERVAL_MS  = 5000;
+const MAX_POLL_ATTEMPTS = 18;
+const INITIAL_DELAY_MS  = 3000;
 
 // ── Format helpers ────────────────────────────────────────────────────────────
 const fmt = (n) => Number(n).toLocaleString("en-NG");
@@ -56,7 +54,7 @@ const parseVirtualAccount = (apiResponse) => {
     validFor:          inner?.validFor          ?? 900,
     expiryDate:        inner?.expiryDate        ?? null,
     reference:         inner?.externalReference ?? inner?._id ?? "—",
-    transactionId:     inner?.externalReference ?? "—",   // "NGTXM76DJW"
+    transactionId:     inner?.externalReference ?? "—",
     status:            inner?.status            ?? "Active",
   };
 };
@@ -146,12 +144,11 @@ const DetailRow = ({ icon: Icon, label, value, copyKey, onCopy, copiedKey, accen
 );
 
 // ── Confirm status enum ───────────────────────────────────────────────────────
-// idle | checking | success | not_found | error
 const CONFIRM = {
   IDLE:       "idle",
   CHECKING:   "checking",
   SUCCESS:    "success",
-  NOT_FOUND:  "not_found",   // still polling — webhook hasn't landed yet
+  NOT_FOUND:  "not_found",
   ERROR:      "error",
 };
 
@@ -161,7 +158,7 @@ const FundWalletPage = () => {
   const pathname        = usePathname();
   const accessToken     = useSelector((s) => s.user.accessToken);
 
-  const [amountStr, setAmountStr]           = useState("1000");
+  const [amountStr, setAmountStr]           = useState("100");
   const [amountError, setAmountError]       = useState("");
   const [accountDetails, setAccountDetails] = useState(null);
   const [isGenerating, setIsGenerating]     = useState(false);
@@ -175,12 +172,11 @@ const FundWalletPage = () => {
   const [confirmStatus, setConfirmStatus]     = useState(CONFIRM.IDLE);
   const [confirmMessage, setConfirmMessage]   = useState("");
   const [pollAttempt, setPollAttempt]         = useState(0);
-  const pollTimerRef = useRef(null);          // holds the setTimeout id
+  const pollTimerRef = useRef(null);
   const isMountedRef = useRef(true);
 
   const { copiedKey, copy } = useCopy();
 
-  // cleanup on unmount
   useEffect(() => {
     return () => {
       isMountedRef.current = false;
@@ -221,7 +217,6 @@ const FundWalletPage = () => {
       const err = await res.json().catch(() => null);
       const details = err?.details ?? err?.message ?? "";
 
-      // These all mean the webhook hasn't fired yet — keep polling silently
       const stillWaiting =
         res.status === 404 ||
         res.status === 400 ||
@@ -232,7 +227,6 @@ const FundWalletPage = () => {
 
       if (stillWaiting) return { pending: true };
 
-      // Genuine error (auth failure, 500, network, etc.)
       throw new Error(details || "Confirm failed");
     }
 
@@ -241,16 +235,6 @@ const FundWalletPage = () => {
   }, [accessToken]);
 
   // ── Poll logic ──────────────────────────────────────────────────────────────
-  /**
-   * Strategy:
-   * 1. User clicks "I've Sent the Money"
-   * 2. We wait INITIAL_DELAY_MS (3 s) for the webhook to potentially land
-   * 3. We call confirmTransfer
-   * 4. If 200 → success. Done.
-   * 5. If "pending" (404 / transaction not found) → schedule next poll after POLL_INTERVAL_MS
-   * 6. Repeat up to MAX_POLL_ATTEMPTS times
-   * 7. After exhausting attempts, show "not found yet" UI with a manual retry button
-   */
   const startPolling = useCallback((transactionId, attempt = 0) => {
     if (!isMountedRef.current) return;
 
@@ -259,7 +243,6 @@ const FundWalletPage = () => {
     pollTimerRef.current = setTimeout(async () => {
       if (!isMountedRef.current) return;
 
-      // Update attempt counter so UI can show progress
       setPollAttempt(attempt + 1);
 
       try {
@@ -268,19 +251,15 @@ const FundWalletPage = () => {
         if (!isMountedRef.current) return;
 
         if (result.pending) {
-          // Webhook hasn't fired yet
           if (attempt + 1 < MAX_POLL_ATTEMPTS) {
-            // Keep polling
             startPolling(transactionId, attempt + 1);
           } else {
-            // Exhausted — let user retry manually
             setConfirmStatus(CONFIRM.NOT_FOUND);
             setConfirmMessage(
               "Your transfer hasn't reflected yet. Tap Check Again or wait a moment."
             );
           }
         } else {
-          // Success!
           setConfirmStatus(CONFIRM.SUCCESS);
           setConfirmMessage("Transfer confirmed! Your wallet has been credited.");
         }
@@ -303,7 +282,6 @@ const FundWalletPage = () => {
     startPolling(accountDetails.transactionId, 0);
   };
 
-  // Manual "Check Again" after NOT_FOUND
   const handleCheckAgain = () => {
     clearTimeout(pollTimerRef.current);
     setConfirmStatus(CONFIRM.CHECKING);
@@ -342,7 +320,6 @@ const FundWalletPage = () => {
       setExpired(false);
       setAmountError("");
       setIsGenerating(false);
-      // Reset confirm state for new account
       setConfirmStatus(CONFIRM.IDLE);
       setConfirmMessage("");
       setPollAttempt(0);
@@ -358,7 +335,7 @@ const FundWalletPage = () => {
 
   const handleGenerate = () => {
     if (isGenerating) return;
-    if (numericAmount < 1000) { setAmountError("Minimum amount is ₦1,000"); return; }
+    if (numericAmount < 100) { setAmountError("Minimum amount is ₦100"); return; }
     setAmountError("");
     generateMutation.mutate(numericAmount);
   };
@@ -377,18 +354,23 @@ const FundWalletPage = () => {
   const handleAmountChange = (e) => {
     const digits = e.target.value.replace(/[^\d]/g, "");
     setAmountStr(digits);
-    setAmountError(parseInt(digits) < 1000 ? "Minimum amount is ₦1,000" : "");
+    setAmountError(parseInt(digits) < 100 ? "Minimum amount is ₦100" : "");
   };
 
   const isLoading    = isGenerating || generateMutation.isPending;
   const isChecking   = confirmStatus === CONFIRM.CHECKING;
 
-  // ── Poll progress label ─────────────────────────────────────────────────────
   const pollProgressLabel = () => {
     if (pollAttempt === 0) return "Waiting for your bank…";
     if (pollAttempt <= 3)  return "Checking payment status…";
     if (pollAttempt <= 8)  return `Still waiting · attempt ${pollAttempt} of ${MAX_POLL_ATTEMPTS}…`;
     return `Hang tight · checking again… (${pollAttempt}/${MAX_POLL_ATTEMPTS})`;
+  };
+
+  // ── Preset label helper ─────────────────────────────────────────────────────
+  const presetLabel = (p) => {
+    if (p < 1000) return `₦${p}`;
+    return `₦${p / 1000}k`;
   };
 
   // ────────────────────────────────────────────────────────────────────────────
@@ -470,7 +452,7 @@ const FundWalletPage = () => {
                             : { background: "#fef3c7", color: "#92400e" }
                         }
                       >
-                        ₦{p >= 1000 ? `${p / 1000}k` : p}
+                        {presetLabel(p)}
                       </button>
                     ))}
                   </div>
@@ -495,7 +477,7 @@ const FundWalletPage = () => {
                 >
                   <p className="text-[10px] font-bold uppercase tracking-widest text-amber-500 mb-3">How It Works</p>
                   {[
-                    { n: "1", text: "Enter the amount you want to add" },
+                    { n: "1", text: "Enter the amount you want to add (minimum ₦100)" },
                     { n: "2", text: "Tap Generate to get a one-time bank account" },
                     { n: "3", text: "Transfer the exact amount before it expires" },
                     { n: "4", text: "Tap I've Sent the Money and we'll confirm automatically" },
@@ -588,7 +570,7 @@ const FundWalletPage = () => {
                   </div>
                 )}
 
-                {/* ── Confirm status card (CHECKING / NOT_FOUND / ERROR / SUCCESS) ── */}
+                {/* ── Confirm status card ── */}
                 <AnimatePresence>
                   {confirmStatus !== CONFIRM.IDLE && (
                     <motion.div
@@ -605,11 +587,9 @@ const FundWalletPage = () => {
                                                                "1.5px solid rgba(251,191,36,0.3)",
                       }}
                     >
-                      {/* CHECKING */}
                       {confirmStatus === CONFIRM.CHECKING && (
                         <div className="flex items-center gap-4">
                           <div className="relative flex-shrink-0">
-                            {/* Pulsing ring */}
                             <div
                               className="w-12 h-12 rounded-full flex items-center justify-center"
                               style={{ background: "linear-gradient(135deg, #fef3c7, #fde68a)" }}
@@ -620,7 +600,6 @@ const FundWalletPage = () => {
                           <div className="flex-1">
                             <p className="text-sm font-extrabold text-amber-900 mb-0.5">Confirming Transfer</p>
                             <p className="text-xs text-amber-500">{pollProgressLabel()}</p>
-                            {/* Progress bar */}
                             <div className="mt-2 h-1 rounded-full bg-amber-100 overflow-hidden">
                               <motion.div
                                 className="h-full rounded-full"
@@ -637,7 +616,6 @@ const FundWalletPage = () => {
                         </div>
                       )}
 
-                      {/* SUCCESS */}
                       {confirmStatus === CONFIRM.SUCCESS && (
                         <div className="text-center py-2">
                           <motion.div
@@ -660,7 +638,6 @@ const FundWalletPage = () => {
                         </div>
                       )}
 
-                      {/* NOT_FOUND — exhausted polls, offer manual retry */}
                       {confirmStatus === CONFIRM.NOT_FOUND && (
                         <div className="flex items-start gap-3">
                           <div
@@ -684,7 +661,6 @@ const FundWalletPage = () => {
                         </div>
                       )}
 
-                      {/* ERROR */}
                       {confirmStatus === CONFIRM.ERROR && (
                         <div className="flex items-start gap-3">
                           <div
@@ -711,7 +687,7 @@ const FundWalletPage = () => {
                   )}
                 </AnimatePresence>
 
-                {/* ── Bank details card (hide after success) ── */}
+                {/* ── Bank details card ── */}
                 {confirmStatus !== CONFIRM.SUCCESS && (
                   <>
                     <div
@@ -787,7 +763,6 @@ const FundWalletPage = () => {
                       </div>
                     </div>
 
-                    {/* Warning */}
                     <div
                       className="rounded-2xl px-4 py-3 flex items-start gap-3"
                       style={{ background: "#fffbeb", border: "1px solid rgba(251,191,36,0.3)" }}
@@ -798,7 +773,6 @@ const FundWalletPage = () => {
                       </p>
                     </div>
 
-                    {/* Security strip */}
                     <div className="flex items-center gap-2 px-1">
                       <Shield className="h-3.5 w-3.5 text-amber-400 flex-shrink-0" />
                       <p className="text-[10px] text-amber-400">
@@ -819,7 +793,6 @@ const FundWalletPage = () => {
           style={{ borderTop: "1px solid rgba(251,191,36,0.2)", boxShadow: "0 -8px 32px rgba(0,0,0,0.06)" }}
         >
           <div className="flex gap-3">
-            {/* Back / reset button */}
             <button
               onClick={handleReset}
               disabled={isLoading || isChecking}
@@ -830,13 +803,11 @@ const FundWalletPage = () => {
               {accountDetails ? <span>New</span> : null}
             </button>
 
-            {/* Main CTA */}
             {!accountDetails ? (
-              /* ── Generate button ── */
               <motion.button
                 whileTap={{ scale: 0.97 }}
                 onClick={handleGenerate}
-                disabled={numericAmount < 1000 || isLoading}
+                disabled={numericAmount < 100 || isLoading}
                 className="flex-1 py-3.5 rounded-2xl font-extrabold text-sm text-white relative overflow-hidden disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                 style={{ background: "linear-gradient(135deg, #92400e 0%, #b45309 40%, #d97706 75%, #f59e0b 100%)" }}
               >
@@ -857,7 +828,6 @@ const FundWalletPage = () => {
               </motion.button>
 
             ) : confirmStatus === CONFIRM.SUCCESS ? (
-              /* ── All done ── */
               <motion.button
                 whileTap={{ scale: 0.97 }}
                 onClick={handleReset}
@@ -869,7 +839,6 @@ const FundWalletPage = () => {
               </motion.button>
 
             ) : expired ? (
-              /* ── Expired ── */
               <motion.button
                 whileTap={{ scale: 0.97 }}
                 onClick={handleGenerate}
@@ -882,7 +851,6 @@ const FundWalletPage = () => {
               </motion.button>
 
             ) : isChecking ? (
-              /* ── Actively polling — disable the button ── */
               <div
                 className="flex-1 py-3.5 rounded-2xl font-extrabold text-sm flex items-center justify-center gap-2 opacity-70"
                 style={{ background: "linear-gradient(135deg,#fef3c7,#fde68a)", color: "#92400e" }}
@@ -892,7 +860,6 @@ const FundWalletPage = () => {
               </div>
 
             ) : (
-              /* ── Normal active state — "I've Sent the Money" ── */
               <motion.button
                 whileTap={{ scale: 0.97 }}
                 onClick={handleConfirmTransfer}

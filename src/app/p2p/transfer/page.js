@@ -804,6 +804,7 @@ const TransferPage = () => {
                   </div>
 
                   {/* FIX 2: Fund Wallet Button on card */}
+                  {/** 
                   <motion.button
                     whileTap={{ scale: 0.95 }}
                     onClick={() => setShowFundWallet(true)}
@@ -811,8 +812,9 @@ const TransferPage = () => {
                     style={{ background: "rgba(255,255,255,0.18)", border: "1px solid rgba(255,255,255,0.25)" }}
                   >
                     <PlusCircle className="h-3.5 w-3.5 text-white" />
-                    <span className="text-[12px] font-semibold text-white">Fund Wallet</span>
+                    <span className="text-[12px] font-semibold text-white">Fund kkWallet</span>
                   </motion.button>
+                  */}
 
                   {merchantInfo && (
                     <>
