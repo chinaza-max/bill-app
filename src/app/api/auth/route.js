@@ -13,7 +13,7 @@ const axiosInstance = axios.create({
 
 
 
-// ============================================================
+// =========================================================
 // RATE LIMITER — In-Memory (no Redis needed)
 // ============================================================
 // Auth routes get the strictest limits since they are the most
