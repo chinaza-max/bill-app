@@ -42,7 +42,7 @@ const RATE_LIMIT_CONFIG = {
   // 🟡 Strict — OTP send, verification codes (spam targets)
   strict: {
     windowMs: 10 * 60 * 1000,    // 10 minute window       ← adjust here
-    max: 5,                        // 5 requests per window  ← adjust here
+    max: 10,                        // 5 requests per window  ← adjust here
     banAfterViolations: 3,
     banDurationMs: 60 * 60 * 1000, // 1 hour ban            ← adjust here
   },
@@ -50,7 +50,7 @@ const RATE_LIMIT_CONFIG = {
   // 🟢 General — ping and low-risk GET routes
   general: {
     windowMs: 60 * 1000,          // 1 minute window        ← adjust here
-    max: 30,                       // 30 requests per minute ← adjust here
+    max: 35,                       // 30 requests per minute ← adjust here
     banAfterViolations: 10,
     banDurationMs: 15 * 60 * 1000, // 15 min ban            ← adjust here
   },
