@@ -1,7 +1,7 @@
 import axios from "axios";
 
 const axiosInstance = axios.create({
-  baseURL: "https://fidopoint.onrender.com/api/v1",
+  baseURL: "http://api.fidopoint.xyz/api/v1",
   headers: {
     "Content-Type": "application/json",
   },
