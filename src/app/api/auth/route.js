@@ -1,7 +1,7 @@
 import axios from "axios";
 
 const axiosInstance = axios.create({
-  baseURL: "https://api.fidopoint.xyz/api/v1",
+  baseURL: "http://localhost:5000/api/v1",
   headers: {
     "Content-Type": "application/json",
   },
@@ -10,6 +10,7 @@ const axiosInstance = axios.create({
 
 //https://fidopoint.onrender.com
 //http://localhost:5000/api/v1
+//https://api.fidopoint.xyz/api/v1
 
 
 
@@ -248,10 +249,29 @@ export async function POST(req) {
         });
         break;
 
+
+      case "connectGoogleAccount":
+        response = await retryRequest({
+          method: "post",
+          url: "/auth/connectGoogleAccount",
+          data: requestData,
+        });
+        break;
+
       case "registerUser":
         response = await retryRequest({
           method: "post",
           url: "/auth/registerUser",
+          data: requestData,
+        });
+        break;
+
+
+    
+      case "googleSignup":
+        response = await retryRequest({
+          method: "post",
+          url: "/auth/googleSignup",
           data: requestData,
         });
         break;
