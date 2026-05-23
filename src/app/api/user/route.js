@@ -1,7 +1,7 @@
 import axios from "axios";
 
 const axiosInstance = axios.create({
-  baseURL: process.env.API,
+  baseURL: process.env.API||"https://api.fidopoint.xyz/api/v1",
   headers: {
     "Content-Type": "application/json",
   },
