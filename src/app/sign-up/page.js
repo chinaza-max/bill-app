@@ -142,6 +142,7 @@ function LinkAccountModal({ googleUser, onLink, onCancel, isLinking, linkError }
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-7 border border-amber-200">
 
         {/* Avatar + name */}
+
         <div className="flex flex-col items-center mb-5">
           {googleUser?.picture && (
             <img
@@ -457,6 +458,8 @@ const SignUpForm = () => {
           <div className="bg-white p-8 rounded-lg shadow-md">
 
             {/* ── GOOGLE BUTTON ── */}
+
+                        {/* 
             <div className="mb-6">
               <button
                 type="button"
@@ -493,6 +496,8 @@ const SignUpForm = () => {
               )}
             </div>
 
+            */}
+            
             {/* ── OR DIVIDER ── */}
             <div className="flex items-center gap-3 mb-6">
               <div className="flex-1 h-px bg-amber-200" />
