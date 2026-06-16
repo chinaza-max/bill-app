@@ -141,11 +141,15 @@ const uploadProfilePicture = async (accessToken, imageFile) => {
 // ─── Live Activity Ticker ─────────────────────────────────────────────────────
 const FIRST_NAMES = ["Amina","Chukwudi","Fatima","Emeka","Ngozi","Tunde","Aisha","Kelechi","Blessing","Usman","Adaeze","Seun","Halima","Tobi","Chisom","Musa","Yetunde","Ifeanyi","Zainab","Babatunde","Chiamaka","Abdullahi","Sola","Chinyere","Ahmed","Folake","Obinna","Rukayat","Gbenga","Nneka"];
 const LAST_NAMES  = ["Okafor","Adeyemi","Ibrahim","Nwosu","Bello","Eze","Lawal","Obi","Yusuf","Adeleke","Nwachukwu","Suleiman","Okonkwo","Abubakar","Dike","Omotayo","Garba","Onuoha","Aliyu","Fashola"];
+
+// COPY NOTE: All action labels use "withdrawal" language — avoids implying a
+// marketplace/selling model. The platform facilitates peer-to-peer withdrawals,
+// not buying or selling.
 const ACTIONS = [
-  { type: "placed",          label: "just placed an order of",    icon: Clock,        color: "#f59e0b" },
-  { type: "completed",       label: "just completed an order of", icon: CheckCircle2, color: "#16a34a" },
-  { type: "order_completed", label: "order has been completed —", icon: CheckCircle2, color: "#d97706" },
-  { type: "cancelled",       label: "cancelled an order of",      icon: XCircle,      color: "#dc2626" },
+  { type: "placed",          label: "just initiated a withdrawal of",   icon: Clock,        color: "#f59e0b" },
+  { type: "completed",       label: "just completed a withdrawal of",   icon: CheckCircle2, color: "#16a34a" },
+  { type: "order_completed", label: "withdrawal was processed —",       icon: CheckCircle2, color: "#d97706" },
+  { type: "cancelled",       label: "cancelled a withdrawal of",        icon: XCircle,      color: "#dc2626" },
 ];
 
 const randomBetween = (min, max) => Math.floor(Math.random() * (max - min + 1)) + min;
@@ -432,7 +436,7 @@ const ProfilePictureSheet = ({ onClose, onUploaded, accessToken }) => {
 
           <p style={{ fontSize: 19, fontWeight: 700, color: "#78350f", marginBottom: 4, textAlign: "center" }}>Add a profile photo</p>
           <p style={{ fontSize: 13, color: "#a16207", marginBottom: 24, textAlign: "center", lineHeight: 1.5 }}>
-            Help merchants recognise you — takes less than a minute.
+            Help verify your identity — takes less than a minute.
           </p>
 
           <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
@@ -545,8 +549,8 @@ const ProfilePictureSheet = ({ onClose, onUploaded, accessToken }) => {
 // ─── Profile Info Completion Sheet ────────────────────────────────────────────
 const ProfileInfoSheet = ({ onClose, onAction, missingDOB, missingPhone }) => {
   const missing = [];
-  if (missingDOB)   missing.push({ icon: CalendarDays, label: "Date of birth",  sub: "Required for age verification & better matching" });
-  if (missingPhone) missing.push({ icon: Phone,        label: "Phone number",   sub: "Needed for order confirmations & support" });
+  if (missingDOB)   missing.push({ icon: CalendarDays, label: "Date of birth",  sub: "Required for identity verification & account security" });
+  if (missingPhone) missing.push({ icon: Phone,        label: "Phone number",   sub: "Needed for withdrawal confirmations & support" });
 
   return (
     <SheetWrapper onBackdropClick={onClose}>
@@ -579,8 +583,9 @@ const ProfileInfoSheet = ({ onClose, onAction, missingDOB, missingPhone }) => {
         <p style={{ fontSize: 19, fontWeight: 700, color: "#78350f", marginBottom: 6, textAlign: "center" }}>
           Almost there!
         </p>
+        {/* COPY: no mention of merchants or matching — purely identity/security framing */}
         <p style={{ fontSize: 13, color: "#a16207", marginBottom: 24, textAlign: "center", lineHeight: 1.55 }}>
-          A few more details help merchants match you faster and keep your account secure.
+          A few more details help verify your identity and keep your account secure.
         </p>
 
         {/* Missing field cards */}
@@ -625,12 +630,12 @@ const TOUR_STEPS = [
   {
     id: "tour-bell",
     title: "Notifications",
-    body: "Tap the bell to see updates about your orders, payments and account activity. A red badge shows how many are unread.",
+    body: "Tap the bell to see updates about your withdrawals, payments and account activity. A red badge shows how many are unread.",
   },
   {
     id: "tour-switch",
-    title: "Switch to Merchant",
-    body: "Tap this dropdown and choose Merchant to switch into merchant mode — start selling, manage orders and view your merchant dashboard. Choose Client to switch back at any time.",
+    title: "Switch to Agent",
+    body: "Tap this dropdown and choose Agent to switch into agent mode — manage requests, process withdrawals and view your agent dashboard. Choose Client to switch back at any time.",
   },
   {
     id: "tour-wallet",
@@ -639,8 +644,8 @@ const TOUR_STEPS = [
   },
   {
     id: "tour-order",
-    title: "Place a new order",
-    body: "Tap here to start a fast, secure peer-to-peer transaction.",
+    title: "Withdraw funds",
+    body: "Tap here to initiate a fast, secure peer-to-peer withdrawal.",
   },
   {
     id: "tour-transactions",
@@ -789,7 +794,17 @@ const MobileApp = () => {
   const [showPulseAnimation, setShowPulseAnimation]           = useState(false);
   const [hasInteractedWithSwitch, setHasInteractedWithSwitch] = useState(false);
   const [unreadCount, setUnreadCount]                         = useState(0);
-  const [showTour, setShowTour]                               = useState(false);
+
+  // ── Tour state ────────────────────────────────────────────────────────
+  // tourDone = true means: tour was already seen (on mount) OR just finished.
+  // Sheets are only allowed to open once tourDone is true.
+  const [showTour, setShowTour] = useState(false);
+  const [tourDone, setTourDone] = useState(false);
+
+  // ── Pending sheet data — computed while tour runs, applied after ──────
+  // We store the queue we *want* to show, but only commit it to sheetQueue
+  // once tourDone flips to true.
+  const pendingSheetQueueRef = useRef([]);
 
   // ── Sheet queue system ────────────────────────────────────────────────
   const [sheetQueue, setSheetQueue]       = useState([]);
@@ -802,7 +817,7 @@ const MobileApp = () => {
 
   const activeSheet = sheetQueue[0] ?? null;
 
-  // ── Merchant navigation loading state ─────────────────────────────────
+  // ── Agent navigation loading state ────────────────────────────────────
   const [isMerchantNavLoading, setIsMerchantNavLoading] = useState(false);
 
   const { token }                  = useNotifications();
@@ -827,8 +842,6 @@ const MobileApp = () => {
   const router   = useRouter();
   const pathname = usePathname();
 
-  // ── KEY CHANGE: refetchOnMount: "always" guarantees a fresh network
-  //    request every time MobileApp mounts, not just when cache is stale.
   const {
     data: profileData,
     refetch: refetchProfile,
@@ -838,8 +851,8 @@ const MobileApp = () => {
     queryFn: () => fetchUserProfile(accessToken),
     enabled: !!accessToken,
     staleTime: 0,
-    gcTime: 0,                    // don't keep stale data in memory at all
-    refetchOnMount: "always",     // ← always hit the network on mount
+    gcTime: 0,
+    refetchOnMount: "always",
     refetchOnWindowFocus: true,
     retry: 1,
   });
@@ -855,15 +868,12 @@ const MobileApp = () => {
     enabled: !!accessToken,
     staleTime: 0,
     gcTime: 0,
-    refetchOnMount: "always",     // ← always hit the network on mount
+    refetchOnMount: "always",
     refetchOnWindowFocus: true,
     retry: 1,
     keepPreviousData: true,
   });
 
-  // ── Invalidate both queries whenever the pathname resolves to home ────
-  //    This covers the case where Next.js keeps the component mounted but
-  //    the user navigates away and back (soft navigation).
   useEffect(() => {
     if (!accessToken) return;
     queryClient.invalidateQueries({ queryKey: ["userProfile", accessToken] });
@@ -911,19 +921,41 @@ const MobileApp = () => {
 
   useEffect(() => { if (order) setNumberOfOrder(order.data?.data?.length); }, [order]);
 
-  // ── Show spotlight tour once, after sheets have had a chance to appear ──
+  // ── Tour bootstrap: decide on mount whether to show tour or skip to done ──
   useEffect(() => {
     if (typeof window === "undefined") return;
-    const seen = localStorage.getItem("hasSeenSpotlightTour") === "true";
-    if (seen) return;
-    const t = setTimeout(() => setShowTour(true), 6500);
-    return () => clearTimeout(t);
+    const alreadySeen = localStorage.getItem("hasSeenSpotlightTour") === "true";
+    if (alreadySeen) {
+      // Tour already done — unlock sheets immediately
+      setTourDone(true);
+    } else {
+      // Show tour after a short settle delay (no sheets can open yet)
+      const t = setTimeout(() => setShowTour(true), 1500);
+      return () => clearTimeout(t);
+    }
   }, []);
 
+  // ── When tour finishes (or is skipped): mark done, flush pending sheets ──
   const handleFinishTour = useCallback(() => {
     setShowTour(false);
     if (typeof window !== "undefined") localStorage.setItem("hasSeenSpotlightTour", "true");
+    setTourDone(true);
   }, []);
+
+  // ── Once tourDone flips true, flush any sheets that were computed while
+  //    the tour was running (stored in pendingSheetQueueRef). ────────────
+  useEffect(() => {
+    if (!tourDone) return;
+    const pending = pendingSheetQueueRef.current;
+    if (pending.length > 0) {
+      // Small delay so the tour exit animation finishes cleanly first
+      const t = setTimeout(() => {
+        setSheetQueue(pending);
+        pendingSheetQueueRef.current = [];
+      }, 600);
+      return () => clearTimeout(t);
+    }
+  }, [tourDone]);
 
   const handleSwitchInteraction = () => {
     setHasInteractedWithSwitch(true);
@@ -940,7 +972,7 @@ const MobileApp = () => {
 
   const toggleBalanceVisibility = () => setIsBalanceVisible((v) => !v);
 
-  // ── Profile data → rebuild sheet queue on every load ────────────────
+  // ── Profile data → build sheet queue; respect tour gate ──────────────
   useEffect(() => {
     const freshUser = profileData?.data?.data ?? profileData?.data?.user ?? null;
     const user = freshUser ?? data2?.user?.user;
@@ -975,11 +1007,19 @@ const MobileApp = () => {
       if (needsInfo) nextQueue.push("profileInfo");
       if (needsPic)  nextQueue.push("profilePic");
 
-      if (nextQueue.length > 0) setSheetQueue(nextQueue);
+      if (nextQueue.length === 0) return;
+
+      if (tourDone) {
+        // Tour already finished — open sheets directly
+        setSheetQueue(nextQueue);
+      } else {
+        // Tour is still in progress — park the queue for later
+        pendingSheetQueueRef.current = nextQueue;
+      }
     }, 5000);
 
     return () => { if (queueTimerRef.current) clearTimeout(queueTimerRef.current); };
-  }, [profileData, data2.user]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [profileData, data2.user, tourDone]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => () => { if (queueTimerRef.current) clearTimeout(queueTimerRef.current); }, []);
 
@@ -1003,12 +1043,14 @@ const MobileApp = () => {
     router.push("/userProfile/ProfileInformation/updatePersonal");
   }, [dequeue, router]);
 
+  // Manual camera icon — always allowed after tour
   const handleOpenPicSheet = useCallback(() => {
+    if (!tourDone) return; // guard: don't open during tour
     setSheetQueue((prev) => {
       if (prev[0] === "profilePic") return prev;
       return ["profilePic", ...prev.filter((s) => s !== "profilePic")];
     });
-  }, []);
+  }, [tourDone]);
 
   useEffect(() => {
     if (error) getErrorMessage(error, router, "", isAuthenticated);
@@ -1118,10 +1160,11 @@ const MobileApp = () => {
                   width={36} height={36}
                   className="w-full h-full object-cover rounded-full cursor-pointer"
                 />
-                {activeSheet !== "profilePic" && (
+                {/* Camera icon only shows when tour is done and pic sheet isn't already active */}
+                {tourDone && activeSheet !== "profilePic" && (
                   <button type="button" onClick={handleOpenPicSheet}
                     className="absolute -bottom-0.5 -right-0.5 w-4 h-4 rounded-full bg-amber-300 flex items-center justify-center border border-amber-600"
-                    title="Add profile photo">
+                    title="Update profile photo">
                     <Camera className="h-2.5 w-2.5 text-amber-900" />
                   </button>
                 )}
@@ -1157,9 +1200,9 @@ const MobileApp = () => {
                   {isDropdownOpen && (
                     <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} transition={{ duration: 0.2 }}
                       className="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg py-1 z-10">
-                      <button onClick={() => { setUserType("Merchant"); setIsDropdownOpen(false); handleSwitchInteraction(); moveToMerchant(); }}
+                      <button onClick={() => { setUserType("Agent"); setIsDropdownOpen(false); handleSwitchInteraction(); moveToMerchant(); }}
                         className="block px-4 py-2 text-sm text-gray-700 hover:bg-amber-50 w-full text-left" disabled={isMerchantNavLoading}>
-                        {isMerchantNavLoading ? <span className="flex items-center gap-2"><RefreshCw className="h-3 w-3 animate-spin" /> Checking…</span> : "Merchant"}
+                        {isMerchantNavLoading ? <span className="flex items-center gap-2"><RefreshCw className="h-3 w-3 animate-spin" /> Checking…</span> : "Agent"}
                       </button>
                       <button onClick={() => { setUserType("Client"); setIsDropdownOpen(false); handleSwitchInteraction(); }}
                         className="block px-4 py-2 text-sm text-gray-700 hover:bg-amber-50 w-full text-left">Client</button>
@@ -1191,12 +1234,12 @@ const MobileApp = () => {
                     <ShoppingBag className="h-5 w-5 text-white" />
                   </div>
                   <div className="text-left">
-                    <p className="text-white font-bold text-base leading-tight">Request Cash Now</p>
-                    <p className="text-xs mt-0.5" style={{ color: "rgba(255,255,255,0.65)" }}>Fast &amp; secure P2P transaction</p>
+                    <p className="text-white font-bold text-base leading-tight">Withdraw Funds</p>
+                    <p className="text-xs mt-0.5" style={{ color: "rgba(255,255,255,0.65)" }}>Fast &amp; secure peer-to-peer withdrawal</p>
                   </div>
                 </div>
                 <div className="flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-bold" style={{ background: "rgba(255,255,255,0.18)", border: "1px solid rgba(255,255,255,0.3)", color: "#fff" }}>
-                  <Zap className="h-3 w-3" /><span>Start</span><ArrowRight className="h-3 w-3" />
+                  <Zap className="h-3 w-3" /><span>Begin</span><ArrowRight className="h-3 w-3" />
                 </div>
               </div>
             </motion.button>
@@ -1215,9 +1258,9 @@ const MobileApp = () => {
           </div>
         </div>
 
-        {/* ── Sheet queue — only one sheet renders at a time ── */}
+        {/* ── Sheet queue — only renders after tour is done ── */}
         <AnimatePresence mode="wait">
-          {activeSheet === "profileInfo" && (
+          {tourDone && activeSheet === "profileInfo" && (
             <ProfileInfoSheet
               key="profileInfo"
               missingDOB={missingFields.dob}
@@ -1226,7 +1269,7 @@ const MobileApp = () => {
               onAction={handleInfoAction}
             />
           )}
-          {activeSheet === "profilePic" && (
+          {tourDone && activeSheet === "profilePic" && (
             <ProfilePictureSheet
               key="profilePic"
               accessToken={accessToken}
@@ -1249,4 +1292,4 @@ const MobileApp = () => {
   );
 };
 
-export default MobileApp;
+export default MobileApp;  
