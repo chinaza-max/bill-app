@@ -634,8 +634,8 @@ const TOUR_STEPS = [
   },
   {
     id: "tour-switch",
-    title: "Switch to Agent",
-    body: "Tap this dropdown and choose Agent to switch into agent mode — manage requests, process withdrawals and view your agent dashboard. Choose Client to switch back at any time.",
+    title: "Switch to Merchant",
+    body: "Tap this dropdown and choose Merchant to switch into merchant mode — manage requests, process withdrawals and view your merchant dashboard. Choose Client to switch back at any time.",
   },
   {
     id: "tour-wallet",
@@ -817,7 +817,7 @@ const MobileApp = () => {
 
   const activeSheet = sheetQueue[0] ?? null;
 
-  // ── Agent navigation loading state ────────────────────────────────────
+  // ── Merchant navigation loading state ────────────────────────────────────
   const [isMerchantNavLoading, setIsMerchantNavLoading] = useState(false);
 
   const { token }                  = useNotifications();
@@ -1075,7 +1075,7 @@ const MobileApp = () => {
     const { ninVerificationEnabled, ninImageUploadEnabled, nameVerificationEnabled, faceVerificationEnabled } = settings;
     if (ninVerificationEnabled  && !u?.isNinVerified)           return router.push("/userProfile/merchantProfile");
     if (ninImageUploadEnabled   && !u?.isninImageVerified)       return router.push("/userProfile/merchantProfile/merchantProfile1");
-    if (nameVerificationEnabled && !u?.isDisplayNameMerchantSet) return router.push("/userProfile/merchantProfile/merchantProfile2");
+    if (nameVerificationEnabled && !u?.isDisplayNameMerchantSet)    return router.push("/userProfile/merchantProfile/merchantProfile2");
     if (faceVerificationEnabled && !u?.isFaceVerified)           return router.push("/userProfile/merchantProfile/merchantProfile3");
     const s = u?.MerchantProfile?.accountStatus;
     if (s === "processing") return router.push("/userProfile/merchantProfile/merchantProfile4");
@@ -1200,9 +1200,9 @@ const MobileApp = () => {
                   {isDropdownOpen && (
                     <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} transition={{ duration: 0.2 }}
                       className="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg py-1 z-10">
-                      <button onClick={() => { setUserType("Agent"); setIsDropdownOpen(false); handleSwitchInteraction(); moveToMerchant(); }}
+                      <button onClick={() => { setUserType("Merchant"); setIsDropdownOpen(false); handleSwitchInteraction(); moveToMerchant(); }}
                         className="block px-4 py-2 text-sm text-gray-700 hover:bg-amber-50 w-full text-left" disabled={isMerchantNavLoading}>
-                        {isMerchantNavLoading ? <span className="flex items-center gap-2"><RefreshCw className="h-3 w-3 animate-spin" /> Checking…</span> : "Agent"}
+                        {isMerchantNavLoading ? <span className="flex items-center gap-2"><RefreshCw className="h-3 w-3 animate-spin" /> Checking…</span> : "Merchant"}
                       </button>
                       <button onClick={() => { setUserType("Client"); setIsDropdownOpen(false); handleSwitchInteraction(); }}
                         className="block px-4 py-2 text-sm text-gray-700 hover:bg-amber-50 w-full text-left">Client</button>
@@ -1292,4 +1292,4 @@ const MobileApp = () => {
   );
 };
 
-export default MobileApp;  
+export default MobileApp;
