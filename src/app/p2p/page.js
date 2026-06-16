@@ -48,6 +48,177 @@ const fetchMerchant = async (accessToken, router) => {
   }
 };
 
+// ─── Spotlight Tour ────────────────────────────────────────────────────────────
+const TOUR_STEPS = [
+  {
+    id: "tour-back",
+    title: "Go back home",
+    body: "Tap here anytime to exit the Cash Access network and return to the home screen.",
+  },
+  {
+    id: "tour-filters",
+    title: "Filter merchants",
+    body: "Narrow down the list by accuracy, distance, amount range and preference — tap any of these to choose options.",
+  },
+  {
+    id: "tour-offers",
+    title: "Merchant offers",
+    body: "Each card shows a merchant's rating, order count, distance and the amount range they handle. Tap the chevron to see detailed pricing.",
+  },
+  {
+    id: "tour-range",
+    title: "Range",
+    body: "This is the amount range this merchant can take for a transaction — for example ₦1,000 - ₦50,000 means they can handle orders anywhere within that range. The distance shown (e.g. 0.0 m away) is how far they are from you.",
+  },
+  {
+    id: "tour-range-details",
+    title: "Offer Range Details",
+    body: "Tap the chevron to expand this. It breaks down the charge per ₦1,000 — for each amount bracket, you'll see the amount range and the charge that applies to transactions in that bracket.",
+  },
+  {
+    id: "tour-transfer",
+    title: "Start a transfer",
+    body: "When you find a merchant you like, tap “Transfer” to begin your P2P transaction with them.",
+  },
+  {
+    id: "tour-bottomnav",
+    title: "Navigation bar",
+    body: "Use this bottom bar to move between Home, P2P, History and the rest of the app.",
+  },
+];
+
+const SpotlightTour = ({ onFinish, ensureExpanded }) => {
+  const [stepIndex, setStepIndex] = useState(0);
+  const [rect, setRect] = useState(null);
+
+  const step = TOUR_STEPS[stepIndex];
+
+  useEffect(() => {
+    if (step.id === "tour-range-details" || step.id === "tour-range") {
+      ensureExpanded?.(true);
+    }
+  }, [step.id, ensureExpanded]);
+
+  useEffect(() => {
+    const t = setTimeout(() => {
+      const el = document.getElementById(step.id);
+      if (el) {
+        el.scrollIntoView({ behavior: "smooth", block: "center" });
+        const t2 = setTimeout(() => {
+          const r = el.getBoundingClientRect();
+          setRect(r);
+        }, 250);
+        return () => clearTimeout(t2);
+      } else {
+        setRect(null);
+      }
+    }, 50);
+    return () => clearTimeout(t);
+  }, [stepIndex, step.id]);
+
+  const handleNext = () => {
+    if (stepIndex < TOUR_STEPS.length - 1) setStepIndex((i) => i + 1);
+    else onFinish();
+  };
+
+  const handlePrev = () => {
+    if (stepIndex > 0) setStepIndex((i) => i - 1);
+  };
+
+  const pad = 8;
+  const highlightStyle = rect
+    ? {
+        position: "fixed",
+        top: rect.top - pad,
+        left: rect.left - pad,
+        width: rect.width + pad * 2,
+        height: rect.height + pad * 2,
+        borderRadius: 16,
+        boxShadow: "0 0 0 9999px rgba(0,0,0,0.55)",
+        border: "2px solid #fbbf24",
+        zIndex: 9998,
+        pointerEvents: "none",
+        transition: "all 0.3s ease",
+      }
+    : {
+        position: "fixed",
+        inset: 0,
+        background: "rgba(0,0,0,0.55)",
+        zIndex: 9998,
+      };
+
+  let tooltipStyle = {
+    position: "fixed",
+    left: 16,
+    right: 16,
+    zIndex: 9999,
+    maxWidth: 480,
+    margin: "0 auto",
+  };
+  if (rect) {
+    const spaceBelow = window.innerHeight - rect.bottom;
+    if (spaceBelow > 200) {
+      tooltipStyle.top = rect.bottom + pad + 12;
+    } else {
+      tooltipStyle.top = Math.max(rect.top - pad - 12 - 190, 12);
+    }
+  } else {
+    tooltipStyle.top = "50%";
+    tooltipStyle.transform = "translateY(-50%)";
+  }
+
+  return (
+    <>
+      <div style={highlightStyle} onClick={onFinish} />
+      <motion.div
+        initial={{ opacity: 0, y: 12 }}
+        animate={{ opacity: 1, y: 0 }}
+        style={{
+          ...tooltipStyle,
+          background: "#fff",
+          borderRadius: 16,
+          padding: "16px 18px",
+          boxShadow: "0 10px 30px rgba(0,0,0,0.25)",
+        }}
+      >
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 8 }}>
+          <div>
+            <p style={{ fontSize: 11, fontWeight: 700, color: "#d97706", textTransform: "uppercase", letterSpacing: "0.06em", margin: 0 }}>
+              Step {stepIndex + 1} of {TOUR_STEPS.length}
+            </p>
+            <p style={{ fontSize: 16, fontWeight: 700, color: "#78350f", margin: "2px 0 6px" }}>{step.title}</p>
+          </div>
+          <button type="button" onClick={onFinish}
+            style={{ background: "#f3f4f6", border: "none", borderRadius: "50%", width: 28, height: 28, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", flexShrink: 0 }}>
+            <X className="h-3.5 w-3.5 text-gray-500" />
+          </button>
+        </div>
+
+        <p style={{ fontSize: 13, color: "#57534e", lineHeight: 1.55, margin: "0 0 14px" }}>{step.body}</p>
+
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
+          <button type="button" onClick={onFinish}
+            style={{ fontSize: 13, color: "#9ca3af", background: "none", border: "none", cursor: "pointer", padding: "8px 4px" }}>
+            Skip tour
+          </button>
+          <div style={{ display: "flex", gap: 8 }}>
+            {stepIndex > 0 && (
+              <button type="button" onClick={handlePrev}
+                style={{ padding: "9px 16px", borderRadius: 10, background: "#f3f4f6", border: "1px solid #e5e7eb", fontSize: 13, fontWeight: 500, color: "#374151", cursor: "pointer" }}>
+                Back
+              </button>
+            )}
+            <button type="button" onClick={handleNext}
+              style={{ padding: "9px 18px", borderRadius: 10, background: "linear-gradient(135deg, #92400e, #d97706)", border: "none", fontSize: 13, fontWeight: 700, color: "#fff", cursor: "pointer" }}>
+              {stepIndex < TOUR_STEPS.length - 1 ? "Next" : "Done"}
+            </button>
+          </div>
+        </div>
+      </motion.div>
+    </>
+  );
+};
+
 const P2PPage = () => {
   const [activeTab, setActiveTab] = useState("p2p");
   const [showComplaintForm, setShowComplaintForm] = useState(false);
@@ -63,6 +234,7 @@ const P2PPage = () => {
   });
   const [openFilter, setOpenFilter] = useState("");
   const [showOfferDetails, setShowOfferDetails] = useState(null);
+  const [showTour, setShowTour] = useState(false);
 
   const router = useRouter();
   const accessToken = useSelector((state) => state.user.accessToken);
@@ -76,6 +248,20 @@ const P2PPage = () => {
     setActiveTab(tab);
     router.push(`/${tab}`);
   };
+
+  // ── Show spotlight tour once ──────────────────────────────────────────
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const seen = localStorage.getItem("hasSeenP2PSpotlightTour") === "true";
+    if (seen) return;
+    const t = setTimeout(() => setShowTour(true), 1200);
+    return () => clearTimeout(t);
+  }, []);
+
+  const handleFinishTour = useCallback(() => {
+    setShowTour(false);
+    if (typeof window !== "undefined") localStorage.setItem("hasSeenP2PSpotlightTour", "true");
+  }, []);
 
   const filterOptions = {
     accuracy: [
@@ -183,6 +369,18 @@ const P2PPage = () => {
     onError: () => setDataDisplayed(false),
   });
 
+  // During the tour, force the first offer's "Offer Range Details" panel open
+  // so the tour can highlight the range breakdown. Defined AFTER `data`
+  // since it depends on it.
+  const handleEnsureExpanded = useCallback((shouldExpand) => {
+    if (!shouldExpand) return;
+    setShowOfferDetails((prev) => {
+      if (prev !== null) return prev;
+      const firstOffer = (data?.data?.data && Array.isArray(data.data.data) && data.data.data[0]) || null;
+      return firstOffer ? firstOffer.id : prev;
+    });
+  }, [data]);
+
   useEffect(() => {
     if (data && !dataDisplayed && !isLoading) setDataDisplayed(true);
   }, [data, dataDisplayed, isLoading]);
@@ -275,15 +473,16 @@ const P2PPage = () => {
         <div className="bg-gradient-to-r from-amber-600 to-amber-500 text-white px-4 py-3">
           <div className="flex items-center space-x-3">
             <ArrowLeft
+              id="tour-back"
               onClick={() => handleTabChange("home")}
               className="h-6 w-6 cursor-pointer"
             />
-            <h1 className="text-lg font-semibold">P2P Trading</h1>
+            <h1 className="text-lg font-semibold">P2P Network</h1>
           </div>
         </div>
 
         {/* Filters */}
-        <div className="sticky top-0 z-10 bg-amber-50 px-4 py-3 shadow-sm">
+        <div id="tour-filters" className="sticky top-0 z-10 bg-amber-50 px-4 py-3 shadow-sm">
           <div className="grid grid-cols-2 gap-2">
             <FilterDropdown name="accuracy" label="Accuracy %" options={filterOptions.accuracy} />
             <FilterDropdown name="distance" label="Distance (km)" options={filterOptions.distance} />
@@ -293,7 +492,7 @@ const P2PPage = () => {
         </div>
 
         {/* Offers List */}
-        <div className="flex-1 overflow-auto px-4 py-3">
+        <div id="tour-offers" className="flex-1 overflow-auto px-4 py-3">
           {isLoading ? (
             <div className="flex flex-col items-center justify-center py-12 px-4 text-center">
               <div className="relative">
@@ -371,7 +570,7 @@ const P2PPage = () => {
             </div>
           ) : (
             <div className="space-y-3">
-              {filteredOffers.map((offer) => (
+              {filteredOffers.map((offer, idx) => (
                 <motion.div
                   key={offer.id}
                   initial={{ opacity: 0, y: 20 }}
@@ -430,7 +629,7 @@ const P2PPage = () => {
                     </div>
                   </div>
 
-                  <div className="flex items-center justify-between mb-3">
+                  <div id={idx === 0 ? "tour-range" : undefined} className="flex items-center justify-between mb-3">
                     <div className="space-y-1">
                       <div className="text-sm text-amber-600">Range</div>
                       <div className="flex items-center space-x-2">
@@ -468,7 +667,7 @@ const P2PPage = () => {
                         exit={{ opacity: 0, height: 0 }}
                         className="overflow-hidden mb-3"
                       >
-                        <div className="bg-white rounded-lg shadow-lg p-4">
+                        <div id={idx === 0 ? "tour-range-details" : undefined} className="bg-white rounded-lg shadow-lg p-4">
                           <div className="font-semibold text-amber-900 mb-3">Offer Range Details</div>
                           <div className="bg-amber-50 rounded-lg p-4 space-y-3">
                             {offer.priceRanges?.pricePerThousand?.length > 0 ? (
@@ -507,6 +706,7 @@ const P2PPage = () => {
                   </AnimatePresence>
 
                   <motion.button
+                    id={idx === 0 ? "tour-transfer" : undefined}
                     whileHover={{ scale: 1.02 }}
                     whileTap={{ scale: 0.98 }}
                     onClick={() => handleTransferClick(offer.id, offer.name)}
@@ -627,8 +827,15 @@ const P2PPage = () => {
           )}
         </AnimatePresence>
 
+        {/* ── Spotlight onboarding tour ── */}
+        <AnimatePresence>
+          {showTour && <SpotlightTour onFinish={handleFinishTour} ensureExpanded={handleEnsureExpanded} />}
+        </AnimatePresence>
+
         {/* Bottom Navigation */}
-        <BottomNav handleTabChangeP={handleTabChange} activeTabP={activeTab} />
+        <div id="tour-bottomnav">
+          <BottomNav handleTabChangeP={handleTabChange} activeTabP={activeTab} />
+        </div>
       </div>
     </ProtectedRoute>
   );

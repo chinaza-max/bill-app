@@ -302,6 +302,22 @@ export async function POST(req) {
         );
         break;
 
+
+      case "cancelTransaction":
+        response = await axiosInstance.post(
+          "/user/cancelTransaction",
+          requestData,
+          { headers: { Authorization: `Bearer ${accessToken}` } }
+        );
+        break;
+
+
+      case "getWalletBalance":
+        response = await axiosInstance.post("/user/updateToken", requestData, {
+          headers: { Authorization: `Bearer ${accessToken}` },
+        });
+        break;
+
       case "updateToken":
         response = await axiosInstance.post("/user/updateToken", requestData, {
           headers: { Authorization: `Bearer ${accessToken}` },

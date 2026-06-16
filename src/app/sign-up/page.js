@@ -459,7 +459,7 @@ const SignUpForm = () => {
 
             {/* ── GOOGLE BUTTON ── */}
 
-                        {/* 
+                        {
             <div className="mb-6">
               <button
                 type="button"
@@ -496,7 +496,7 @@ const SignUpForm = () => {
               )}
             </div>
 
-            */}
+            }
             
             {/* ── OR DIVIDER ── */}
             <div className="flex items-center gap-3 mb-6">

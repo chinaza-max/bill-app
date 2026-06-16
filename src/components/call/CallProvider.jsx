@@ -27,18 +27,57 @@ export function CallProvider({ children, socket }) {
   const ringtoneRef       = useRef(null);
   const callLockRef       = useRef(false);
   const userInteractedRef = useRef(false);
+  const audioUnlockRef    = useRef(null); // holds the silent unlocked Audio instance
 
-  // ── Track first user interaction (browser blocks audio without it) ──────────
+  // ── Track first user interaction + unlock audio context ─────────────────────
   useEffect(() => {
-    const mark = () => { userInteractedRef.current = true; };
-    window.addEventListener("click",      mark, { once: true });
-    window.addEventListener("touchstart", mark, { once: true });
-    window.addEventListener("keydown",    mark, { once: true });
-    return () => {
-      window.removeEventListener("click",      mark);
-      window.removeEventListener("touchstart", mark);
-      window.removeEventListener("keydown",    mark);
+    const unlock = () => {
+      userInteractedRef.current = true;
+
+      // Pre-unlock the audio pipeline so later .play() calls won't be blocked
+      // even when the page is in background / no gesture is active
+      try {
+        const silentAudio = new Audio(
+          "data:audio/wav;base64,UklGRigAAABXQVZFZm10IBIAAAABAAEARKwAAIhYAQACABAAAABkYXRhAgAAAAEA"
+        );
+        silentAudio.volume = 0;
+        silentAudio.play().catch(() => {});
+        audioUnlockRef.current = silentAudio;
+      } catch (e) {}
+
+      window.removeEventListener("click",      unlock);
+      window.removeEventListener("touchstart", unlock);
+      window.removeEventListener("keydown",    unlock);
     };
+
+    window.addEventListener("click",      unlock, { once: true });
+    window.addEventListener("touchstart", unlock, { once: true });
+    window.addEventListener("keydown",    unlock, { once: true });
+
+    return () => {
+      window.removeEventListener("click",      unlock);
+      window.removeEventListener("touchstart", unlock);
+      window.removeEventListener("keydown",    unlock);
+    };
+  }, []);
+
+  // ── Play a sound by URL (called from SW PLAY_SOUND message) ─────────────────
+  const playSoundByUrl = useCallback((soundUrl) => {
+    if (typeof window === "undefined") return;
+    try {
+      const audio = new Audio(soundUrl);
+      audio.volume = 1.0;
+      audio.play().catch((err) => {
+        console.warn("🔇 Audio play blocked:", err);
+        // Retry once after a short delay — sometimes the first attempt
+        // fails due to the page just becoming visible again
+        setTimeout(() => {
+          audio.play().catch((e) => console.error("🔇 Audio retry failed:", e));
+        }, 300);
+      });
+    } catch (e) {
+      console.error("🔇 Audio error:", e);
+    }
   }, []);
 
   // ── Ringtone ────────────────────────────────────────────────────────────────
@@ -82,7 +121,6 @@ export function CallProvider({ children, socket }) {
   }, []);
 
   // ── Single shared handler for ALL incoming call sources ─────────────────────
-  // Used by: socket, FCM foreground, SW message (push tap)
   const handleIncomingCallData = useCallback((data) => {
     if (activeCall || callLockRef.current) {
       console.log("Already in call — ignoring incoming call");
@@ -102,8 +140,6 @@ export function CallProvider({ children, socket }) {
   }, [activeCall, playRingtone]);
 
   // ── FCM foreground listener ─────────────────────────────────────────────────
-  // Fires when: app IS open but socket missed the call
-  // OR when: app just opened from push notification tap
   useEffect(() => {
     let unsubscribeFCM = null;
 
@@ -123,7 +159,6 @@ export function CallProvider({ children, socket }) {
           appId:             process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
         };
 
-        // Reuse existing Firebase app if already initialized
         const app = getApps().length === 0
           ? initializeApp(firebaseConfig)
           : getApps()[0];
@@ -134,7 +169,6 @@ export function CallProvider({ children, socket }) {
           console.log("📬 FCM foreground in CallProvider:", payload);
           const data = payload.data || {};
 
-          // Only handle call notifications here
           if (data.type === "INCOMING_CALL") {
             handleIncomingCallData(data);
           }
@@ -154,7 +188,6 @@ export function CallProvider({ children, socket }) {
   useEffect(() => {
     if (!socket) return;
 
-    // Socket: app is open and connected
     const onIncomingCall    = (data) => handleIncomingCallData(data);
     const onCallCancelled   = () => { stopRingtone(); setIncomingCall(null); };
     const onCallEnded       = () => {
@@ -174,19 +207,18 @@ export function CallProvider({ children, socket }) {
       setTimeout(() => setOfflineError(null), 4000);
     };
 
-    // SW message: fires when user taps push notification
-    // Two cases:
-    //   1. App was open in background — SW posts message to existing window
-    //   2. App was closed — SW opens app then posts message after delay
+    // ── SW → client message handler ──────────────────────────────────────────
     const handleSWMessage = (event) => {
       console.log("[CallProvider] SW message:", event.data);
 
+      // ── INCOMING_CALL: user tapped the push notification ─────────────────
       if (event.data?.type === "INCOMING_CALL") {
         handleIncomingCallData(event.data.payload);
+        return;
       }
 
+      // ── DECLINE_CALL: user tapped Decline on push notification ───────────
       if (event.data?.type === "DECLINE_CALL") {
-        // User tapped Decline on the push notification
         const d = event.data.payload;
         socket.emit("callDeclined", {
           orderId:    d.orderId,
@@ -196,6 +228,25 @@ export function CallProvider({ children, socket }) {
         stopRingtone();
         setIncomingCall(null);
         callLockRef.current = false;
+        return;
+      }
+
+      // ── PLAY_SOUND: SW asking client to play a notification sound ─────────
+      // Fires for NEW_ORDER and any other event that sends a soundUrl
+      if (event.data?.type === "PLAY_SOUND") {
+        const { soundUrl } = event.data;
+        if (soundUrl) {
+          console.log("🔊 Playing sound from SW:", soundUrl);
+          playSoundByUrl(soundUrl);
+          // Also vibrate for reinforcement
+          try {
+            navigator.vibrate?.([
+              800, 150, 800, 150, 800, 150,
+              800, 150, 800, 150, 800,
+            ]);
+          } catch (e) {}
+        }
+        return;
       }
     };
 
@@ -219,7 +270,7 @@ export function CallProvider({ children, socket }) {
         navigator.serviceWorker.removeEventListener("message", handleSWMessage);
       }
     };
-  }, [socket, userId, handleIncomingCallData, stopRingtone]);
+  }, [socket, userId, handleIncomingCallData, stopRingtone, playSoundByUrl]);
 
   // ── Start outgoing call ─────────────────────────────────────────────────────
   const startCall = useCallback((data) => {

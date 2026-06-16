@@ -301,7 +301,7 @@ export const useLocationService = (accessToken) => {
 
     intervalRef.current = setInterval(() => {
       if (isPageVisibleRef.current) tryGetLocation(false);
-    }, 5 * 60 * 1000);
+    }, 3 * 60 * 1000);
   }, [tryGetLocation]);
 
   // ----------------------------------------------------

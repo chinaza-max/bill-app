@@ -13,32 +13,57 @@ firebase.initializeApp({
 
 const messaging = firebase.messaging();
 
+const NEW_ORDER_SOUND_URL = "https://res.cloudinary.com/dvznn9s4g/video/upload/v1781476716/2927f28c_1781476435_ee632def_1_h5ak2v.mp3";
+
+// Vibration patterns — [vibrate, pause, vibrate, pause, ...]
+const VIBRATE = {
+  // Long aggressive bursts — for incoming calls
+  CALL: [
+    1000, 200, 1000, 200, 1000, 200,
+    1000, 200, 1000, 200, 1000, 200,
+    1000, 200, 1000, 200, 1000,
+  ],
+  // Strong repeating pulses — for new orders
+  NEW_ORDER: [
+    800, 150, 800, 150, 800, 150,
+    800, 150, 800, 150, 800, 150,
+    800, 150, 800,
+  ],
+  // Medium alert — for generic notifications
+  DEFAULT: [
+    500, 100, 500, 100, 500, 100,
+    500, 100, 500, 100, 500,
+  ],
+};
+
+async function playSoundOnClient(soundUrl) {
+  const clients = await self.clients.matchAll({ type: "window", includeUncontrolled: true });
+  clients.forEach((client) => {
+    client.postMessage({ type: "PLAY_SOUND", soundUrl });
+  });
+}
+
 // ── Handle background push messages ─────────────────────────────────────────
 messaging.onBackgroundMessage((payload) => {
   console.log("📬 Background message:", payload);
 
   const data = payload.data || {};
 
-
-  console.log("🔍 Payload data:", data);
-    console.log("🔍 Payload payload.notification?.title:", payload.notification?.title);
-
-  // ── Incoming Call notification ───────────────────────────────────────────
+  // ── Incoming Call ────────────────────────────────────────────────────────
   if (payload.notification?.title === "INCOMING_CALL") {
-    console.log("📞 kkkk kkkk  kkkkkk");
     self.registration.showNotification(payload.notification?.title || "Incoming Call", {
       body:               payload.notification?.body || "Someone is calling you",
-      icon:               "/icons/icon-192x192.png",
-      badge:              "/icons/badge-72x72.png",
+      icon:               "/images/icons/icon-72x72.png",
+      badge:              "/images/icons/icon-72x72.png",
       tag:                "incoming-call",
       requireInteraction: true,
-      vibrate:            [500, 300, 500, 300, 500],
+      vibrate:            VIBRATE.CALL,
       data: {
         type:         "INCOMING_CALL",
-        orderId:      data.orderId??1,
-        callerId:     data.callerId??11,
-        callerName:   data.callerName??"John Doe",
-        callerAvatar: data.callerAvatar??"/icons/default-avatar.png",
+        orderId:      data.orderId      ?? 1,
+        callerId:     data.callerId     ?? 11,
+        callerName:   data.callerName   ?? "John Doe",
+        callerAvatar: data.callerAvatar ?? "/icons/default-avatar.png",
         url:          `/orders/${data.orderId}`,
       },
       actions: [
@@ -49,23 +74,46 @@ messaging.onBackgroundMessage((payload) => {
     return;
   }
 
-  // ── Generic / default notification ──────────────────────────────────────
-  const notificationTitle = payload.notification?.title || "New Notification";
+  // ── New Order ────────────────────────────────────────────────────────────
+  if (data.event === "NEW_ORDER" || data.type === "NEW_ORDER") {
+    playSoundOnClient(NEW_ORDER_SOUND_URL);
 
-  self.registration.showNotification(notificationTitle, {
+    self.registration.showNotification(payload.notification?.title || "New Order 🚀", {
+      body:               payload.notification?.body || "You have a new order",
+      icon:               payload.notification?.image || "/icons/icon-192x192.png",
+      badge:              "/icons/badge-72x72.png",
+      tag:                `new-order-${data.orderId}`,
+      requireInteraction: true,
+      vibrate:            VIBRATE.NEW_ORDER,
+      data: {
+        type:    "NEW_ORDER",
+        orderId: data.orderId,
+        url:     `/orders/${data.orderId}`,
+        sound:   NEW_ORDER_SOUND_URL,
+      },
+      actions: [
+        { action: "open",  title: "View Order", icon: "/images/icons/icon-72x72.png"  },
+        { action: "close", title: "Dismiss",    icon: "/images/icons/icon-72x72.png" },
+      ],
+    });
+    return;
+  }
+
+  // ── Generic / default ────────────────────────────────────────────────────
+  self.registration.showNotification(payload.notification?.title || "New Notification", {
     body:               payload.notification?.body || "You have a new message",
-    icon:               "/icons/icon-192x192.png",
-    badge:              "/icons/badge-72x72.png",
+    icon:               "/images/icons/icon-72x72.png",
+    badge:              "/images/icons/icon-72x72.png",
     tag:                "notification-tag",
     requireInteraction: true,
-    vibrate:            [200, 100, 200, 100, 200, 100, 200],
+    vibrate:            VIBRATE.DEFAULT,
     data: {
       url:   payload.data?.url || "/",
-      sound: "https://res.cloudinary.com/dvznn9s4g/video/upload/v1749487536/mixkit-positive-notification-951_zcnfqp.wav",
+      sound: NEW_ORDER_SOUND_URL,
     },
     actions: [
-      { action: "open",  title: "Open App", icon: "/icons/open-icon.png"  },
-      { action: "close", title: "Close",    icon: "/icons/close-icon.png" },
+      { action: "open",  title: "Open App", icon: "/images/icons/icon-72x72.png"  },
+      { action: "close", title: "Close",    icon: "/images/icons/icon-72x72.png" },
     ],
   });
 });
@@ -73,14 +121,13 @@ messaging.onBackgroundMessage((payload) => {
 // ── Handle notification click ────────────────────────────────────────────────
 self.addEventListener("notificationclick", (event) => {
   event.notification.close();
- console.log("🔔 Notification click:", event);
+
   const data   = event.notification.data || {};
   const action = event.action;
 
   // ── Incoming Call actions ────────────────────────────────────────────────
   if (data.type === "INCOMING_CALL") {
     if (action === "decline") {
-      // Broadcast decline to all open app windows
       self.clients.matchAll({ type: "window" }).then((clients) => {
         clients.forEach((client) => {
           client.postMessage({ type: "DECLINE_CALL", payload: data });
@@ -89,7 +136,6 @@ self.addEventListener("notificationclick", (event) => {
       return;
     }
 
-    // "accept" action or tapping the notification body → open / focus app
     event.waitUntil(
       self.clients
         .matchAll({ type: "window", includeUncontrolled: true })
@@ -101,17 +147,15 @@ self.addEventListener("notificationclick", (event) => {
               return;
             }
           }
-          // App not open — launch it
           return self.clients.openWindow(data.url || "/");
         })
     );
     return;
   }
 
-  // ── Generic notification actions ─────────────────────────────────────────
+  // ── Generic actions ──────────────────────────────────────────────────────
   if (action === "close") return;
 
-  // "open" action or tapping notification body
   event.waitUntil(
     self.clients
       .matchAll({ type: "window", includeUncontrolled: true })

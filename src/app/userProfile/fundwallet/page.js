@@ -19,6 +19,7 @@ import {
   CheckCircle2,
   XCircle,
   HelpCircle,
+  Ban,
 } from "lucide-react";
 import { useRouter, usePathname } from "next/navigation";
 import ProtectedRoute from "@/app/component/protect";
@@ -51,10 +52,10 @@ const parseVirtualAccount = (apiResponse) => {
     accountName:       inner?.accountName       ?? "—",
     bankCode:          inner?.bankCode          ?? "—",
     amount:            inner?.amount            ?? 0,
-    validFor:          inner?.validFor          ?? 900,
+    validFor:          inner?.validFor          ?? inner?.countDown ?? 900,
     expiryDate:        inner?.expiryDate        ?? null,
-    reference:         inner?.externalReference ?? inner?._id ?? "—",
-    transactionId:     inner?.externalReference ?? "—",
+    reference:         inner?.transactionId      ?? inner?.externalReference ?? inner?._id ?? inner?.id ?? "—",
+    transactionId:     inner?.transactionId      ?? inner?.externalReference ?? inner?.id ?? "—",
     status:            inner?.status            ?? "Active",
   };
 };
@@ -70,6 +71,7 @@ const BANK_NAMES = {
   "000008": "Polaris Bank",
   "000003": "Sterling Bank",
   "000023": "Citibank",
+  "111023": "test bank",
 };
 const getBankName = (code) => BANK_NAMES[code] ?? `Bank (${code})`;
 
@@ -174,6 +176,9 @@ const FundWalletPage = () => {
   const [pollAttempt, setPollAttempt]         = useState(0);
   const pollTimerRef = useRef(null);
   const isMountedRef = useRef(true);
+
+  // Cancel-transaction state
+  const [cancelError, setCancelError] = useState("");
 
   const { copiedKey, copy } = useCopy();
 
@@ -323,6 +328,7 @@ const FundWalletPage = () => {
       setConfirmStatus(CONFIRM.IDLE);
       setConfirmMessage("");
       setPollAttempt(0);
+      setCancelError("");
       clearTimeout(pollTimerRef.current);
     },
     onError: (error) => {
@@ -331,6 +337,44 @@ const FundWalletPage = () => {
       setIsGenerating(false);
     },
     onSettled: () => setIsGenerating(false),
+  });
+
+  // ── Cancel transaction mutation ─────────────────────────────────────────────
+  const cancelMutation = useMutation({
+    mutationFn: async (transactionId) => {
+      if (!accessToken) throw new Error("Access token not available");
+      const qs  = new URLSearchParams({ apiType: "cancelTransaction", token: accessToken });
+      const res = await fetch(`/api/user?${qs.toString()}`, {
+        method:  "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          apiType:       "cancelTransaction",
+          accessToken,
+          transactionId,
+        }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => null);
+        throw new Error(err?.message || err?.details || "Failed to cancel transaction");
+      }
+      return res.json();
+    },
+    onMutate: () => setCancelError(""),
+    onSuccess: () => {
+      // Wipe the current account so the user can start over with a new amount
+      clearTimeout(pollTimerRef.current);
+      setAccountDetails(null);
+      setExpired(false);
+      setSecondsLeft(0);
+      setConfirmStatus(CONFIRM.IDLE);
+      setConfirmMessage("");
+      setPollAttempt(0);
+      setAmountError("");
+      setCancelError("");
+    },
+    onError: (error) => {
+      setCancelError(getErrorMessage(error) || "Could not cancel this transaction. Please try again.");
+    },
   });
 
   const handleGenerate = () => {
@@ -349,6 +393,13 @@ const FundWalletPage = () => {
     setConfirmStatus(CONFIRM.IDLE);
     setConfirmMessage("");
     setPollAttempt(0);
+    setCancelError("");
+  };
+
+  // Cancel the current virtual account (e.g. user entered the wrong amount)
+  const handleCancelTransaction = () => {
+    if (!accountDetails?.transactionId || cancelMutation.isPending || isChecking) return;
+    cancelMutation.mutate(accountDetails.transactionId);
   };
 
   const handleAmountChange = (e) => {
@@ -359,6 +410,7 @@ const FundWalletPage = () => {
 
   const isLoading    = isGenerating || generateMutation.isPending;
   const isChecking   = confirmStatus === CONFIRM.CHECKING;
+  const isCancelling = cancelMutation.isPending;
 
   const pollProgressLabel = () => {
     if (pollAttempt === 0) return "Waiting for your bank…";
@@ -687,6 +739,23 @@ const FundWalletPage = () => {
                   )}
                 </AnimatePresence>
 
+                {/* ── Cancel error banner ── */}
+                <AnimatePresence>
+                  {cancelError && (
+                    <motion.div
+                      key="cancel-error"
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0 }}
+                      className="rounded-2xl px-4 py-3 flex items-start gap-3"
+                      style={{ background: "#fee2e2", border: "1px solid #fca5a5" }}
+                    >
+                      <AlertCircle className="h-4 w-4 text-red-500 flex-shrink-0 mt-0.5" />
+                      <p className="text-xs text-red-600 leading-relaxed">{cancelError}</p>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+
                 {/* ── Bank details card ── */}
                 {confirmStatus !== CONFIRM.SUCCESS && (
                   <>
@@ -741,7 +810,7 @@ const FundWalletPage = () => {
                         />
                       </div>
 
-                      <div className="px-5 pb-4">
+                      <div className="px-5 pb-4 space-y-2">
                         <button
                           onClick={() =>
                             copy(
@@ -760,6 +829,20 @@ const FundWalletPage = () => {
                           {copiedKey === "all" ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
                           {copiedKey === "all" ? "Copied all details!" : "Copy All Details"}
                         </button>
+
+                        {/* ── Cancel / wrong amount button ── */}
+                        {!expired && (
+                          <button
+                            onClick={handleCancelTransaction}
+                            disabled={isCancelling || isChecking}
+                            className="w-full py-2.5 rounded-2xl text-xs font-bold flex items-center justify-center gap-2 transition-all active:scale-97 disabled:opacity-50"
+                            style={{ background: "#fee2e2", color: "#b91c1c" }}
+                          >
+                            {isCancelling
+                              ? <><Loader2 className="h-3.5 w-3.5 animate-spin" /> Cancelling…</>
+                              : <><Ban className="h-3.5 w-3.5" /> Wrong amount? Cancel & start over</>}
+                          </button>
+                        )}
                       </div>
                     </div>
 
@@ -794,13 +877,15 @@ const FundWalletPage = () => {
         >
           <div className="flex gap-3">
             <button
-              onClick={handleReset}
-              disabled={isLoading || isChecking}
+              onClick={() => accountDetails ? handleCancelTransaction() : router.back()}
+              disabled={isLoading || isChecking || isCancelling}
               className="flex items-center justify-center gap-2 px-4 py-3.5 rounded-2xl font-bold text-sm transition-all active:scale-95 disabled:opacity-40"
               style={{ background: "#fef3c7", color: "#92400e", minWidth: 56 }}
             >
-              <ArrowLeft className="h-4 w-4" />
-              {accountDetails ? <span>New</span> : null}
+              {isCancelling
+                ? <Loader2 className="h-4 w-4 animate-spin" />
+                : <ArrowLeft className="h-4 w-4" />}
+              {accountDetails ? <span>{isCancelling ? "Cancelling…" : "Cancel"}</span> : null}
             </button>
 
             {!accountDetails ? (
@@ -863,7 +948,8 @@ const FundWalletPage = () => {
               <motion.button
                 whileTap={{ scale: 0.97 }}
                 onClick={handleConfirmTransfer}
-                className="flex-1 py-3.5 rounded-2xl font-extrabold text-sm text-white relative overflow-hidden flex items-center justify-center gap-2"
+                disabled={isCancelling}
+                className="flex-1 py-3.5 rounded-2xl font-extrabold text-sm text-white relative overflow-hidden flex items-center justify-center gap-2 disabled:opacity-50"
                 style={{ background: "linear-gradient(135deg, #065f46 0%, #059669 55%, #10b981 100%)" }}
               >
                 <motion.div

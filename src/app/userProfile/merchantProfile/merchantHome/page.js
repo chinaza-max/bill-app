@@ -19,9 +19,7 @@ import {
   ArrowRight,
   Megaphone,
   User,
-  DollarSign,
   ChevronRight,
-  Phone,
   Navigation,
   TrendingUp,
   Lock,
@@ -33,6 +31,16 @@ import ProtectedRoute from "@/app/component/protect";
 import useRequest from "@/hooks/useRequest";
 import Image from "next/image";
 import { useLocationService } from "@/hooks/locationService";
+
+// ─── Google Drive image URL normaliser ───────────────────────────────────────
+const formatGoogleDriveImage = (url) => {
+  if (!url) return "/avatar.jpg";
+  if (url.includes("uc?export=view&id=")) return url;
+  const match = url.match(/\/d\/(.*?)\//);
+  if (match && match[1])
+    return `https://drive.google.com/uc?export=view&id=${match[1]}`;
+  return url;
+};
 
 // ─── Haversine distance (returns metres) ─────────────────────────────────────
 const haversineDistance = (lat1, lng1, lat2, lng2) => {
@@ -83,10 +91,11 @@ const PendingOrderModal = ({
     }).format(amount ?? 0);
 
   const customerName = order?.client?.name ?? "Customer";
-  const clientImage = order?.client?.image ?? null;
+  const clientImage = order?.client?.image
+    ? formatGoogleDriveImage(order.client.image)
+    : null;
   const totalAmount = order?.totalAmount ?? order?.amount;
   const orderAmount = order?.amountOrder ?? order?.amount;
-  const phone = order?.client?.tel;
   const note = order?.note && order.note !== "0" ? order.note : null;
   const orderId = order?.orderId ?? order?.id ?? "—";
 
@@ -174,21 +183,9 @@ const PendingOrderModal = ({
               </div>
             </div>
 
-            {phone && (
-              <div className="flex items-center gap-3">
-                <div className="w-9 h-9 rounded-full bg-purple-100 flex items-center justify-center flex-shrink-0">
-                  <Phone className="w-4 h-4 text-purple-600" />
-                </div>
-                <div className="min-w-0">
-                  <p className="text-xs text-gray-400 leading-none mb-0.5">Phone</p>
-                  <p className="text-sm font-semibold text-gray-900">0{phone}</p>
-                </div>
-              </div>
-            )}
-
             <div className="flex items-center gap-3">
               <div className="w-9 h-9 rounded-full bg-green-100 flex items-center justify-center flex-shrink-0">
-                <DollarSign className="w-4 h-4 text-green-600" />
+                <span className="text-green-600 font-bold text-base leading-none">₦</span>
               </div>
               <div className="min-w-0">
                 <p className="text-xs text-gray-400 leading-none mb-0.5">Total Amount</p>
@@ -755,15 +752,6 @@ const MerchantApp = () => {
     router.prefetch("orders");
     router.prefetch("orders/merchantOrders");
   }, [router]);
-
-  const formatGoogleDriveImage = (url) => {
-    if (!url) return "/avatar.jpg";
-    if (url.includes("uc?export=view&id=")) return url;
-    const match = url.match(/\/d\/(.*?)\//);
-    if (match && match[1])
-      return `https://drive.google.com/uc?export=view&id=${match[1]}`;
-    return url;
-  };
 
   const StatCard = ({ title, value, icon: Icon, color, onClick }) => (
     <motion.div

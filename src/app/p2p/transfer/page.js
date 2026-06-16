@@ -25,6 +25,7 @@ import {
   Timer,
   PlusCircle,
   Info,
+  X,
 } from "lucide-react";
 import { motion, AnimatePresence, useAnimation } from "framer-motion";
 import { useRouter } from "next/navigation";
@@ -133,7 +134,6 @@ const fetchWalletBalance = async (accessToken) => {
   return data?.data?.walletBalance ?? data?.walletBalance ?? null;
 };
 
-// New: fund wallet API
 const fundWalletAccount = async (accessToken, amount) => {
   const res = await fetch("/api/user", {
     method: "POST",
@@ -245,14 +245,256 @@ const InfoRow = ({ icon: Icon, iconBg, iconColor, label, value, onCopy, isCopied
   </div>
 );
 
+// ─── Spotlight Tour ────────────────────────────────────────────────────────────
+// Each step declares what UI state must be present for that element to exist.
+// `alwaysVisible` = element is mounted regardless of user input (nav bar, wallet card, amount input)
+// Steps without `alwaysVisible` are skipped if their DOM node isn't found.
+const ALL_TOUR_STEPS = [
+  {
+    id: "tour-back",
+    title: "Go back",
+    body: "Tap here to return to the P2P merchant list. The refresh icon on the right updates your wallet balance.",
+    alwaysVisible: true,
+  },
+  {
+    id: "tour-wallet",
+    title: "Wallet balance",
+    body: "This shows your current wallet balance and the merchant's accepted amount range (Min – Max) for this transfer.",
+    alwaysVisible: true,
+  },
+  {
+    id: "tour-amount",
+    title: "Enter amount",
+    body: "Type how much you want to send to the merchant. The fee breakdown appears below as you type.",
+    alwaysVisible: true,
+  },
+  {
+    id: "tour-payment",
+    title: "Choose how to pay",
+    body: "Bank Transfer includes an extra bank processing fee. Wallet Pay deducts directly from your wallet balance and waives that bank fee — if your balance is too low, you can fund your wallet right from here.",
+    // Only rendered after a valid amount + charge data is loaded
+  },
+  {
+    id: "tour-account",
+    title: "Get your transfer account",
+    body: "If you choose Bank Transfer, tap Generate Account here to get a one-time bank account number. Send the exact amount shown before the timer runs out, then come back to confirm.",
+    // Only rendered when transferType === "direct"
+  },
+  {
+    id: "tour-footer",
+    title: "Confirm or pay",
+    body: "For bank transfer, tap I have Sent the Money once you've made the transfer — we'll check and confirm automatically. For wallet, slide to pay instantly.",
+    // Only rendered when a transfer type is selected
+  },
+];
+
+const SpotlightTour = ({ onFinish }) => {
+  const [stepIndex, setStepIndex] = useState(0);
+  const [rect, setRect]           = useState(null);
+  const [activeStep, setActiveStep] = useState(null);
+
+  // Find the next step whose DOM element actually exists, starting from `from`
+  const findNextVisibleStep = useCallback((from) => {
+    for (let i = from; i < ALL_TOUR_STEPS.length; i++) {
+      const el = document.getElementById(ALL_TOUR_STEPS[i].id);
+      if (el) return i;
+    }
+    return null; // no more visible steps
+  }, []);
+
+  // Find the previous step whose DOM element exists, starting from `from`
+  const findPrevVisibleStep = useCallback((from) => {
+    for (let i = from; i >= 0; i--) {
+      const el = document.getElementById(ALL_TOUR_STEPS[i].id);
+      if (el) return i;
+    }
+    return null;
+  }, []);
+
+  // On mount and whenever stepIndex changes, resolve the real step and rect
+  useEffect(() => {
+    // First try the requested stepIndex; if not in DOM, walk forward to find one
+    const resolvedIndex = findNextVisibleStep(stepIndex);
+    if (resolvedIndex === null) {
+      // No more visible steps — tour is done
+      onFinish();
+      return;
+    }
+    // If the step we resolved is different from requested, update index
+    if (resolvedIndex !== stepIndex) {
+      setStepIndex(resolvedIndex);
+      return; // useEffect will re-run with the new index
+    }
+
+    setActiveStep(ALL_TOUR_STEPS[resolvedIndex]);
+
+    const t = setTimeout(() => {
+      const el = document.getElementById(ALL_TOUR_STEPS[resolvedIndex].id);
+      if (!el) { setRect(null); return; }
+      el.scrollIntoView({ behavior: "smooth", block: "center" });
+      const t2 = setTimeout(() => {
+        const r = el.getBoundingClientRect();
+        setRect(r);
+      }, 260);
+      return () => clearTimeout(t2);
+    }, 50);
+    return () => clearTimeout(t);
+  }, [stepIndex, findNextVisibleStep, onFinish]);
+
+  const handleNext = () => {
+    const next = findNextVisibleStep(stepIndex + 1);
+    if (next === null) { onFinish(); return; }
+    setRect(null);
+    setStepIndex(next);
+  };
+
+  const handlePrev = () => {
+    const prev = findPrevVisibleStep(stepIndex - 1);
+    if (prev === null) return;
+    setRect(null);
+    setStepIndex(prev);
+  };
+
+  // Count how many steps are actually visible right now for the progress label
+  const visibleStepIndices = ALL_TOUR_STEPS
+    .map((s, i) => ({ s, i }))
+    .filter(({ s }) => !!document.getElementById(s.id))
+    .map(({ i }) => i);
+
+  const visiblePosition = visibleStepIndices.indexOf(stepIndex) + 1;
+  const visibleTotal    = visibleStepIndices.length;
+
+  if (!activeStep) return null;
+
+  const pad = 8;
+  const highlightStyle = rect
+    ? {
+        position: "fixed",
+        top:    rect.top  - pad,
+        left:   rect.left - pad,
+        width:  rect.width  + pad * 2,
+        height: rect.height + pad * 2,
+        borderRadius: 16,
+        boxShadow: "0 0 0 9999px rgba(0,0,0,0.55)",
+        border: "2px solid #FF9500",
+        zIndex: 9998,
+        pointerEvents: "none",
+        transition: "all 0.3s ease",
+      }
+    : null; // no overlay at all if rect isn't resolved yet
+
+  let tooltipStyle = {
+    position: "fixed",
+    left: 16,
+    right: 16,
+    zIndex: 9999,
+    maxWidth: 480,
+    margin: "0 auto",
+  };
+  if (rect) {
+    const spaceBelow = window.innerHeight - rect.bottom;
+    if (spaceBelow > 200) {
+      tooltipStyle.top = rect.bottom + pad + 12;
+    } else {
+      tooltipStyle.top = Math.max(rect.top - pad - 12 - 190, 12);
+    }
+  } else {
+    // Fallback: center vertically, no dark overlay
+    tooltipStyle.top      = "50%";
+    tooltipStyle.transform = "translateY(-50%)";
+  }
+
+  const hasPrev = findPrevVisibleStep(stepIndex - 1) !== null;
+  const isLast  = findNextVisibleStep(stepIndex + 1) === null;
+
+  return (
+    <>
+      {/* Dark overlay + highlight ring — only when we have a rect */}
+      {rect && highlightStyle && (
+        <div style={highlightStyle} onClick={onFinish} />
+      )}
+
+      {/* Semi-transparent backdrop when no rect (fallback center mode) */}
+      {!rect && (
+        <div
+          style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.3)", zIndex: 9997 }}
+          onClick={onFinish}
+        />
+      )}
+
+      <motion.div
+        key={activeStep.id}
+        initial={{ opacity: 0, y: 12 }}
+        animate={{ opacity: 1, y: 0 }}
+        exit={{ opacity: 0 }}
+        style={{
+          ...tooltipStyle,
+          background:   "#fff",
+          borderRadius: 16,
+          padding:      "16px 18px",
+          boxShadow:    "0 10px 30px rgba(0,0,0,0.25)",
+        }}
+      >
+        {/* Header row */}
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 8 }}>
+          <div>
+            <p style={{ fontSize: 11, fontWeight: 700, color: "#FF9500", textTransform: "uppercase", letterSpacing: "0.06em", margin: 0 }}>
+              Step {visiblePosition} of {visibleTotal}
+            </p>
+            <p style={{ fontSize: 16, fontWeight: 700, color: "#1f2937", margin: "2px 0 6px" }}>{activeStep.title}</p>
+          </div>
+          <button
+            type="button"
+            onClick={onFinish}
+            style={{ background: "#f3f4f6", border: "none", borderRadius: "50%", width: 28, height: 28, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", flexShrink: 0 }}
+          >
+            <X className="h-3.5 w-3.5 text-gray-500" />
+          </button>
+        </div>
+
+        <p style={{ fontSize: 13, color: "#57534e", lineHeight: 1.55, margin: "0 0 14px" }}>{activeStep.body}</p>
+
+        {/* Footer */}
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
+          <button
+            type="button"
+            onClick={onFinish}
+            style={{ fontSize: 13, color: "#9ca3af", background: "none", border: "none", cursor: "pointer", padding: "8px 4px" }}
+          >
+            Skip tour
+          </button>
+          <div style={{ display: "flex", gap: 8 }}>
+            {hasPrev && (
+              <button
+                type="button"
+                onClick={handlePrev}
+                style={{ padding: "9px 16px", borderRadius: 10, background: "#f3f4f6", border: "1px solid #e5e7eb", fontSize: 13, fontWeight: 500, color: "#374151", cursor: "pointer" }}
+              >
+                Back
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={handleNext}
+              style={{ padding: "9px 18px", borderRadius: 10, background: "linear-gradient(135deg,#FF9500,#FF5E00)", border: "none", fontSize: 13, fontWeight: 700, color: "#fff", cursor: "pointer" }}
+            >
+              {isLast ? "Done" : "Next"}
+            </button>
+          </div>
+        </div>
+      </motion.div>
+    </>
+  );
+};
+
 // ── FundWalletModal ────────────────────────────────────────────────────────────
 const FundWalletModal = ({ accessToken, onClose, onSuccess }) => {
-  const [fundAmount, setFundAmount]       = useState("");
-  const [isLoading, setIsLoading]         = useState(false);
-  const [error, setError]                 = useState(null);
-  const [fundAccount, setFundAccount]     = useState(null);
-  const [expired, setExpired]             = useState(false);
-  const { copiedKey, copy }               = useCopy();
+  const [fundAmount, setFundAmount]   = useState("");
+  const [isLoading, setIsLoading]     = useState(false);
+  const [error, setError]             = useState(null);
+  const [fundAccount, setFundAccount] = useState(null);
+  const [expired, setExpired]         = useState(false);
+  const { copiedKey, copy }           = useCopy();
 
   const isValid = () => {
     const n = parseFloat(fundAmount);
@@ -290,7 +532,6 @@ const FundWalletModal = ({ accessToken, onClose, onSuccess }) => {
         className="bg-white rounded-3xl w-full max-w-sm overflow-hidden"
         style={{ boxShadow: "0 -8px 40px rgba(0,0,0,0.18)" }}
       >
-        {/* Header */}
         <div className="px-5 pt-5 pb-4 border-b border-gray-50">
           <div className="w-10 h-1 rounded-full bg-gray-200 mx-auto mb-4" />
           <div className="flex items-center gap-3">
@@ -305,7 +546,6 @@ const FundWalletModal = ({ accessToken, onClose, onSuccess }) => {
         </div>
 
         <div className="px-5 py-4 space-y-4">
-          {/* Amount Input */}
           <div className="bg-gray-50 rounded-2xl px-4 py-3">
             <p className="text-[10px] font-bold uppercase tracking-widest text-gray-400 mb-1">Amount to Fund</p>
             <div className="flex items-center gap-2">
@@ -330,7 +570,6 @@ const FundWalletModal = ({ accessToken, onClose, onSuccess }) => {
             )}
           </div>
 
-          {/* Quick amounts */}
           <div className="flex gap-2">
             {[500, 1000, 5000, 10000].map((preset) => (
               <motion.button
@@ -340,8 +579,8 @@ const FundWalletModal = ({ accessToken, onClose, onSuccess }) => {
                 className="flex-1 py-2 rounded-xl text-[12px] font-semibold"
                 style={{
                   background: fundAmount === String(preset) ? "rgba(255,149,0,0.12)" : "#f3f4f6",
-                  color: fundAmount === String(preset) ? "#FF9500" : "#6b7280",
-                  border: fundAmount === String(preset) ? "1px solid rgba(255,149,0,0.3)" : "1px solid transparent",
+                  color:      fundAmount === String(preset) ? "#FF9500" : "#6b7280",
+                  border:     fundAmount === String(preset) ? "1px solid rgba(255,149,0,0.3)" : "1px solid transparent",
                 }}
               >
                 ₦{preset >= 1000 ? `${preset / 1000}k` : preset}
@@ -349,7 +588,6 @@ const FundWalletModal = ({ accessToken, onClose, onSuccess }) => {
             ))}
           </div>
 
-          {/* Error */}
           <AnimatePresence>
             {error && (
               <motion.div
@@ -363,7 +601,6 @@ const FundWalletModal = ({ accessToken, onClose, onSuccess }) => {
             )}
           </AnimatePresence>
 
-          {/* Generated Account */}
           <AnimatePresence>
             {fundAccount && !expired && (
               <motion.div
@@ -398,17 +635,18 @@ const FundWalletModal = ({ accessToken, onClose, onSuccess }) => {
                     className="w-full py-2.5 rounded-xl text-[12px] font-bold flex items-center justify-center gap-2"
                     style={{
                       background: copiedKey === "fw-all" ? "#d1fae5" : "#f3f4f6",
-                      color: copiedKey === "fw-all" ? "#065f46" : "#374151",
+                      color:      copiedKey === "fw-all" ? "#065f46" : "#374151",
                     }}
                   >
-                    {copiedKey === "fw-all" ? <><Check className="h-3.5 w-3.5" />Copied!</> : <><Copy className="h-3.5 w-3.5" />Copy All Details</>}
+                    {copiedKey === "fw-all"
+                      ? <><Check className="h-3.5 w-3.5" />Copied!</>
+                      : <><Copy className="h-3.5 w-3.5" />Copy All Details</>}
                   </motion.button>
                 </div>
               </motion.div>
             )}
           </AnimatePresence>
 
-          {/* Expired notice */}
           <AnimatePresence>
             {expired && (
               <motion.div
@@ -425,15 +663,14 @@ const FundWalletModal = ({ accessToken, onClose, onSuccess }) => {
             )}
           </AnimatePresence>
 
-          {/* Generate / Regenerate Button */}
           <motion.button
             whileTap={{ scale: isLoading || !isValid() ? 1 : 0.97 }}
             onClick={handleGenerate}
             disabled={isLoading || !isValid()}
             className="w-full py-3.5 rounded-2xl text-[15px] font-bold text-white flex items-center justify-center gap-2 disabled:opacity-50"
             style={{
-              background: "linear-gradient(135deg,#FF9500,#FF5E00)",
-              boxShadow: isValid() && !isLoading ? "0 6px 20px rgba(255,149,0,0.38)" : "none",
+              background:  "linear-gradient(135deg,#FF9500,#FF5E00)",
+              boxShadow:   isValid() && !isLoading ? "0 6px 20px rgba(255,149,0,0.38)" : "none",
             }}
           >
             {isLoading
@@ -458,26 +695,27 @@ const FundWalletModal = ({ accessToken, onClose, onSuccess }) => {
 
 // ─────────────────────────────────────────────────────────────────────────────
 const TransferPage = () => {
-  const [amount, setAmount]                   = useState("");
-  const [transferType, setTransferType]       = useState("");
+  const [amount, setAmount]                     = useState("");
+  const [transferType, setTransferType]         = useState("");
   const [showSuccessModal, setShowSuccessModal] = useState(false);
-  const [showFundWallet, setShowFundWallet]   = useState(false);
-  const [sliderPosition, setSliderPosition]   = useState("start");
-  const [chargeData, setChargeData]           = useState(null);
-  const [walletBalance, setWalletBalance]     = useState(0);
+  const [showFundWallet, setShowFundWallet]     = useState(false);
+  const [sliderPosition, setSliderPosition]     = useState("start");
+  const [chargeData, setChargeData]             = useState(null);
+  const [walletBalance, setWalletBalance]       = useState(0);
   const [isProcessingPayment, setIsProcessingPayment] = useState(false);
-  const [paymentError, setPaymentError]       = useState(null);
-  const [virtualAccount, setVirtualAccount]   = useState(null);
-  const [transactionId, setTransactionId]     = useState(null);
+  const [paymentError, setPaymentError]         = useState(null);
+  const [virtualAccount, setVirtualAccount]     = useState(null);
+  const [transactionId, setTransactionId]       = useState(null);
   const [isGeneratingAccount, setIsGeneratingAccount] = useState(false);
-  const [accountExpired, setAccountExpired]   = useState(false);
-  const [showFeeInfo, setShowFeeInfo]         = useState(false);
+  const [accountExpired, setAccountExpired]     = useState(false);
+  const [showFeeInfo, setShowFeeInfo]           = useState(false);
+  const [showTour, setShowTour]                 = useState(false);
 
-  const [confirmStatus, setConfirmStatus]     = useState(CONFIRM.IDLE);
-  const [confirmMessage, setConfirmMessage]   = useState("");
-  const [pollAttempt, setPollAttempt]         = useState(0);
-  const pollTimerRef        = useRef(null);
-  const isMountedRef        = useRef(true);
+  const [confirmStatus, setConfirmStatus]   = useState(CONFIRM.IDLE);
+  const [confirmMessage, setConfirmMessage] = useState("");
+  const [pollAttempt, setPollAttempt]       = useState(0);
+  const pollTimerRef    = useRef(null);
+  const isMountedRef    = useRef(true);
 
   const accountCardRef  = useRef(null);
   const transferSecRef  = useRef(null);
@@ -513,16 +751,9 @@ const TransferPage = () => {
 
   useEffect(() => { router.prefetch("orders"); });
 
-  const refreshWalletBalance = useCallback(async () => {
-    const fresh = await fetchWalletBalance(accessToken);
-    if (fresh === null) return;
-    try {
-      const parsed = typeof fresh === "string" ? JSON.parse(fresh) : fresh;
-      setWalletBalance(Number(parsed?.current ?? parsed ?? 0));
-    } catch { setWalletBalance(Number(fresh) || 0); }
-  }, [accessToken]);
-
-  // ── Merchant ──────────────────────────────────────────────────────────────
+  // ── Show spotlight tour once — but ONLY after merchant data is loaded ──────
+  // This ensures the always-visible elements (wallet card, amount input) are
+  // actually rendered before we start the tour.
   const { data: merchantData, isLoading: isMerchantLoading } = useQuery({
     queryKey: ["merchantInformation", accessToken],
     queryFn:  () => fetchMerchantInformation(accessToken),
@@ -533,6 +764,30 @@ const TransferPage = () => {
   const merchantInfo = merchantData?.data?.data || null;
   const range   = merchantInfo ? { min: merchantInfo.minAmount || 1000, max: merchantInfo.maxAmount || 5000 } : { min: 0, max: 0 };
   const merchant = merchantInfo ? merchantInfo.displayName || "Unknown" : "Loading...";
+
+  useEffect(() => {
+    // Only start tour after merchant info is resolved so the cards are in the DOM
+    if (isMerchantLoading || !merchantInfo) return;
+    if (typeof window === "undefined") return;
+    const seen = localStorage.getItem("hasSeenTransferSpotlightTour") === "true";
+    if (seen) return;
+    const t = setTimeout(() => setShowTour(true), 800);
+    return () => clearTimeout(t);
+  }, [isMerchantLoading, merchantInfo]);
+
+  const handleFinishTour = useCallback(() => {
+    setShowTour(false);
+    if (typeof window !== "undefined") localStorage.setItem("hasSeenTransferSpotlightTour", "true");
+  }, []);
+
+  const refreshWalletBalance = useCallback(async () => {
+    const fresh = await fetchWalletBalance(accessToken);
+    if (fresh === null) return;
+    try {
+      const parsed = typeof fresh === "string" ? JSON.parse(fresh) : fresh;
+      setWalletBalance(Number(parsed?.current ?? parsed ?? 0));
+    } catch { setWalletBalance(Number(fresh) || 0); }
+  }, [accessToken]);
 
   // ── Charge ────────────────────────────────────────────────────────────────
   const { data: chargeSummaryData, isLoading: isChargeSummaryLoading, refetch: refetchChargeSummary } = useQuery({
@@ -578,13 +833,10 @@ const TransferPage = () => {
   // ── Helpers ───────────────────────────────────────────────────────────────
   const isValidAmount   = (v) => { const n = parseFloat(v); return n >= range.min && n <= range.max; };
 
-  // FIX 1: Direct amount now folds gateway fee in transparently
   const getServiceCharge  = () => chargeData?.serviceCharge ?? 0;
   const getMerchantCharge = () => chargeData?.merchantCharge ?? 0;
   const getGatewayCharge  = () => chargeData?.gatewayCharge ?? 0;
-  // For bank transfer: total = amount + serviceCharge + merchantCharge + gatewayCharge (all shown clearly)
   const getDirectAmount   = () => chargeData?.totalAmount ?? 0;
-  // For wallet: no gateway fee
   const getWalletAmount   = () => (chargeData?.totalAmount ?? 0) - getGatewayCharge();
 
   const getAmountToPay    = () => transferType === "wallet" ? getWalletAmount() : getDirectAmount();
@@ -754,6 +1006,7 @@ const TransferPage = () => {
 
         {/* ── iOS Nav Bar ── */}
         <div
+          id="tour-back"
           className="fixed top-0 left-0 right-0 z-20"
           style={{
             background: "rgba(255,255,255,0.88)",
@@ -792,6 +1045,7 @@ const TransferPage = () => {
             <>
               {/* ── Wallet Balance Card ── */}
               <motion.div
+                id="tour-wallet"
                 initial={{ opacity: 0, y: 18 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.04 }}
                 className="mt-3 rounded-3xl overflow-hidden"
                 style={{ background: "linear-gradient(135deg,#FF9500 0%,#FF5E00 100%)", boxShadow: "0 10px 36px rgba(255,149,0,0.38)" }}
@@ -802,19 +1056,6 @@ const TransferPage = () => {
                     <span className="text-[14px] text-orange-200 font-medium">₦</span>
                     <span className="text-[36px] font-bold text-white leading-none tracking-tight">{fmt(walletBalance)}</span>
                   </div>
-
-                  {/* FIX 2: Fund Wallet Button on card */}
-                  {/** 
-                  <motion.button
-                    whileTap={{ scale: 0.95 }}
-                    onClick={() => setShowFundWallet(true)}
-                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl mb-3 mt-1"
-                    style={{ background: "rgba(255,255,255,0.18)", border: "1px solid rgba(255,255,255,0.25)" }}
-                  >
-                    <PlusCircle className="h-3.5 w-3.5 text-white" />
-                    <span className="text-[12px] font-semibold text-white">Fund kkWallet</span>
-                  </motion.button>
-                  */}
 
                   {merchantInfo && (
                     <>
@@ -845,6 +1086,7 @@ const TransferPage = () => {
               {/* ── Amount Input ── */}
               {merchantInfo && (
                 <motion.div
+                  id="tour-amount"
                   initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.08 }}
                   className="bg-white rounded-3xl overflow-hidden"
                   style={{ boxShadow: "0 2px 16px rgba(0,0,0,0.06)" }}
@@ -869,7 +1111,6 @@ const TransferPage = () => {
                     )}
                   </div>
 
-                  {/* FIX 1: Charge breakdown — transparent, no hidden fees */}
                   <AnimatePresence>
                     {chargeData && (
                       <motion.div
@@ -895,15 +1136,11 @@ const TransferPage = () => {
                               </div>
                             )}
 
-                            {/* Gateway fee row — only shown for bank transfer, with info tooltip */}
                             {transferType === "direct" && getGatewayCharge() > 0 && (
                               <div className="flex justify-between items-center">
                                 <div className="flex items-center gap-1">
                                   <span className="text-[13px] text-gray-400">Bank transfer fee</span>
-                                  <motion.button
-                                    whileTap={{ scale: 0.9 }}
-                                    onClick={() => setShowFeeInfo((p) => !p)}
-                                  >
+                                  <motion.button whileTap={{ scale: 0.9 }} onClick={() => setShowFeeInfo((p) => !p)}>
                                     <Info className="h-3.5 w-3.5 text-gray-300" />
                                   </motion.button>
                                 </div>
@@ -911,28 +1148,23 @@ const TransferPage = () => {
                               </div>
                             )}
 
-                            {/* Fee info expand */}
                             <AnimatePresence>
                               {showFeeInfo && transferType === "direct" && (
                                 <motion.div
                                   initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }}
-                                  exit={{ height: 0, opacity: 0 }}
-                                  className="overflow-hidden"
+                                  exit={{ height: 0, opacity: 0 }} className="overflow-hidden"
                                 >
-                                  <div
-                                    className="flex items-start gap-2 px-3 py-2.5 rounded-xl"
-                                    style={{ background: "rgba(255,149,0,0.06)", border: "1px solid rgba(255,149,0,0.15)" }}
-                                  >
+                                  <div className="flex items-start gap-2 px-3 py-2.5 rounded-xl"
+                                    style={{ background: "rgba(255,149,0,0.06)", border: "1px solid rgba(255,149,0,0.15)" }}>
                                     <Info className="h-3.5 w-3.5 text-orange-400 flex-shrink-0 mt-0.5" />
                                     <p className="text-[11px] text-orange-700 leading-relaxed">
-                                      This is charged by the bank/payment processor for processing your bank transfer. It is not our fee — choose <span className="font-bold">Wallet Pay</span> to skip it entirely.
+                                      This is charged by the bank/payment processor for processing your bank transfer. Choose <span className="font-bold">Wallet Pay</span> to skip it entirely.
                                     </p>
                                   </div>
                                 </motion.div>
                               )}
                             </AnimatePresence>
 
-                            {/* Wallet savings hint */}
                             {!transferType && getGatewayCharge() > 0 && (
                               <div className="flex items-center gap-1.5 pt-0.5">
                                 <Sparkles className="h-3 w-3 text-emerald-500" />
@@ -971,18 +1203,17 @@ const TransferPage = () => {
               {/* ── Payment Method Picker ── */}
               <AnimatePresence>
                 {amount && isValidAmount(amount) && chargeData && (
-                  <motion.div initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
+                  <motion.div id="tour-payment" initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
                     <p className="text-[11px] font-bold uppercase tracking-widest text-gray-400 mb-2 px-1">Payment Method</p>
                     <div className="grid grid-cols-2 gap-3">
 
-                      {/* Bank Transfer */}
                       <motion.button
                         whileTap={{ scale: 0.96 }}
                         onClick={() => { handleSelectTransferType("direct"); setShowFeeInfo(false); }}
                         className="relative p-4 rounded-3xl text-left overflow-hidden"
                         style={{
-                          background: transferType === "direct" ? "linear-gradient(135deg,#FF9500,#FF5E00)" : "white",
-                          boxShadow: transferType === "direct" ? "0 8px 24px rgba(255,149,0,0.38)" : "0 2px 12px rgba(0,0,0,0.06)",
+                          background:  transferType === "direct" ? "linear-gradient(135deg,#FF9500,#FF5E00)" : "white",
+                          boxShadow:   transferType === "direct" ? "0 8px 24px rgba(255,149,0,0.38)" : "0 2px 12px rgba(0,0,0,0.06)",
                         }}
                       >
                         <div className={`w-9 h-9 rounded-2xl flex items-center justify-center mb-2.5 ${transferType === "direct" ? "bg-white/20" : "bg-orange-50"}`}>
@@ -990,7 +1221,6 @@ const TransferPage = () => {
                         </div>
                         <p className={`text-[14px] font-semibold ${transferType === "direct" ? "text-white" : "text-gray-800"}`}>Bank Transfer</p>
                         <p className={`text-[11px] mt-0.5 ${transferType === "direct" ? "text-orange-100" : "text-gray-400"}`}>₦{fmt(getDirectAmount())}</p>
-                        {/* Show gateway fee label on card */}
                         {getGatewayCharge() > 0 && (
                           <p className={`text-[10px] mt-0.5 ${transferType === "direct" ? "text-orange-200" : "text-gray-400"}`}>
                             incl. ₦{fmt(getGatewayCharge())} bank fee
@@ -1003,7 +1233,6 @@ const TransferPage = () => {
                         )}
                       </motion.button>
 
-                      {/* Wallet Pay */}
                       <motion.button
                         whileTap={{ scale: hasSufficientBalance() ? 0.96 : 1 }}
                         onClick={() => hasSufficientBalance() && handleSelectTransferType("wallet")}
@@ -1011,8 +1240,8 @@ const TransferPage = () => {
                         className="relative p-4 rounded-3xl text-left overflow-hidden"
                         style={{
                           background: transferType === "wallet" ? "linear-gradient(135deg,#059669,#10b981)" : "white",
-                          boxShadow: transferType === "wallet" ? "0 8px 24px rgba(16,185,129,0.3)" : "0 2px 12px rgba(0,0,0,0.06)",
-                          opacity: !hasSufficientBalance() ? 0.45 : 1,
+                          boxShadow:  transferType === "wallet" ? "0 8px 24px rgba(16,185,129,0.3)" : "0 2px 12px rgba(0,0,0,0.06)",
+                          opacity:    !hasSufficientBalance() ? 0.45 : 1,
                         }}
                       >
                         <div className={`w-9 h-9 rounded-2xl flex items-center justify-center mb-2.5 ${transferType === "wallet" ? "bg-white/20" : "bg-emerald-50"}`}>
@@ -1051,7 +1280,6 @@ const TransferPage = () => {
                 )}
               </AnimatePresence>
 
-              {/* Error banner */}
               <AnimatePresence>
                 {paymentError && (
                   <motion.div
@@ -1076,8 +1304,8 @@ const TransferPage = () => {
                       initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
                       className="space-y-3"
                     >
-                      {/* ── ACCOUNT CARD ── */}
                       <div
+                        id="tour-account"
                         ref={accountCardRef}
                         className="bg-white rounded-3xl overflow-hidden scroll-mt-4"
                         style={{ boxShadow: "0 2px 20px rgba(0,0,0,0.06)" }}
@@ -1092,8 +1320,8 @@ const TransferPage = () => {
                               className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-[13px] font-bold disabled:opacity-50 transition-all"
                               style={{
                                 background: virtualAccount ? "rgba(255,149,0,0.10)" : "linear-gradient(135deg,#FF9500,#FF5E00)",
-                                color: virtualAccount ? "#FF9500" : "#fff",
-                                boxShadow: virtualAccount ? "none" : "0 4px 14px rgba(255,149,0,0.40)",
+                                color:      virtualAccount ? "#FF9500" : "#fff",
+                                boxShadow:  virtualAccount ? "none" : "0 4px 14px rgba(255,149,0,0.40)",
                               }}
                             >
                               {isGeneratingAccount ? (
@@ -1156,7 +1384,6 @@ const TransferPage = () => {
                               </div>
                               <p className="text-[13px] text-gray-400">Generating account…</p>
                             </motion.div>
-
                           ) : virtualAccount ? (
                             <motion.div key="account-details"
                               initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
@@ -1219,7 +1446,6 @@ const TransferPage = () => {
                                 </div>
                               )}
                             </motion.div>
-
                           ) : (
                             <motion.div key="empty-state"
                               initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
@@ -1406,6 +1632,7 @@ const TransferPage = () => {
         <AnimatePresence>
           {transferType && (
             <motion.div
+              id="tour-footer"
               initial={{ y: 90, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: 90, opacity: 0 }}
               className="fixed bottom-0 left-0 right-0 px-4 pb-7 pt-3"
               style={{
@@ -1423,8 +1650,8 @@ const TransferPage = () => {
                   className="w-full py-4 rounded-2xl font-bold text-[16px] flex items-center justify-center gap-2 disabled:cursor-not-allowed"
                   style={{
                     background: isChecking ? "rgba(255,149,0,0.1)" : "linear-gradient(135deg,#059669 0%,#10b981 100%)",
-                    color: isChecking ? "#FF9500" : "#fff",
-                    boxShadow: isChecking ? "none" : "0 6px 24px rgba(16,185,129,0.38)",
+                    color:      isChecking ? "#FF9500" : "#fff",
+                    boxShadow:  isChecking ? "none" : "0 6px 24px rgba(16,185,129,0.38)",
                   }}
                 >
                   {isChecking
@@ -1502,8 +1729,8 @@ const TransferPage = () => {
                       className="absolute left-0 top-0 h-full aspect-square rounded-2xl flex items-center justify-center touch-none"
                       style={{
                         background: "linear-gradient(135deg,#FF9500,#FF5E00)",
-                        boxShadow: "3px 0 16px rgba(255,149,0,0.45)",
-                        cursor: isProcessingPayment ? "wait" : "grab",
+                        boxShadow:  "3px 0 16px rgba(255,149,0,0.45)",
+                        cursor:     isProcessingPayment ? "wait" : "grab",
                       }}
                       drag={!isProcessingPayment ? "x" : false}
                       dragConstraints={{ left: 0, right: SLIDER_WIDTH }}
@@ -1574,6 +1801,11 @@ const TransferPage = () => {
               onSuccess={() => { setShowFundWallet(false); refreshWalletBalance(); }}
             />
           )}
+        </AnimatePresence>
+
+        {/* ── Spotlight onboarding tour ── */}
+        <AnimatePresence>
+          {showTour && <SpotlightTour onFinish={handleFinishTour} />}
         </AnimatePresence>
       </div>
     </ProtectedRoute>
