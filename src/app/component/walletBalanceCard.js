@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Eye, EyeOff, ArrowDownLeft, ArrowUpRight, Loader2 } from "lucide-react";
+import { Eye, EyeOff, ArrowDownLeft, ArrowUpRight, Loader2, Landmark } from "lucide-react";
 import { useSelector } from "react-redux";
 import { useRouter } from "next/navigation";
 
@@ -26,8 +26,7 @@ const WalletBalanceCard = ({ balance = 125000, isVisible: isVisibleProp, onToggl
   const router = useRouter();
   const [isChecking, setIsChecking] = useState(false);
 
-  const handleWithdraw = async () => {
-
+  const handleCashOut = async () => {
     if (isChecking) return;
     setIsChecking(true);
     try {
@@ -38,9 +37,7 @@ const WalletBalanceCard = ({ balance = 125000, isVisible: isVisibleProp, onToggl
         router.push("/userProfile/withdraw");
       } else {
         localStorage.setItem("redirectAfterBankSetup", "/userProfile/withdraw");
-       router.push("/userProfile/merchantProfile/merchantHome/settings/settingUpAccount");
-        //     router.push("/userProfile/withdraw");
-
+        router.push("/userProfile/merchantProfile/merchantHome/settings/settingUpAccount");
       }
     } catch (error) {
       router.push("/userProfile/withdraw");
@@ -51,7 +48,7 @@ const WalletBalanceCard = ({ balance = 125000, isVisible: isVisibleProp, onToggl
 
   return (
     <div className="px-4 pt-4 select-none">
-      <div className="relative" style={{ height: 170 }}>
+      <div className="relative" style={{ height: 180 }}>
         <AnimatePresence mode="wait">
           {activeCard === 0 ? (
             /* ── FIAT NGN CARD ── */
@@ -100,32 +97,56 @@ const WalletBalanceCard = ({ balance = 125000, isVisible: isVisibleProp, onToggl
                 </div>
 
                 <div className="flex gap-3">
+                  {/* Fund Wallet — unchanged */}
                   <button
                     onClick={() => (window.location.href = "/userProfile/fundwallet")}
-                    className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-xs font-bold transition-opacity active:opacity-80"
+                    className="flex-1 flex flex-col items-center justify-center gap-0.5 py-2.5 rounded-xl text-xs font-bold transition-opacity active:opacity-80"
                     style={{ background: "#1a0a00", color: "#fbbf24" }}
                   >
-                    <ArrowDownLeft className="h-3.5 w-3.5" />
-                    Fund Wallet
+                    <div className="flex items-center gap-1">
+                      <ArrowDownLeft className="h-3.5 w-3.5" />
+                      <span>Fund Wallet</span>
+                    </div>
+                    <span
+                      className="text-[9px] font-normal tracking-wide"
+                      style={{ color: "rgba(251,191,36,0.55)" }}
+                    >
+                      Add money
+                    </span>
                   </button>
+
+                  {/* Cash Out — replaces "Withdraw"; user-initiated, to their bank */}
                   <button
-                    onClick={handleWithdraw}
+                    onClick={handleCashOut}
                     disabled={isChecking}
-                    className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-xs font-bold transition-opacity active:opacity-80 disabled:opacity-70"
+                    className="flex-1 flex flex-col items-center justify-center gap-0.5 py-2.5 rounded-xl text-xs font-bold transition-opacity active:opacity-80 disabled:opacity-70"
                     style={{ background: "#ffffff", color: "#92400e" }}
                   >
                     {isChecking ? (
-                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                      <div className="flex items-center gap-1">
+                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                        <span>Checking…</span>
+                      </div>
                     ) : (
-                      <ArrowUpRight className="h-3.5 w-3.5" />
+                      <>
+                        <div className="flex items-center gap-1">
+                          <Landmark className="h-3.5 w-3.5" />
+                          <span>Cash Out</span>
+                        </div>
+                        <span
+                          className="text-[9px] font-normal tracking-wide"
+                          style={{ color: "rgba(146,64,14,0.5)" }}
+                        >
+                          Send to my bank
+                        </span>
+                      </>
                     )}
-                    Withdraw
                   </button>
                 </div>
               </div>
             </motion.div>
           ) : (
-            /* ── CRYPTO CARD (Coming Soon) ── mirrors fiat layout exactly ── */
+            /* ── CRYPTO CARD (Coming Soon) ── */
             <motion.div
               key="crypto"
               initial={{ opacity: 0, x: 60 }}
@@ -151,7 +172,6 @@ const WalletBalanceCard = ({ balance = 125000, isVisible: isVisibleProp, onToggl
               />
 
               <div className="relative z-10 p-5 h-full flex flex-col justify-between">
-                {/* Top — mirrors fiat: label + balance + eye */}
                 <div>
                   <div className="flex items-center gap-2 mb-1">
                     <p className="text-xs font-semibold uppercase tracking-widest" style={{ color: "rgba(255,255,255,0.5)" }}>
@@ -169,12 +189,10 @@ const WalletBalanceCard = ({ balance = 125000, isVisible: isVisibleProp, onToggl
                     </span>
                   </div>
 
-                  {/* Balance row — same structure as fiat */}
                   <div className="flex items-center gap-2">
                     <h3 className="text-3xl font-extrabold text-white" style={{ letterSpacing: "-0.5px" }}>
                       ••••••
                     </h3>
-                    {/* eye icon placeholder — disabled */}
                     <div
                       className="rounded-full p-1"
                       style={{ background: "rgba(255,255,255,0.1)" }}
@@ -183,29 +201,38 @@ const WalletBalanceCard = ({ balance = 125000, isVisible: isVisibleProp, onToggl
                     </div>
                   </div>
 
-                  {/* SOL / USDT sub-label */}
                   <p className="text-xs mt-1 font-medium" style={{ color: "rgba(255,255,255,0.45)" }}>
                     SOL &amp; USDT on Solana
                   </p>
                 </div>
 
-                {/* Bottom — mirrors fiat: Fund + Withdraw buttons, disabled */}
+                {/* Disabled buttons — mirror active card layout */}
                 <div className="flex gap-3">
                   <button
                     disabled
-                    className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-xs font-bold cursor-not-allowed"
+                    className="flex-1 flex flex-col items-center justify-center gap-0.5 py-2.5 rounded-xl text-xs font-bold cursor-not-allowed"
                     style={{ background: "rgba(0,0,0,0.25)", color: "rgba(251,191,36,0.45)" }}
                   >
-                    <ArrowDownLeft className="h-3.5 w-3.5" />
-                    Fund Wallet
+                    <div className="flex items-center gap-1">
+                      <ArrowDownLeft className="h-3.5 w-3.5" />
+                      <span>Fund Wallet</span>
+                    </div>
+                    <span className="text-[9px] font-normal" style={{ color: "rgba(251,191,36,0.25)" }}>
+                      Add money
+                    </span>
                   </button>
                   <button
                     disabled
-                    className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-xs font-bold cursor-not-allowed"
+                    className="flex-1 flex flex-col items-center justify-center gap-0.5 py-2.5 rounded-xl text-xs font-bold cursor-not-allowed"
                     style={{ background: "rgba(255,255,255,0.12)", color: "rgba(255,255,255,0.35)" }}
                   >
-                    <ArrowUpRight className="h-3.5 w-3.5" />
-                    Withdraw
+                    <div className="flex items-center gap-1">
+                      <Landmark className="h-3.5 w-3.5" />
+                      <span>Cash Out</span>
+                    </div>
+                    <span className="text-[9px] font-normal" style={{ color: "rgba(255,255,255,0.2)" }}>
+                      Send to my bank
+                    </span>
                   </button>
                 </div>
               </div>
