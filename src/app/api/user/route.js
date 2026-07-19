@@ -63,6 +63,12 @@ const API_TYPE_TIERS = {
     "generateAccountVirtual",
     "setWithdrawalBank",
     "getChargeSummary",
+    // ── Special Withdrawal ─────────────────────────────────────
+    "swCreateRequest",
+    "swCancelRequest",
+    "swRequestAction",
+    "swConfirmReceived",
+    "swGetQuotation",
   ],
   restricted: [
     "updateUser",
@@ -79,6 +85,9 @@ const API_TYPE_TIERS = {
     "updateUserProfileWithImage",
     "uploadNIN",
     "getMerchantInformation",
+    // ── Special Withdrawal ─────────────────────────────────────
+    "saveMerchantSWProfile",
+    "saveDenominationCharges",
   ],
   general: [
     "userData",
@@ -104,6 +113,14 @@ const API_TYPE_TIERS = {
     "getSettings",
     "bank-details",
     "getWalletBalance",
+    // ── Special Withdrawal ─────────────────────────────────────
+    "swDenominations",
+    "swDiscoverMerchants",
+    "swGetMyRequests",
+    "swGetRequestDetails",
+    "getMerchantSWProfile",
+    "getMerchantSWCharges",
+    "getMerchantSWEarnings",
   ],
 };
 
@@ -494,6 +511,63 @@ export async function POST(req) {
         });
         break;
 
+      // ── Special Withdrawal POST ────────────────────────────────────────────
+      case "swCreateRequest":
+        response = await axiosInstance.post(
+          "/user/sw/request",
+          requestData,
+          { headers: { Authorization: `Bearer ${accessToken}` } }
+        );
+        break;
+
+      case "swCancelRequest":
+        response = await axiosInstance.post(
+          "/user/sw/request/action",
+          { ...requestData, action: "cancel" },
+          { headers: { Authorization: `Bearer ${accessToken}` } }
+        );
+        break;
+
+      case "swRequestAction":
+        response = await axiosInstance.post(
+          "/user/sw/request/action",
+          requestData,
+          { headers: { Authorization: `Bearer ${accessToken}` } }
+        );
+        break;
+
+      case "swConfirmReceived":
+        response = await axiosInstance.post(
+          "/user/sw/request/action",
+          { ...requestData, action: "complete" },
+          { headers: { Authorization: `Bearer ${accessToken}` } }
+        );
+        break;
+
+      case "swGetQuotation":
+        response = await axiosInstance.post(
+          "/user/sw/quotation",
+          requestData,
+          { headers: { Authorization: `Bearer ${accessToken}` } }
+        );
+        break;
+
+      case "saveMerchantSWProfile":
+        response = await axiosInstance.post(
+          "/user/sw/merchant/profile",
+          requestData,
+          { headers: { Authorization: `Bearer ${accessToken}` } }
+        );
+        break;
+
+      case "saveDenominationCharges":
+        response = await axiosInstance.post(
+          "/user/sw/merchant/charges",
+          requestData,
+          { headers: { Authorization: `Bearer ${accessToken}` } }
+        );
+        break;
+
       default:
         return new Response(
           JSON.stringify({
@@ -703,6 +777,35 @@ export async function GET(req) {
 
       case "getWalletBalance":
         response = await axiosInstance.get("/user/getWalletBalance", { headers, params: additionalParams });
+        break;
+
+      // ── Special Withdrawal GET ───────────────────────────────────────────────
+      case "swDenominations":
+        response = await axiosInstance.get("/user/sw/denominations", { headers, params: additionalParams });
+        break;
+
+      case "swDiscoverMerchants":
+        response = await axiosInstance.get("/user/sw/discover", { headers, params: additionalParams });
+        break;
+
+      case "swGetMyRequests":
+        response = await axiosInstance.get("/user/sw/requests", { headers, params: additionalParams });
+        break;
+
+      case "swGetRequestDetails":
+        response = await axiosInstance.get("/user/sw/request/" + (additionalParams.requestId || ""), { headers, params: additionalParams });
+        break;
+
+      case "getMerchantSWProfile":
+        response = await axiosInstance.get("/user/sw/merchant/profile", { headers, params: additionalParams });
+        break;
+
+      case "getMerchantSWCharges":
+        response = await axiosInstance.get("/user/sw/merchant/charges", { headers, params: additionalParams });
+        break;
+
+      case "getMerchantSWEarnings":
+        response = await axiosInstance.get("/user/sw/merchant/earnings", { headers, params: additionalParams });
         break;
 
       default:

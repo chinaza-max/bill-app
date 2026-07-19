@@ -21,6 +21,8 @@ import {
   Store,
   ShoppingBag,
   Save,
+  Banknote,
+  ChevronRight,
 } from "lucide-react";
 import ProtectedRoute from "@/app/component/protect";
 
@@ -491,6 +493,41 @@ const SettingsPage = () => {
               </div>
             )}
           </div>
+        </div>
+        {/* Special Withdrawal Settings Section */}
+        <div className="px-4 mb-4">
+          <button
+            onClick={() => router.push("/userProfile/merchantProfile/merchantHome/settings/specialWithdrawal")}
+            className="w-full bg-white rounded-lg shadow-sm border border-amber-100 p-4 text-left hover:bg-amber-50 transition-colors"
+          >
+            <div className="flex items-center justify-between">
+              <div className="flex items-center space-x-3">
+                <div
+                  style={{
+                    width: 40,
+                    height: 40,
+                    borderRadius: 12,
+                    background: "linear-gradient(135deg, #92400e, #d97706)",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    flexShrink: 0,
+                  }}
+                >
+                  <Banknote className="h-5 w-5 text-white" />
+                </div>
+                <div>
+                  <p className="font-semibold text-gray-900 text-sm">
+                    Special Withdrawal
+                  </p>
+                  <p className="text-xs text-amber-600 mt-0.5">
+                    Set denominations, charges &amp; limits
+                  </p>
+                </div>
+              </div>
+              <ChevronRight className="h-5 w-5 text-amber-400" />
+            </div>
+          </button>
         </div>
       </div>
     </ProtectedRoute>

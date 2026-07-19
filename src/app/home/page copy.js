@@ -783,171 +783,6 @@ const SpotlightTour = ({ onFinish }) => {
   );
 };
 
-// ─── Mint Bundle Illustration ──────────────────────────────────────────────────
-// Inline SVG (no external asset / network request) depicting a full, thick
-// bundle of banded, freshly-minted ₦ notes — built with a visible page-edge
-// stack (so it reads as *volume*, not a single flat card) plus a second
-// smaller bundle behind it for an "abundance" read, a wraparound band, a
-// currency medallion, and sparkle accents for "mint" condition.
-const MintBundleIllustration = ({ size = 108 }) => (
-  <svg
-    width={size}
-    height={size * 0.78}
-    viewBox="0 0 148 116"
-    fill="none"
-    xmlns="http://www.w3.org/2000/svg"
-    style={{ display: "block" }}
-  >
-    <defs>
-      <linearGradient id="bandShine" x1="0" y1="0" x2="0" y2="1">
-        <stop offset="0" stopColor="#fff" stopOpacity="0.32" />
-        <stop offset="0.5" stopColor="#fff" stopOpacity="0" />
-        <stop offset="1" stopColor="#fff" stopOpacity="0.12" />
-      </linearGradient>
-      <linearGradient id="edgeShade" x1="0" y1="0" x2="0" y2="1">
-        <stop offset="0" stopColor="#fde68a" />
-        <stop offset="1" stopColor="#eab308" />
-      </linearGradient>
-    </defs>
-
-    {/* soft contact shadow grounding the bundles */}
-    <ellipse cx="76" cy="108" rx="60" ry="7" fill="#000" opacity="0.16" />
-
-    {/* ── secondary bundle, smaller, tucked behind-left for "abundance" ── */}
-    <g transform="translate(2,40) rotate(-9 30 30)">
-      {Array.from({ length: 5 }).map((_, i) => (
-        <rect key={i} x={0} y={i * 1.8} width="58" height="30" rx="3" fill="url(#edgeShade)" opacity={0.55 + i * 0.06} />
-      ))}
-      <rect x="0" y="0" width="58" height="30" rx="4" fill="#fef3c7" stroke="#f59e0b" strokeWidth="1" />
-      <rect x="0" y="11" width="58" height="9" fill="#dc2626" opacity="0.9" />
-    </g>
-
-    {/* ── main bundle: thick page-edge stack + top band face ── */}
-    <g transform="translate(30,6)">
-      {/* stacked note edges — this is what sells "thick bundle" over "one note" */}
-      <g transform="translate(0,26)">
-        <rect x="0" y="0" width="104" height="40" rx="5" fill="#fef9e7" stroke="#d97706" strokeWidth="1.2" />
-        {Array.from({ length: 11 }).map((_, i) => (
-          <line key={i} x1="3" x2="101" y1={4 + i * 3.2} y2={4 + i * 3.2} stroke="#f2d097" strokeWidth="0.7" opacity="0.8" />
-        ))}
-        {/* faint side numerals hinting at a denomination stack */}
-        <text x="6" y="34" fontSize="6" fontWeight="700" fill="#b45309" opacity="0.55" fontFamily="Arial, sans-serif">500</text>
-        <text x="90" y="34" fontSize="6" fontWeight="700" fill="#b45309" opacity="0.55" fontFamily="Arial, sans-serif">500</text>
-      </g>
-
-      {/* top face note — the "cover" of the bundle */}
-      <g>
-        <rect x="0" y="0" width="104" height="30" rx="5" fill="#fde68a" stroke="#f59e0b" strokeWidth="1.3" />
-        <path d="M6 8 C 22 2, 40 14, 58 8 S 92 2, 98 8" stroke="#f59e0b" strokeWidth="0.8" opacity="0.4" fill="none" />
-        <path d="M6 23 C 22 28, 40 18, 58 23 S 92 28, 98 23" stroke="#f59e0b" strokeWidth="0.8" opacity="0.4" fill="none" />
-        <circle cx="80" cy="15" r="10.5" fill="#fff7e0" stroke="#d97706" strokeWidth="1.2" />
-        <text x="80" y="19.5" textAnchor="middle" fontSize="13" fontWeight="700" fill="#92400e" fontFamily="Arial, sans-serif">₦</text>
-        <text x="10" y="11" fontSize="6.5" fontWeight="800" fill="#b45309" fontFamily="Arial, sans-serif" opacity="0.85">NEW</text>
-        <text x="10" y="24" fontSize="6.5" fontWeight="800" fill="#b45309" fontFamily="Arial, sans-serif" opacity="0.85">MINT</text>
-      </g>
-
-      {/* wraparound paper band across the middle of the whole bundle */}
-      <g transform="translate(-3,20)">
-        <rect x="0" y="0" width="110" height="17" rx="3" fill="#dc2626" />
-        <rect x="0" y="0" width="110" height="17" rx="3" fill="url(#bandShine)" />
-        <text x="55" y="12" textAnchor="middle" fontSize="9" fontWeight="800" fill="#fff" fontFamily="Arial, sans-serif" letterSpacing="0.6">
-          MINT BUNDLE
-        </text>
-      </g>
-    </g>
-
-    {/* sparkle accents = freshly minted /  */}
-    <g fill="#fff7e0">
-      <path d="M132 10 l2 4.4 4.4 2 -4.4 2 -2 4.4 -2 -4.4 -4.4 -2 4.4 -2 z" opacity="0.95" />
-      <path d="M18 10 l1.3 2.8 2.8 1.3 -2.8 1.3 -1.3 2.8 -1.3 -2.8 -2.8 -1.3 2.8 -1.3 z" opacity="0.8" />
-      <path d="M118 78 l1.1 2.4 2.4 1.1 -2.4 1.1 -1.1 2.4 -1.1 -2.4 -2.4 -1.1 2.4 -1.1 z" opacity="0.7" />
-    </g>
-  </svg>
-);
-
-// ─── Special Withdrawal background image ──────────────────────────────────────
-// Drop your own image file into the `/public` folder of the Next.js app and
-// put its filename here (must start with "/"). e.g. if you add
-// `public/mint-bundle.jpg`, set this to "/mint-bundle.jpg".
-// Leave it as-is (or point it at a file that doesn't exist) and the card
-// automatically falls back to the built-in SVG illustration below — so this
-// is safe to test with before the real asset is ready.
-const SPECIAL_WITHDRAWAL_BG_SRC = "/bundle-single.png";
-
-const SpecialWithdrawalCard = ({ onClick }) => {
-  const [imgFailed, setImgFailed] = useState(false);
-  const [imgLoaded, setImgLoaded] = useState(false);
-
-  return (
-    <motion.button whileTap={{ scale: 0.97 }} onClick={onClick}
-      style={{
-        flex: 1, position: "relative", overflow: "hidden", borderRadius: 18,
-        background: imgFailed ? "linear-gradient(135deg, #78350f 0%, #92400e 40%, #a16207 100%)" : "#78350f",
-        border: "none", cursor: "pointer", padding: 0, textAlign: "left",
-        boxShadow: "0 4px 18px rgba(120,53,15,0.22)",
-        display: "flex", flexDirection: "column",
-      }}>
-
-      {/* ── your image, if it loads ── */}
-      {!imgFailed && (
-        <Image
-          src={SPECIAL_WITHDRAWAL_BG_SRC}
-          alt=""
-          fill
-          sizes="200px"
-          style={{ objectFit: "cover", opacity: imgLoaded ? 1 : 0, transition: "opacity 0.25s ease" }}
-          onLoad={() => setImgLoaded(true)}
-          onError={() => setImgFailed(true)}
-        />
-      )}
-
-      {/* brand-tint overlay so the title/subtitle stay readable over any photo you drop in */}
-      <div style={{
-        position: "absolute", inset: 0,
-        background: imgFailed
-          ? "transparent"
-          : "linear-gradient(135deg, rgba(120,53,15,0.86) 0%, rgba(146,64,14,0.72) 45%, rgba(161,98,7,0.48) 100%)",
-      }} />
-
-      {/* shine sweep — kept on top of the image/gradient */}
-      <motion.div className="absolute inset-0 -skew-x-12 pointer-events-none"
-        style={{ background: "linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.10) 50%, transparent 100%)" }}
-        initial={{ x: "-100%" }} animate={{ x: "220%" }} transition={{ duration: 1.8, delay: 0.8, ease: "easeInOut" }} />
-      <div style={{ position: "absolute", inset: 0, pointerEvents: "none", backgroundImage: "radial-gradient(circle at 12% 85%, rgba(255,255,255,0.10) 0%, transparent 50%)" }} />
-
-      {/* ── fallback SVG bundle — only shown if your image file isn't found ── */}
-      {imgFailed && (
-        <div style={{ position: "absolute", bottom: 2, right: -6, pointerEvents: "none", filter: "drop-shadow(0 4px 8px rgba(0,0,0,0.28))" }}>
-          <MintBundleIllustration size={104} />
-        </div>
-      )}
-
-      {/* corner ribbon flagging this as the "mint" option */}
-      <div style={{
-        position: "absolute", top: 10, right: -26, width: 110, transform: "rotate(35deg)",
-        background: "#dc2626", color: "#fff", fontSize: 9, fontWeight: 800, letterSpacing: "0.06em",
-        textAlign: "center", padding: "2px 0", boxShadow: "0 2px 6px rgba(0,0,0,0.25)", zIndex: 2,
-      }}>
-        MINT
-      </div>
-
-      <div style={{ position: "relative", zIndex: 1, padding: "18px 14px", display: "flex", flexDirection: "column", height: "100%" }}>
-        <div style={{ width: 38, height: 38, borderRadius: 12, background: "rgba(255,255,255,0.15)", border: "1px solid rgba(255,255,255,0.25)", display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 12 }}>
-          <Banknote className="h-4.5 w-4.5 text-white" style={{ width: 18, height: 18 }} />
-        </div>
-        <p style={{ margin: 0, fontSize: 14, fontWeight: 800, color: "#fff", lineHeight: 1.25, textShadow: imgFailed ? "none" : "0 1px 4px rgba(0,0,0,0.35)" }}>Special Withdrawal</p>
-        {/* copy spells out: mint condition + ₦ + bundled + your choice of denomination */}
-        <p style={{ margin: "4px 0 14px", fontSize: 11, color: "rgba(255,255,255,0.85)", lineHeight: 1.4, maxWidth: imgFailed ? "58%" : "100%", textShadow: imgFailed ? "none" : "0 1px 4px rgba(0,0,0,0.4)" }}>
-         ₦ bundles — pick your denomination
-        </p>
-        <div style={{ marginTop: "auto", display: "inline-flex", alignItems: "center", gap: 4, padding: "5px 10px", borderRadius: 99, background: "rgba(255,255,255,0.18)", border: "1px solid rgba(255,255,255,0.28)", fontSize: 11, fontWeight: 700, color: "#fff", width: "fit-content" }}>
-          <Sparkles style={{ width: 11, height: 11 }} /><span>Explore</span><ArrowRight style={{ width: 11, height: 11 }} />
-        </div>
-      </div>
-    </motion.button>
-  );
-};
-
 // ─── Main Component ────────────────────────────────────────────────────────────
 const MobileApp = () => {
   const [userType, setUserType]                               = useState("Client");
@@ -1388,7 +1223,7 @@ const MobileApp = () => {
           </div>
 
           <div id="tour-order" className="px-4 pb-3 pt-1">
-            <div style={{ display: "flex", gap: 10, alignItems: "stretch" }}>
+            <div style={{ display: "flex", gap: 10 }}>
               {/* ── Normal Cash Withdrawal Card ── */}
               <motion.button whileTap={{ scale: 0.97 }} onClick={() => handleTabChange("p2p")}
                 style={{
@@ -1396,26 +1231,50 @@ const MobileApp = () => {
                   background: "linear-gradient(135deg, #92400e 0%, #b45309 40%, #d97706 100%)",
                   border: "none", cursor: "pointer", padding: 0, textAlign: "left",
                   boxShadow: "0 4px 18px rgba(146,64,14,0.22)",
-                  display: "flex", flexDirection: "column",
                 }}>
                 <motion.div className="absolute inset-0 -skew-x-12 pointer-events-none"
                   style={{ background: "linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.12) 50%, transparent 100%)" }}
                   initial={{ x: "-100%" }} animate={{ x: "220%" }} transition={{ duration: 1.6, delay: 0.4, ease: "easeInOut" }} />
                 <div style={{ position: "absolute", inset: 0, pointerEvents: "none", backgroundImage: "radial-gradient(circle at 88% 18%, rgba(255,255,255,0.18) 0%, transparent 50%)" }} />
-                <div style={{ position: "relative", zIndex: 1, padding: "18px 14px", display: "flex", flexDirection: "column", height: "100%" }}>
+                <div style={{ position: "relative", zIndex: 1, padding: "18px 14px" }}>
                   <div style={{ width: 38, height: 38, borderRadius: 12, background: "rgba(255,255,255,0.15)", border: "1px solid rgba(255,255,255,0.25)", display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 12 }}>
                     <ShoppingBag className="h-4.5 w-4.5 text-white" style={{ width: 18, height: 18 }} />
                   </div>
                   <p style={{ margin: 0, fontSize: 14, fontWeight: 800, color: "#fff", lineHeight: 1.25 }}>Cash Withdrawal</p>
                   <p style={{ margin: "4px 0 14px", fontSize: 11, color: "rgba(255,255,255,0.65)", lineHeight: 1.4 }}>Fast P2P withdrawal</p>
-                  <div style={{ marginTop: "auto", display: "inline-flex", alignItems: "center", gap: 4, padding: "5px 10px", borderRadius: 99, background: "rgba(255,255,255,0.18)", border: "1px solid rgba(255,255,255,0.28)", fontSize: 11, fontWeight: 700, color: "#fff", width: "fit-content" }}>
+                  <div style={{ display: "inline-flex", alignItems: "center", gap: 4, padding: "5px 10px", borderRadius: 99, background: "rgba(255,255,255,0.18)", border: "1px solid rgba(255,255,255,0.28)", fontSize: 11, fontWeight: 700, color: "#fff" }}>
                     <Zap style={{ width: 11, height: 11 }} /><span>Begin</span><ArrowRight style={{ width: 11, height: 11 }} />
                   </div>
                 </div>
               </motion.button>
 
-              {/* ── Special Withdrawal Card — mint currency bundles (your own image, with SVG fallback) ── */}
-              <SpecialWithdrawalCard onClick={() => handleTabChange("specialWithdrawal")} />
+              {/* ── Special Withdrawal Card ── */}
+              <motion.button whileTap={{ scale: 0.97 }} onClick={() => handleTabChange("specialWithdrawal")}
+                style={{
+                  flex: 1, position: "relative", overflow: "hidden", borderRadius: 18,
+                  background: "linear-gradient(135deg, #78350f 0%, #92400e 40%, #a16207 100%)",
+                  border: "none", cursor: "pointer", padding: 0, textAlign: "left",
+                  boxShadow: "0 4px 18px rgba(120,53,15,0.22)",
+                }}>
+                <motion.div className="absolute inset-0 -skew-x-12 pointer-events-none"
+                  style={{ background: "linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.10) 50%, transparent 100%)" }}
+                  initial={{ x: "-100%" }} animate={{ x: "220%" }} transition={{ duration: 1.8, delay: 0.8, ease: "easeInOut" }} />
+                <div style={{ position: "absolute", inset: 0, pointerEvents: "none", backgroundImage: "radial-gradient(circle at 12% 85%, rgba(255,255,255,0.10) 0%, transparent 50%)" }} />
+                {/* Money stack corner image */}
+                <div style={{ position: "absolute", bottom: -4, right: -4, opacity: 0.18, pointerEvents: "none" }}>
+                  <Image src="/money-stack.png" alt="" width={80} height={66} style={{ objectFit: "contain" }} />
+                </div>
+                <div style={{ position: "relative", zIndex: 1, padding: "18px 14px" }}>
+                  <div style={{ width: 38, height: 38, borderRadius: 12, background: "rgba(255,255,255,0.15)", border: "1px solid rgba(255,255,255,0.25)", display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 12 }}>
+                    <Banknote className="h-4.5 w-4.5 text-white" style={{ width: 18, height: 18 }} />
+                  </div>
+                  <p style={{ margin: 0, fontSize: 14, fontWeight: 800, color: "#fff", lineHeight: 1.25 }}>Special Withdrawal</p>
+                  <p style={{ margin: "4px 0 14px", fontSize: 11, color: "rgba(255,255,255,0.65)", lineHeight: 1.4 }}>Choose denomination</p>
+                  <div style={{ display: "inline-flex", alignItems: "center", gap: 4, padding: "5px 10px", borderRadius: 99, background: "rgba(255,255,255,0.18)", border: "1px solid rgba(255,255,255,0.28)", fontSize: 11, fontWeight: 700, color: "#fff" }}>
+                    <Sparkles style={{ width: 11, height: 11 }} /><span>Explore</span><ArrowRight style={{ width: 11, height: 11 }} />
+                  </div>
+                </div>
+              </motion.button>
             </div>
           </div>
 
