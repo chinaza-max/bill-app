@@ -1,7 +1,7 @@
 import axios from "axios";
 
 const axiosInstance = axios.create({
-  baseURL: process.env.NEXT_PUBLIC_API_URL ||"https://bill-bolt.onrender.com/api/v1" ||"http://localhost:5000/api/v1",
+  baseURL: "https://bill-bolt.onrender.com/api/v1" ||"http://localhost:5000/api/v1",
   headers: { 
     "Content-Type": "application/json",
   },
@@ -9,3 +9,4 @@ const axiosInstance = axios.create({
 });
 
 export default axiosInstance;
+//  baseURL: process.env.NEXT_PUBLIC_API_URL ||"https://bill-bolt.onrender.com/api/v1" ||"http://localhost:5000/api/v1",
