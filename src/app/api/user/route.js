@@ -831,22 +831,31 @@ export async function GET(req) {
       const status = error.response?.status || 500;
       const errorMessage = error.response?.data?.message || error.message;
 
-      switch (status) {
-        case 401:
-          return new Response(
-            JSON.stringify({ status: "error", message: "Authentication failed", details: errorMessage }),
-            { status: 401 }
-          );
-        default:
-          return new Response(
-            JSON.stringify({
-              status: "error",
-              message: "Internal server error",
-              details: process.env.NODE_ENV === "development" ? errorMessage : "An unexpected error occurred",
-            }),
-            { status: 500 }
-          );
+      // Client-facing errors: forward the real status + message from the backend
+      if (status === 400 || status === 403 || status === 404 || status === 409 || status === 422 || status === 429) {
+        return new Response(
+          JSON.stringify({ status: "error", message: errorMessage }),
+          { status, headers: { "Content-Type": "application/json" } }
+        );
       }
+
+      if (status === 401) {
+        return new Response(
+          JSON.stringify({ status: "error", message: "Authentication failed", details: errorMessage }),
+          { status: 401, headers: { "Content-Type": "application/json" } }
+        );
+      }
+
+      // Unexpected 5xx from the backend
+      console.error("Upstream server error:", { status, errorMessage });
+      return new Response(
+        JSON.stringify({
+          status: "error",
+          message: "An unexpected error occurred. Please try again.",
+          details: process.env.NODE_ENV === "development" ? errorMessage : undefined,
+        }),
+        { status: 500, headers: { "Content-Type": "application/json" } }
+      );
     }
 
     console.error("Unexpected Error:", { message: error.message, stack: error.stack });
@@ -856,7 +865,7 @@ export async function GET(req) {
         message: "An unexpected error occurred",
         details: process.env.NODE_ENV === "development" ? error.message : undefined,
       }),
-      { status: 500 }
+      { status: 500, headers: { "Content-Type": "application/json" } }
     );
   }
 }
