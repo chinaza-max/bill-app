@@ -22,7 +22,7 @@ export default function CallLayout({ children }) {
 
 
 
-    const url = "https://fidopoint.onrender.com";
+    const url = "https://bill-bolt.onrender.com";
     //const url = "http://localhost:5000";
 
     const { io } = require("socket.io-client");
