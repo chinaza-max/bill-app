@@ -13,7 +13,13 @@ firebase.initializeApp({
 
 const messaging = firebase.messaging();
 
-const NEW_ORDER_SOUND_URL = "https://res.cloudinary.com/dvznn9s4g/video/upload/v1781476716/2927f28c_1781476435_ee632def_1_h5ak2v.mp3";
+// Local sound files for push notifications
+const SOUNDS = {
+  CALL:       "/sound/message2.wav",
+  POSITIVE:   "/sound/mixkit-positive-notification-951.wav",
+  NEGATIVE:   "/sound/message1.wav",
+  HINT:       "/sound/mixkit-interface-hint-notification-911.wav",
+};
 
 // Vibration patterns — [vibrate, pause, vibrate, pause, ...]
 const VIBRATE = {
@@ -23,13 +29,13 @@ const VIBRATE = {
     1000, 200, 1000, 200, 1000, 200,
     1000, 200, 1000, 200, 1000,
   ],
-  // Strong repeating pulses — for new orders
+  // Strong repeating pulses — for new requests / orders
   NEW_ORDER: [
     800, 150, 800, 150, 800, 150,
     800, 150, 800, 150, 800, 150,
     800, 150, 800,
   ],
-  // Medium alert — for generic notifications
+  // Medium alert — for status updates
   DEFAULT: [
     500, 100, 500, 100, 500, 100,
     500, 100, 500, 100, 500,
@@ -45,128 +51,207 @@ async function playSoundOnClient(soundUrl) {
 
 // ── Handle background push messages ─────────────────────────────────────────
 messaging.onBackgroundMessage((payload) => {
-  console.log("📬 Background message:", payload);
+  console.log("📬 Background message received:", payload);
 
   const data = payload.data || {};
+  const eventType = data.type || data.event || "";
+  const title = payload.notification?.title || data.title || "Notification Alert";
+  const body = payload.notification?.body || data.body || "Tap to view details in app";
 
-  // ── Incoming Call ────────────────────────────────────────────────────────
-  if (payload.notification?.title === "INCOMING_CALL") {
-    self.registration.showNotification(payload.notification?.title || "Incoming Call", {
-      body:               payload.notification?.body || "Someone is calling you",
+  // ── 1. INCOMING CALL ──────────────────────────────────────────────────────
+  if (eventType === "INCOMING_CALL" || title.includes("Incoming call")) {
+    playSoundOnClient(SOUNDS.CALL);
+
+    self.registration.showNotification(title, {
+      body,
       icon:               "/images/icons/icon-72x72.png",
       badge:              "/images/icons/icon-72x72.png",
       tag:                "incoming-call",
       requireInteraction: true,
       vibrate:            VIBRATE.CALL,
+      sound:              SOUNDS.CALL,
       data: {
         type:         "INCOMING_CALL",
         orderId:      data.orderId      ?? 1,
         callerId:     data.callerId     ?? 11,
-        callerName:   data.callerName   ?? "John Doe",
+        callerName:   data.callerName   ?? "Customer",
         callerAvatar: data.callerAvatar ?? "/icons/default-avatar.png",
-        url:          `/orders/${data.orderId}`,
+        url:          "/",
       },
       actions: [
-        { action: "accept",  title: "✅ Accept",  icon: "/icons/open-icon.png"  },
-        { action: "decline", title: "❌ Decline", icon: "/icons/close-icon.png" },
+        { action: "accept",  title: "✅ Answer",  icon: "/images/icons/icon-72x72.png" },
+        { action: "decline", title: "❌ Decline", icon: "/images/icons/icon-72x72.png" },
       ],
     });
     return;
   }
 
-  // ── New Order ────────────────────────────────────────────────────────────
-  if (data.event === "NEW_ORDER" || data.type === "NEW_ORDER") {
-    playSoundOnClient(NEW_ORDER_SOUND_URL);
+  // ── 2. NEW WITHDRAWAL REQUESTS (NEW_ORDER & SW_NEW_REQUEST) ───────────────
+  if (eventType === "NEW_ORDER" || eventType === "SW_NEW_REQUEST") {
+    const soundUrl = SOUNDS.POSITIVE;
+    playSoundOnClient(soundUrl);
 
-    self.registration.showNotification(payload.notification?.title || "New Order 🚀", {
-      body:               payload.notification?.body || "You have a new order",
+    const isSW = eventType === "SW_NEW_REQUEST";
+    const targetUrl = isSW ? "/specialWithdrawal" : `/orders/${data.orderId || ""}`;
+
+    self.registration.showNotification(title || (isSW ? "New Special Withdrawal Request 💵" : "New Withdrawal Request Alert 🚀"), {
+      body,
       icon:               payload.notification?.image || "/icons/icon-192x192.png",
       badge:              "/icons/badge-72x72.png",
-      tag:                `new-order-${data.orderId}`,
+      tag:                `new-request-${data.orderId || data.requestId || Date.now()}`,
       requireInteraction: true,
       vibrate:            VIBRATE.NEW_ORDER,
+      sound:              soundUrl,
       data: {
-        type:    "NEW_ORDER",
-        orderId: data.orderId,
-        url:     `/orders/${data.orderId}`,
-        sound:   NEW_ORDER_SOUND_URL,
+        type:    eventType,
+        orderId: data.orderId || data.requestId,
+        url:     targetUrl,
+        sound:   soundUrl,
       },
       actions: [
-        { action: "open",  title: "View Order", icon: "/images/icons/icon-72x72.png"  },
-        { action: "close", title: "Dismiss",    icon: "/images/icons/icon-72x72.png" },
+        { action: "open",  title: "View Request", icon: "/images/icons/icon-72x72.png" },
+        { action: "close", title: "Dismiss",      icon: "/images/icons/icon-72x72.png" },
       ],
     });
     return;
   }
 
-  // ── Generic / default ────────────────────────────────────────────────────
-  self.registration.showNotification(payload.notification?.title || "New Notification", {
-    body:               payload.notification?.body || "You have a new message",
+  // ── 3. REJECTIONS & CANCELLATIONS ──────────────────────────────────────────
+  if (
+    eventType.includes("REJECTED") ||
+    eventType.includes("CANCELLED") ||
+    eventType.includes("SUSPENDED") ||
+    eventType.includes("DISABLED")
+  ) {
+    const soundUrl = SOUNDS.NEGATIVE;
+    playSoundOnClient(soundUrl);
+
+    const targetUrl = eventType.startsWith("SW") ? "/specialWithdrawal" : "/orders";
+
+    self.registration.showNotification(title, {
+      body,
+      icon:               "/images/icons/icon-72x72.png",
+      badge:              "/images/icons/icon-72x72.png",
+      tag:                `alert-${data.orderId || data.requestId || Date.now()}`,
+      requireInteraction: true,
+      vibrate:            VIBRATE.DEFAULT,
+      sound:              soundUrl,
+      data: {
+        type:  eventType,
+        url:   targetUrl,
+        sound: soundUrl,
+      },
+      actions: [
+        { action: "open",  title: "Open App", icon: "/images/icons/icon-72x72.png" },
+        { action: "close", title: "Close",    icon: "/images/icons/icon-72x72.png" },
+      ],
+    });
+    return;
+  }
+
+  // ── 4. ACCEPTED / COMPLETED / ACTIVATED STATUS EVENTS ─────────────────────
+  if (
+    eventType.includes("ACCEPTED") ||
+    eventType.includes("COMPLETED") ||
+    eventType.includes("ACTIVATED") ||
+    eventType.includes("ENABLED")
+  ) {
+    const soundUrl = SOUNDS.POSITIVE;
+    playSoundOnClient(soundUrl);
+
+    const targetUrl = eventType.startsWith("SW") ? "/specialWithdrawal" : "/orders";
+
+    self.registration.showNotification(title, {
+      body,
+      icon:               "/images/icons/icon-72x72.png",
+      badge:              "/images/icons/icon-72x72.png",
+      tag:                `status-${data.orderId || data.requestId || Date.now()}`,
+      requireInteraction: true,
+      vibrate:            VIBRATE.DEFAULT,
+      sound:              soundUrl,
+      data: {
+        type:  eventType,
+        url:   targetUrl,
+        sound: soundUrl,
+      },
+      actions: [
+        { action: "open",  title: "Open App", icon: "/images/icons/icon-72x72.png" },
+        { action: "close", title: "Close",    icon: "/images/icons/icon-72x72.png" },
+      ],
+    });
+    return;
+  }
+
+  // ── 5. DEFAULT / GENERIC PUSH NOTIFICATION ─────────────────────────────────
+  const defaultSound = SOUNDS.HINT;
+  playSoundOnClient(defaultSound);
+
+  const fallbackUrl = data.url || (eventType.startsWith("SW") ? "/specialWithdrawal" : "/");
+
+  self.registration.showNotification(title, {
+    body,
     icon:               "/images/icons/icon-72x72.png",
     badge:              "/images/icons/icon-72x72.png",
-    tag:                "notification-tag",
+    tag:                "generic-notification",
     requireInteraction: true,
     vibrate:            VIBRATE.DEFAULT,
+    sound:              defaultSound,
     data: {
-      url:   payload.data?.url || "/",
-      sound: NEW_ORDER_SOUND_URL,
+      type:  eventType,
+      url:   fallbackUrl,
+      sound: defaultSound,
     },
     actions: [
-      { action: "open",  title: "Open App", icon: "/images/icons/icon-72x72.png"  },
+      { action: "open",  title: "Open App", icon: "/images/icons/icon-72x72.png" },
       { action: "close", title: "Close",    icon: "/images/icons/icon-72x72.png" },
     ],
   });
 });
 
-// ── Handle notification click ────────────────────────────────────────────────
+// ── Handle notification click (Tap -> Focus/Navigate/Wake PWA) ─────────────
 self.addEventListener("notificationclick", (event) => {
   event.notification.close();
 
   const data   = event.notification.data || {};
   const action = event.action;
 
-  // ── Incoming Call actions ────────────────────────────────────────────────
-  if (data.type === "INCOMING_CALL") {
-    if (action === "decline") {
-      self.clients.matchAll({ type: "window" }).then((clients) => {
-        clients.forEach((client) => {
-          client.postMessage({ type: "DECLINE_CALL", payload: data });
-        });
-      });
-      return;
-    }
+  if (action === "close") return;
 
-    event.waitUntil(
-      self.clients
-        .matchAll({ type: "window", includeUncontrolled: true })
-        .then((clients) => {
-          for (const client of clients) {
-            if ("focus" in client) {
-              client.focus();
-              client.postMessage({ type: "INCOMING_CALL", payload: data });
-              return;
-            }
-          }
-          return self.clients.openWindow(data.url || "/");
-        })
-    );
+  // If user clicked Decline on incoming call
+  if (data.type === "INCOMING_CALL" && action === "decline") {
+    self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((clients) => {
+      clients.forEach((client) => {
+        client.postMessage({ type: "DECLINE_CALL", payload: data });
+      });
+    });
     return;
   }
 
-  // ── Generic actions ──────────────────────────────────────────────────────
-  if (action === "close") return;
+  const targetUrl = data.url || (
+    data.type?.startsWith("SW") ? "/specialWithdrawal" :
+    data.type === "INCOMING_CALL" ? "/" :
+    data.type?.includes("ORDER") ? "/orders" : "/"
+  );
 
   event.waitUntil(
     self.clients
       .matchAll({ type: "window", includeUncontrolled: true })
       .then((clients) => {
+        // If an open PWA window exists, focus it, navigate, and send postMessage
         for (const client of clients) {
           if ("focus" in client) {
             client.focus();
+            if (client.navigate) {
+              client.navigate(targetUrl);
+            }
+            client.postMessage({ type: data.type || "NOTIFICATION_CLICKED", payload: data });
             return;
           }
         }
-        return self.clients.openWindow(data.url || "/");
+        // If PWA app is inactive/closed, launch it immediately
+        if (self.clients.openWindow) {
+          return self.clients.openWindow(targetUrl);
+        }
       })
   );
 });

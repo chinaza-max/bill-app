@@ -171,6 +171,11 @@ export function CallProvider({ children, socket }) {
 
           if (data.type === "INCOMING_CALL") {
             handleIncomingCallData(data);
+          } else {
+            const soundUrl = (data.type?.includes("REJECT") || data.type?.includes("CANCEL"))
+              ? "/sound/message1.wav"
+              : "/sound/mixkit-positive-notification-951.wav";
+            playSoundByUrl(soundUrl);
           }
         });
 
