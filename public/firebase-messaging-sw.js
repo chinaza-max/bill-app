@@ -13,11 +13,13 @@ firebase.initializeApp({
 
 const messaging = firebase.messaging();
 
-// Sound files for push notifications (Voice audio for requests + local chimes)
+// Sound files for push notifications
 const SOUNDS = {
   VOICE_ALERT: "https://res.cloudinary.com/dvznn9s4g/video/upload/v1781476716/2927f28c_1781476435_ee632def_1_h5ak2v.mp3",
   VOICE_LOCAL: "/sound/voice_request_alert.mp3",
-  CALL:        "/sound/message2.wav",
+  // Call ringtone: local copy of soundreality-phone-ringtone-clean-273554
+  // Original: https://res.cloudinary.com/dvznn9s4g/video/upload/v1785074803/soundreality-phone-ringtone-clean-273554_zgyg6f.mp3
+  CALL:        "/sound/call_ring.mp3",
   POSITIVE:    "/sound/mixkit-positive-notification-951.wav",
   NEGATIVE:    "/sound/message1.wav",
   HINT:        "/sound/mixkit-interface-hint-notification-911.wav",

@@ -80,39 +80,92 @@ export function CallProvider({ children, socket }) {
     }
   }, []);
 
+  // ── Custom ringtone URL (fallback when system ring can't be accessed) ─────
+  const CALL_RINGTONE_URL = "https://res.cloudinary.com/dvznn9s4g/video/upload/v1785074803/soundreality-phone-ringtone-clean-273554_zgyg6f.mp3";
+  const CALL_RINGTONE_LOCAL = "/sound/call_ring.mp3";
+
   // ── Ringtone ────────────────────────────────────────────────────────────────
+  // Strategy:
+  //   1. On Android/iOS PWAs, attempt to trigger the device's default ringtone
+  //      via the Notification API (uses the OS notification sound channel when
+  //      the PWA has notification permission and runs in a trusted context).
+  //   2. If that's blocked or unavailable, fall back to our custom audio file.
   const playRingtone = useCallback(() => {
     if (typeof window === "undefined" || ringtoneRef.current) return;
 
-    if (!userInteractedRef.current) {
-      console.log("Ringtone skipped — no user interaction yet");
-      return;
+    let stopped = false;
+    let audioEl = null;
+    let vibInterval = null;
+
+    const stopAll = () => {
+      stopped = true;
+      clearInterval(vibInterval);
+      if (audioEl) { audioEl.pause(); audioEl.currentTime = 0; }
+      try { navigator.vibrate?.(0); } catch (_) {}
+    };
+
+    // ── Attempt 1: System ringtone via the Notification API ─────────────────
+    // On Android Chrome/PWA the Notification API plays the system notification
+    // sound when silent is NOT set. We show a silent "call" notification — the
+    // OS itself handles the ring channel for CallStyle / full-screen-intent.
+    let usedSystemSound = false;
+    if ("Notification" in window && Notification.permission === "granted" && "serviceWorker" in navigator) {
+      try {
+        navigator.serviceWorker.ready.then((reg) => {
+          if (stopped) return;
+          reg.showNotification("📞 Incoming call", {
+            tag:                "ringtone-pulse",
+            requireInteraction: false,
+            silent:             false, // ← let the OS use its own notification ring
+            vibrate:            [0],    // suppress vibrate here; we handle it below
+          }).then(() => {
+            // Close the silent notification immediately — we just needed the ring
+            reg.getNotifications({ tag: "ringtone-pulse" }).then((notes) => {
+              notes.forEach((n) => n.close());
+            });
+            usedSystemSound = true;
+            console.log("🔔 System ringtone triggered via Notification API");
+          }).catch(() => {});
+        }).catch(() => {});
+      } catch (_) {}
     }
 
+    // ── Attempt 2: Custom audio fallback ────────────────────────────────────
+    // Always start our own audio in parallel. If the system sound worked the
+    // user hears the system tone + ours (both at full vol) — we resolve the
+    // conflict by delaying our audio slightly so it doesn't double-up on devices
+    // that successfully fire the system ring.
+    const startCustomAudio = () => {
+      if (stopped) return;
+      const src = CALL_RINGTONE_LOCAL;
+      audioEl = new Audio(src);
+      audioEl.loop   = true;
+      audioEl.volume = 1.0;
+      audioEl.play().catch((err) => {
+        console.warn("🔇 Custom ringtone blocked:", err, "— trying Cloudinary CDN source");
+        // Final fallback: CDN URL
+        audioEl = new Audio(CALL_RINGTONE_URL);
+        audioEl.loop   = true;
+        audioEl.volume = 1.0;
+        audioEl.play().catch((e) => console.warn("🔇 CDN ringtone failed:", e));
+      });
+    };
+
+    // Give system ring a 300 ms head-start; if it didn't fire, our audio starts anyway
+    setTimeout(() => {
+      if (!stopped) startCustomAudio();
+    }, usedSystemSound ? 300 : 0);
+
+    // ── Aggressive vibration pattern for tactile alert ───────────────────────
+    const vibratePattern = [700, 300, 700, 300, 700, 300, 700, 300, 700, 300];
     try {
-      const ctx = new (window.AudioContext || window.webkitAudioContext)();
-      const playBeep = (time) => {
-        const osc  = ctx.createOscillator();
-        const gain = ctx.createGain();
-        osc.connect(gain);
-        gain.connect(ctx.destination);
-        osc.frequency.value = 440;
-        gain.gain.setValueAtTime(0.3, time);
-        gain.gain.exponentialRampToValueAtTime(0.001, time + 0.4);
-        osc.start(time);
-        osc.stop(time + 0.4);
-      };
-      const interval = setInterval(() => {
-        const now = ctx.currentTime;
-        playBeep(now); playBeep(now + 0.5); playBeep(now + 1.0);
-      }, 3000);
-      playBeep(ctx.currentTime);
-      playBeep(ctx.currentTime + 0.5);
-      playBeep(ctx.currentTime + 1.0);
-      ringtoneRef.current = {
-        stop: () => { clearInterval(interval); ctx.close(); },
-      };
-    } catch (e) { console.warn("Ringtone error:", e); }
+      navigator.vibrate?.(vibratePattern);
+      vibInterval = setInterval(() => {
+        if (!stopped) navigator.vibrate?.(vibratePattern);
+      }, 4000);
+    } catch (_) {}
+
+    ringtoneRef.current = { stop: stopAll };
   }, []);
 
   const stopRingtone = useCallback(() => {
