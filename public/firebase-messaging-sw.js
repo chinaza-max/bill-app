@@ -13,12 +13,14 @@ firebase.initializeApp({
 
 const messaging = firebase.messaging();
 
-// Local sound files for push notifications
+// Sound files for push notifications (Voice audio for requests + local chimes)
 const SOUNDS = {
-  CALL:       "/sound/message2.wav",
-  POSITIVE:   "/sound/mixkit-positive-notification-951.wav",
-  NEGATIVE:   "/sound/message1.wav",
-  HINT:       "/sound/mixkit-interface-hint-notification-911.wav",
+  VOICE_ALERT: "https://res.cloudinary.com/dvznn9s4g/video/upload/v1781476716/2927f28c_1781476435_ee632def_1_h5ak2v.mp3",
+  VOICE_LOCAL: "/sound/voice_request_alert.mp3",
+  CALL:        "/sound/message2.wav",
+  POSITIVE:    "/sound/mixkit-positive-notification-951.wav",
+  NEGATIVE:    "/sound/message1.wav",
+  HINT:        "/sound/mixkit-interface-hint-notification-911.wav",
 };
 
 // Vibration patterns — [vibrate, pause, vibrate, pause, ...]
@@ -88,8 +90,9 @@ messaging.onBackgroundMessage((payload) => {
 
   // ── 2. NEW WITHDRAWAL REQUESTS (NEW_ORDER & SW_NEW_REQUEST) ───────────────
   if (eventType === "NEW_ORDER" || eventType === "SW_NEW_REQUEST") {
-    const soundUrl = SOUNDS.POSITIVE;
-    playSoundOnClient(soundUrl);
+    // Spoken Voice alert for incoming request
+    const voiceSoundUrl = SOUNDS.VOICE_ALERT;
+    playSoundOnClient(voiceSoundUrl);
 
     const isSW = eventType === "SW_NEW_REQUEST";
     const targetUrl = isSW ? "/specialWithdrawal" : `/orders/${data.orderId || ""}`;
@@ -101,12 +104,12 @@ messaging.onBackgroundMessage((payload) => {
       tag:                `new-request-${data.orderId || data.requestId || Date.now()}`,
       requireInteraction: true,
       vibrate:            VIBRATE.NEW_ORDER,
-      sound:              soundUrl,
+      sound:              voiceSoundUrl,
       data: {
         type:    eventType,
         orderId: data.orderId || data.requestId,
         url:     targetUrl,
-        sound:   soundUrl,
+        sound:   voiceSoundUrl,
       },
       actions: [
         { action: "open",  title: "View Request", icon: "/images/icons/icon-72x72.png" },

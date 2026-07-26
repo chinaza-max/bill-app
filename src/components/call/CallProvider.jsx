@@ -171,6 +171,8 @@ export function CallProvider({ children, socket }) {
 
           if (data.type === "INCOMING_CALL") {
             handleIncomingCallData(data);
+          } else if (data.type === "NEW_ORDER" || data.type === "SW_NEW_REQUEST") {
+            playSoundByUrl("/sound/voice_request_alert.mp3");
           } else {
             const soundUrl = (data.type?.includes("REJECT") || data.type?.includes("CANCEL"))
               ? "/sound/message1.wav"

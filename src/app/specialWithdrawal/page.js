@@ -167,6 +167,15 @@ const ConfirmSheet = ({ merchant, amount, denomination, denominationId, accessTo
   const [error, setError] = useState("");
 
   const handleConfirm = async () => {
+    // Guard: denominationId is required by the backend
+    const resolvedDenomId = denominationId || merchant.denominationId;
+    if (!resolvedDenomId) {
+      const msg = "Please go back and select a denomination note size before confirming.";
+      setError(msg);
+      if (onErrorModal) onErrorModal(msg);
+      return;
+    }
+
     setLoading(true);
     setError("");
     try {
@@ -181,8 +190,7 @@ const ConfirmSheet = ({ merchant, amount, denomination, denominationId, accessTo
           apiType: "swCreateRequest",
           merchantId: merchant.merchantId || merchant.id,
           amount: Number(amount),
-          denominationId,
-         // denominationValue: denomination,
+          denominationId: resolvedDenomId,
         }),
       });
       const json = await res.json();
@@ -801,7 +809,7 @@ export default function SpecialWithdrawalPage() {
               merchant={selectedMerchant}
               amount={amount}
               denomination={selectedDenom?.value}
-              denominationId={denomId || selectedDenom?.id}
+              denominationId={selectedMerchant?.denominationId || denomId || selectedDenom?.id}
               accessToken={accessToken}
               onClose={() => setShowConfirm(false)}
               onSuccess={() => { setShowConfirm(false); setStep("success"); }}
