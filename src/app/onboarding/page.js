@@ -7,20 +7,20 @@ import Link from "next/link";
 
 const introSlides = [
   {
-    title: "Leave Beyond Expectation. Order Smarter, Leave Better",
-    description: "Order money at your comfort zone without stress with fidopoint",
+    title: "Live Beyond Expectation. Withdraw Smarter, Live Better",
+    description: "Request withdrawal at your comfort zone without stress with fidopoint",
     image: "splash1.png",
-    highlight: "Order Smarter",
+    highlight: "Withdraw Smarter",
   },
   {
-    title: "Unlock Convenience Order in tap, Enjoy in a Snap",
-    description: "Order money at your comfort zone without stress with fidopoint",
+    title: "Unlock Convenience Request in a tap, Enjoy in a Snap",
+    description: "Request withdrawal at your comfort zone without stress with fidopoint",
     image: "splash2.png",
     highlight: "Unlock Convenience",
   },
   {
     title: "Turn Your Spare Time Into Money By Becoming a Merchant",
-    description: "Order money at your comfort zone without stress with fidopoint",
+    description: "Request withdrawal at your comfort zone without stress with fidopoint",
     image: "splash3.png",
     highlight: "Becoming a Merchant",
   },

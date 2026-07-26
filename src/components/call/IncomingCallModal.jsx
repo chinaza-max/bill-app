@@ -47,7 +47,7 @@ export default function IncomingCallModal() {
                 </div>
                 <div>
                   <p className="text-xs text-amber-300/70 leading-none mb-0.5">
-                    Incoming call · Order #{incomingCall.orderId}
+                    Incoming call · Withdrawal Request #{incomingCall.orderId}
                   </p>
                   <p className="text-sm font-semibold text-white leading-tight">
                     {incomingCall.callerName || "Unknown"}

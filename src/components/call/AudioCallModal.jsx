@@ -92,7 +92,7 @@ export default function AudioCallModal({ isOpen, onClose, orderId, otherUserName
                 </div>
               )}
               {error && <div className="w-full mb-4 px-3 py-2 rounded-xl text-sm text-red-300 text-center" style={{ background: "rgba(239,68,68,0.15)" }}>{error}</div>}
-              <p className="text-xs text-amber-500/60 mb-6">Order #{orderId}</p>
+              <p className="text-xs text-amber-500/60 mb-6">Withdrawal Request #{orderId}</p>
               {isIncoming && !inCall ? (
                 <div className="flex items-center justify-center space-x-10 w-full">
                   <div className="flex flex-col items-center space-y-2">

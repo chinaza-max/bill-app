@@ -591,48 +591,29 @@ export async function POST(req) {
       const status = error.response?.status || 500;
       const errorMessage = error.response?.data?.message || error.message;
 
-      switch (status) {
-        case 400:
-          return new Response(
-            JSON.stringify({ status: "error", message: "Invalid request", details: errorMessage }),
-            { status: 400 }
-          );
-        case 401:
-          return new Response(
-            JSON.stringify({ status: "error", message: "Authentication failed", details: errorMessage }),
-            { status: 401 }
-          );
-        case 403:
-          return new Response(
-            JSON.stringify({ status: "error", message: "Access forbidden", details: errorMessage }),
-            { status: 403 }
-          );
-        case 404:
-          return new Response(
-            JSON.stringify({ status: "error", message: "Resource not found", details: errorMessage }),
-            { status: 404 }
-          );
-        case 429:
-          return new Response(
-            JSON.stringify({ status: "error", message: "Too many requests", details: errorMessage }),
-            { status: 429 }
-          );
-        case 409:
-          return new Response(
-            JSON.stringify({ status: "error", message: error.response.data.message, details: errorMessage }),
-            { status: 409 }
-          );
-        default:
-          console.error("Server Error:", { status, message: errorMessage, stack: error.stack });
-          return new Response(
-            JSON.stringify({
-              status: "error",
-              message: "Internal server error",
-              details: process.env.NODE_ENV === "development" ? errorMessage : "An unexpected error occurred",
-            }),
-            { status: 500 }
-          );
+      if (status === 400 || status === 403 || status === 404 || status === 409 || status === 422 || status === 429) {
+        return new Response(
+          JSON.stringify({ status: "error", message: errorMessage, details: errorMessage }),
+          { status, headers: { "Content-Type": "application/json" } }
+        );
       }
+
+      if (status === 401) {
+        return new Response(
+          JSON.stringify({ status: "error", message: "Authentication failed", details: errorMessage }),
+          { status: 401, headers: { "Content-Type": "application/json" } }
+        );
+      }
+
+      console.error("Server Error:", { status, message: errorMessage, stack: error.stack });
+      return new Response(
+        JSON.stringify({
+          status: "error",
+          message: errorMessage || "Internal server error",
+          details: process.env.NODE_ENV === "development" ? errorMessage : "An unexpected error occurred",
+        }),
+        { status: 500, headers: { "Content-Type": "application/json" } }
+      );
     }
 
     if (error instanceof SyntaxError) {

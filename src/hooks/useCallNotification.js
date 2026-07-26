@@ -42,7 +42,7 @@ export function useCallNotification(socket, userId, accessToken) {
       setIncomingCall(data);
       if ("Notification" in window && Notification.permission === "granted") {
         new Notification(`📞 Incoming call from ${data.callerName}`, {
-          body: `Order #${data.orderId}`,
+          body: `Withdrawal Request #${data.orderId}`,
           icon: data.callerAvatar || "/icon-192.png",
           tag: "incoming-call",
           requireInteraction: true,

@@ -163,7 +163,7 @@ export default function GlobalAudioCallModal({
                 </div>
               )}
 
-              <p className="text-xs text-amber-500/60 mb-6">Order #{orderId}</p>
+              <p className="text-xs text-amber-500/60 mb-6">Withdrawal Request #{orderId}</p>
 
               {/* Controls — mute + end */}
               <div className="flex items-center justify-center space-x-8 w-full">

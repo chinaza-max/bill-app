@@ -18,6 +18,7 @@ import {
   X,
   Banknote,
   Info,
+  Wallet,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import ProtectedRoute from "@/app/component/protect";
@@ -152,7 +153,7 @@ const MerchantCard = ({ merchant, onSelect, index }) => {
 };
 
 // ─── Confirm Sheet ─────────────────────────────────────────────────────────────
-const ConfirmSheet = ({ merchant, amount, denomination, denominationId, accessToken, onClose, onSuccess }) => {
+const ConfirmSheet = ({ merchant, amount, denomination, denominationId, accessToken, onClose, onSuccess, onErrorModal }) => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
@@ -176,10 +177,17 @@ const ConfirmSheet = ({ merchant, amount, denomination, denominationId, accessTo
         }),
       });
       const json = await res.json();
-      if (!res.ok) throw new Error(json?.message || json?.details || "Failed to create request");
+      if (!res.ok) {
+        const errMsg = (json?.message && json?.message !== "Invalid request")
+          ? json.message
+          : (json?.details || json?.message || "Failed to create request");
+        throw new Error(errMsg);
+      }
       onSuccess(json);
     } catch (e) {
-      setError(e.message || "Something went wrong. Please try again.");
+      const msg = e.message || "Something went wrong. Please try again.";
+      setError(msg);
+      if (onErrorModal) onErrorModal(msg);
     } finally {
       setLoading(false);
     }
@@ -273,6 +281,173 @@ const ConfirmSheet = ({ merchant, amount, denomination, denominationId, accessTo
   );
 };
 
+// ─── Interactive Human-Requirement Error Modal ──────────────────────────────
+const ErrorModal = ({ message, onClose, onDeposit }) => {
+  if (!message) return null;
+
+  const isBalanceError =
+    message.toLowerCase().includes("balance") ||
+    message.toLowerCase().includes("insufficient") ||
+    message.toLowerCase().includes("need ₦");
+
+  const isDisabledError = message.toLowerCase().includes("disabled");
+
+  return (
+    <div
+      style={{
+        position: "fixed",
+        inset: 0,
+        zIndex: 200,
+        background: "rgba(0, 0, 0, 0.65)",
+        backdropFilter: "blur(6px)",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        padding: "20px",
+      }}
+    >
+      <motion.div
+        initial={{ opacity: 0, scale: 0.88, y: 20 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        exit={{ opacity: 0, scale: 0.88, y: 20 }}
+        transition={{ type: "spring", damping: 24, stiffness: 300 }}
+        style={{
+          width: "100%",
+          maxWidth: 390,
+          background: "#ffffff",
+          borderRadius: 24,
+          padding: "28px 24px",
+          boxShadow: "0 25px 50px -12px rgba(0,0,0,0.35)",
+          textAlign: "center",
+          position: "relative",
+          overflow: "hidden",
+        }}
+      >
+        {/* Top accent bar */}
+        <div
+          style={{
+            position: "absolute",
+            top: 0,
+            left: 0,
+            right: 0,
+            height: 5,
+            background: isBalanceError
+              ? "linear-gradient(90deg, #dc2626, #ef4444, #f59e0b)"
+              : "linear-gradient(90deg, #b45309, #d97706, #f59e0b)",
+          }}
+        />
+
+        {/* Icon Circle */}
+        <div
+          style={{
+            width: 68,
+            height: 68,
+            borderRadius: "50%",
+            background: isBalanceError ? "rgba(220, 38, 38, 0.08)" : "rgba(245, 158, 11, 0.12)",
+            border: `2px solid ${isBalanceError ? "rgba(220, 38, 38, 0.25)" : "rgba(245, 158, 11, 0.3)"}`,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            margin: "0 auto 16px",
+          }}
+        >
+          {isBalanceError ? (
+            <Wallet style={{ width: 34, height: 34, color: "#dc2626" }} />
+          ) : (
+            <AlertCircle style={{ width: 34, height: 34, color: "#d97706" }} />
+          )}
+        </div>
+
+        {/* Header Title */}
+        <h3
+          style={{
+            fontSize: 20,
+            fontWeight: 800,
+            color: isBalanceError ? "#991b1b" : "#78350f",
+            margin: "0 0 10px",
+            letterSpacing: "-0.01em",
+          }}
+        >
+          {isBalanceError
+            ? "Insufficient Wallet Balance"
+            : isDisabledError
+            ? "Service Unavailable"
+            : "Request Unable to Complete"}
+        </h3>
+
+        {/* Formatted Message */}
+        <div
+          style={{
+            background: isBalanceError ? "rgba(254, 242, 242, 0.7)" : "rgba(254, 243, 199, 0.4)",
+            border: `1px solid ${isBalanceError ? "rgba(252, 165, 165, 0.5)" : "rgba(253, 230, 138, 0.6)"}`,
+            borderRadius: 14,
+            padding: "14px 16px",
+            marginBottom: 22,
+          }}
+        >
+          <p
+            style={{
+              margin: 0,
+              fontSize: 14,
+              fontWeight: 600,
+              color: isBalanceError ? "#7f1d1d" : "#92400e",
+              lineHeight: 1.55,
+            }}
+          >
+            {message}
+          </p>
+        </div>
+
+        {/* Human-Interaction Action Buttons */}
+        <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+          {isBalanceError && onDeposit && (
+            <button
+              onClick={() => {
+                onClose();
+                onDeposit();
+              }}
+              style={{
+                width: "100%",
+                padding: "14px 0",
+                borderRadius: 14,
+                background: "linear-gradient(135deg, #16a34a 0%, #15803d 100%)",
+                border: "none",
+                fontSize: 15,
+                fontWeight: 700,
+                color: "#ffffff",
+                cursor: "pointer",
+                boxShadow: "0 4px 14px rgba(22, 163, 74, 0.3)",
+              }}
+            >
+              Deposit / Fund Wallet
+            </button>
+          )}
+
+          <button
+            onClick={onClose}
+            style={{
+              width: "100%",
+              padding: "14px 0",
+              borderRadius: 14,
+              background: isBalanceError
+                ? "linear-gradient(135deg, #dc2626 0%, #b91c1c 100%)"
+                : "linear-gradient(135deg, #92400e 0%, #b45309 50%, #d97706 100%)",
+              border: "none",
+              fontSize: 15,
+              fontWeight: 700,
+              color: "#ffffff",
+              cursor: "pointer",
+              boxShadow: "0 4px 14px rgba(0,0,0,0.15)",
+            }}
+          >
+            {isBalanceError ? "I Understand — Close" : "Understand & Close"}
+          </button>
+        </div>
+      </motion.div>
+    </div>
+  );
+};
+
 // ─── Success View ──────────────────────────────────────────────────────────────
 const SuccessView = ({ onDone }) => (
   <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "60px 32px", textAlign: "center" }}>
@@ -309,6 +484,8 @@ export default function SpecialWithdrawalPage() {
   const [selectedMerchant, setSelectedMerchant] = useState(null);
   const [showConfirm, setShowConfirm] = useState(false);
   const [denomId, setDenomId] = useState(null);
+
+  const [errorModalMsg, setErrorModalMsg] = useState("");
 
   // Fetch live denominations from backend
   useEffect(() => {
@@ -364,7 +541,12 @@ export default function SpecialWithdrawalPage() {
 
       const res = await fetch(`/api/user?${params.toString()}`);
       const json = await res.json();
-      if (!res.ok) throw new Error(json?.message || json?.details || "Failed to find merchants");
+      if (!res.ok) {
+        const msg = (json?.message && json?.message !== "Invalid request")
+          ? json.message
+          : (json?.details || json?.message || "Failed to find merchants");
+        throw new Error(msg);
+      }
 
       // Actual shape: json.data.data is the merchant array directly, e.g.
       // { data: { status, message, data: [ { merchantId, displayName, ... } ] } }
@@ -375,7 +557,9 @@ export default function SpecialWithdrawalPage() {
       setDenomId(selectedDenom.id || null);
       setStep("results");
     } catch (e) {
-      setFetchError(e.message || "Could not fetch merchants. Please try again.");
+      const msg = e.message || "Could not fetch merchants. Please try again.";
+      setFetchError(msg);
+      setErrorModalMsg(msg);
     } finally {
       setLoading(false);
     }
@@ -611,6 +795,18 @@ export default function SpecialWithdrawalPage() {
               accessToken={accessToken}
               onClose={() => setShowConfirm(false)}
               onSuccess={() => { setShowConfirm(false); setStep("success"); }}
+              onErrorModal={(msg) => setErrorModalMsg(msg)}
+            />
+          )}
+        </AnimatePresence>
+
+        {/* ── Error Modal (Requires Human Interaction) ── */}
+        <AnimatePresence>
+          {errorModalMsg && (
+            <ErrorModal
+              message={errorModalMsg}
+              onClose={() => setErrorModalMsg("")}
+              onDeposit={() => router.push("/p2p/transfer")}
             />
           )}
         </AnimatePresence>
