@@ -128,24 +128,33 @@ const MerchantCard = ({ merchant, onSelect, index }) => {
       <div style={{
         marginTop: 12,
         display: "flex",
-        gap: 8,
+        gap: 6,
         background: "rgba(251,191,36,0.07)",
         borderRadius: 10,
-        padding: "10px 12px",
+        padding: "10px 8px",
       }}>
         <div style={{ flex: 1, textAlign: "center" }}>
-          <p style={{ margin: 0, fontSize: 10, color: "#a16207", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.06em" }}>Service Charge</p>
-          <p style={{ margin: "2px 0 0", fontSize: 14, fontWeight: 800, color: "#92400e" }}>₦{fmt(merchant.merchantServiceCharge)}</p>
+          <p style={{ margin: 0, fontSize: 9, color: "#a16207", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.04em" }}>Service Fee</p>
+          <p style={{ margin: "2px 0 0", fontSize: 13, fontWeight: 800, color: "#92400e" }}>₦{fmt(merchant.merchantServiceCharge)}</p>
         </div>
         <div style={{ width: 1, background: "rgba(245,158,11,0.25)" }} />
         <div style={{ flex: 1, textAlign: "center" }}>
-          <p style={{ margin: 0, fontSize: 10, color: "#a16207", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.06em" }}>Transport Fee</p>
-          <p style={{ margin: "2px 0 0", fontSize: 14, fontWeight: 800, color: "#92400e" }}>₦{fmt(merchant.estimatedTransportationFee)}</p>
+          <p style={{ margin: 0, fontSize: 9, color: "#a16207", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.04em" }}>Transport Fee</p>
+          <p style={{ margin: "2px 0 0", fontSize: 13, fontWeight: 800, color: "#92400e" }}>₦{fmt(merchant.estimatedTransportationFee)}</p>
         </div>
+        {Number(merchant.companyTotalCharge || 0) > 0 && (
+          <>
+            <div style={{ width: 1, background: "rgba(245,158,11,0.25)" }} />
+            <div style={{ flex: 1, textAlign: "center" }}>
+              <p style={{ margin: 0, fontSize: 9, color: "#a16207", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.04em" }}>Platform Fee</p>
+              <p style={{ margin: "2px 0 0", fontSize: 13, fontWeight: 800, color: "#92400e" }}>₦{fmt(merchant.companyTotalCharge)}</p>
+            </div>
+          </>
+        )}
         <div style={{ width: 1, background: "rgba(245,158,11,0.25)" }} />
         <div style={{ flex: 1, textAlign: "center" }}>
-          <p style={{ margin: 0, fontSize: 10, color: "#a16207", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.06em" }}>Total Payable</p>
-          <p style={{ margin: "2px 0 0", fontSize: 14, fontWeight: 800, color: "#92400e" }}>₦{fmt(merchant.estimatedTotalPayableAmount)}</p>
+          <p style={{ margin: 0, fontSize: 9, color: "#a16207", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.04em" }}>Total Payable</p>
+          <p style={{ margin: "2px 0 0", fontSize: 13, fontWeight: 800, color: "#92400e" }}>₦{fmt(merchant.estimatedTotalPayableAmount)}</p>
         </div>
       </div>
     </motion.div>
@@ -199,6 +208,7 @@ const ConfirmSheet = ({ merchant, amount, denomination, denominationId, accessTo
     { label: "Merchant",           value: merchant.displayName },
     { label: "Service Charge",     value: `₦${fmt(merchant.merchantServiceCharge)}` },
     { label: "Transport Fee",      value: `₦${fmt(merchant.estimatedTransportationFee)}` },
+    ...(merchant.companyTotalCharge ? [{ label: "Platform Fee", value: `₦${fmt(merchant.companyTotalCharge)}` }] : []),
     { label: "Estimated Delivery", value: merchant.estimatedDeliveryTime || "—" },
     { label: "Total Payable",      value: `₦${fmt(merchant.estimatedTotalPayableAmount)}`, bold: true },
   ];

@@ -1,7 +1,7 @@
 import axios from "axios";
 
 const axiosInstance = axios.create({
-  baseURL: process.env.API||"https://api.fidopoint.xyz/api/v1",
+  baseURL: process.env.API || "https://api.fidopoint.xyz/api/v1",
   headers: {
     "Content-Type": "application/json",
   },
@@ -136,8 +136,8 @@ function getClientIp(req) {
 }
 
 function getTierForApiType(apiType) {
-  if (API_TYPE_TIERS.polling.includes(apiType))    return "polling";
-  if (API_TYPE_TIERS.sensitive.includes(apiType))  return "sensitive";
+  if (API_TYPE_TIERS.polling.includes(apiType)) return "polling";
+  if (API_TYPE_TIERS.sensitive.includes(apiType)) return "sensitive";
   if (API_TYPE_TIERS.restricted.includes(apiType)) return "restricted";
   return "general"; // default fallback
 }
