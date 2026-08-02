@@ -23,6 +23,7 @@ import {
   Send,
   Loader2,
   RefreshCw,
+  SwitchCamera,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useRouter, useParams } from "next/navigation";
@@ -194,6 +195,8 @@ const MerchantScanner = ({ onClose, onScan, accessToken, orderId, socket }) => {
   const [isScanning, setIsScanning] = useState(false);
   const [scanSuccess, setScanSuccess] = useState(false);
   const [error, setError] = useState(null);
+  // "environment" = back camera (default), "user" = front camera
+  const [facingMode, setFacingMode] = useState("environment");
 
   const scannerRef = useRef(null);
   const scanHandledRef = useRef(false);
@@ -279,10 +282,10 @@ const MerchantScanner = ({ onClose, onScan, accessToken, orderId, socket }) => {
 
   const { run: runSubmitQR, isPending: isSubmittingQR } = useIdempotentAction(submitQR);
 
-  const startScanner = async () => {
+  const startScanner = async (facing = facingMode) => {
     scanHandledRef.current = false;
 
-    // Re-create scanner instance if needed (avoids stale DOM state on retry).
+    // Re-create scanner instance (avoids stale DOM state on retry/switch).
     if (scannerRef.current) {
       try {
         if (scannerRef.current.isScanning) await scannerRef.current.stop();
@@ -307,15 +310,18 @@ const MerchantScanner = ({ onClose, onScan, accessToken, orderId, socket }) => {
     };
     const config = { fps: 10, qrbox: { width: 250, height: 250 } };
 
-    // Try back camera first, then front camera, then any available camera.
-    const cameraConstraints = [
-      { facingMode: { exact: "environment" } },
-      { facingMode: "environment" },
-      { facingMode: "user" },
-    ];
+    // Prefer the requested facing mode; fall back to the opposite, then any camera.
+    const primaryConstraints =
+      facing === "environment"
+        ? [{ facingMode: { exact: "environment" } }, { facingMode: "environment" }]
+        : [{ facingMode: { exact: "user" } }, { facingMode: "user" }];
+    const fallbackConstraints =
+      facing === "environment"
+        ? [{ facingMode: "user" }]
+        : [{ facingMode: "environment" }];
 
     let started = false;
-    for (const constraint of cameraConstraints) {
+    for (const constraint of [...primaryConstraints, ...fallbackConstraints]) {
       try {
         await scannerRef.current.start(constraint, config, onSuccess, onError);
         started = true;
@@ -326,11 +332,13 @@ const MerchantScanner = ({ onClose, onScan, accessToken, orderId, socket }) => {
     }
 
     if (!started) {
-      // Last resort: use the first enumerated camera ID directly.
+      // Last resort: enumerate and pick by index.
       try {
         const devices = await Html5Qrcode.getCameras();
         if (devices && devices.length > 0) {
-          await scannerRef.current.start(devices[0].id, config, onSuccess, onError);
+          // Pick back camera by index if possible
+          const idx = facing === "environment" ? devices.length - 1 : 0;
+          await scannerRef.current.start(devices[idx].id, config, onSuccess, onError);
           started = true;
         }
       } catch (err) {
@@ -347,6 +355,14 @@ const MerchantScanner = ({ onClose, onScan, accessToken, orderId, socket }) => {
       );
     }
   };
+
+  const switchCamera = async () => {
+    const newFacing = facingMode === "environment" ? "user" : "environment";
+    setFacingMode(newFacing);
+    await startScanner(newFacing);
+  };
+
+  const { run: runSwitchCamera, isPending: isSwitchingCamera } = useIdempotentAction(switchCamera);
 
   const stopScanner = async () => {
     if (scannerRef.current && scannerRef.current.isScanning) {
@@ -448,14 +464,31 @@ const MerchantScanner = ({ onClose, onScan, accessToken, orderId, socket }) => {
               </div>
             )}
             {isScanning && (
-              <div className="text-center">
+              <div className="flex gap-2">
+                {/* Switch camera */}
+                <button
+                  onClick={runSwitchCamera}
+                  disabled={isSwitchingCamera || isStoppingScanner}
+                  title={facingMode === "environment" ? "Switch to front camera" : "Switch to back camera"}
+                  className="flex-1 bg-amber-100 text-amber-700 border border-amber-300 px-4 py-3 rounded-xl hover:bg-amber-200 transition-colors disabled:opacity-60 disabled:cursor-not-allowed flex items-center gap-2 justify-center"
+                >
+                  {isSwitchingCamera ? (
+                    <Loader2 className="h-5 w-5 animate-spin" />
+                  ) : (
+                    <SwitchCamera className="h-5 w-5" />
+                  )}
+                  <span className="text-sm font-medium">
+                    {facingMode === "environment" ? "Front" : "Back"}
+                  </span>
+                </button>
+                {/* Stop scanning */}
                 <button
                   onClick={runStopScanner}
-                  disabled={isStoppingScanner}
-                  className="bg-red-500 text-white px-6 py-3 rounded-xl hover:bg-red-600 transition-colors disabled:opacity-60 disabled:cursor-not-allowed flex items-center gap-2 mx-auto w-full justify-center"
+                  disabled={isStoppingScanner || isSwitchingCamera}
+                  className="flex-1 bg-red-500 text-white px-4 py-3 rounded-xl hover:bg-red-600 transition-colors disabled:opacity-60 disabled:cursor-not-allowed flex items-center gap-2 justify-center"
                 >
                   {isStoppingScanner && <Loader2 className="h-4 w-4 animate-spin" />}
-                  Stop Scanning
+                  Stop
                 </button>
               </div>
             )}
