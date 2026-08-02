@@ -190,21 +190,35 @@ const LeafletMap = ({ orderData }) => {
 // ─────────────────────────────────────────────────────────────────────────────
 
 const MerchantScanner = ({ onClose, onScan, accessToken, orderId, socket }) => {
-  const [hasCamera,   setHasCamera]   = useState(false);
-  const [isScanning,  setIsScanning]  = useState(false);
+  const [hasCamera, setHasCamera] = useState(false);
+  const [isScanning, setIsScanning] = useState(false);
   const [scanSuccess, setScanSuccess] = useState(false);
-  const [error,       setError]       = useState(null);
+  const [error, setError] = useState(null);
 
-  const scannerRef     = useRef(null);
+  const scannerRef = useRef(null);
   const scanHandledRef = useRef(false);
 
   const { qrSubmissionData, submitQRData, qrSubmissionLoading, qrSubmissionError, qrErrorDetail } =
     useQRSubmission();
 
   useEffect(() => {
-    Html5Qrcode.getCameras()
+    // Explicitly request camera access first so the browser shows the permission prompt.
+    navigator.mediaDevices
+      ?.getUserMedia({ video: true })
+      .then((stream) => {
+        // Stop the test stream immediately — we only needed the permission grant.
+        stream.getTracks().forEach((t) => t.stop());
+        return Html5Qrcode.getCameras();
+      })
       .then((devices) => setHasCamera(devices && devices.length > 0))
-      .catch(() => setError("Camera access denied or no cameras found"));
+      .catch((err) => {
+        console.error("Camera permission/enumeration error:", err);
+        if (err && (err.name === "NotAllowedError" || err.name === "PermissionDeniedError")) {
+          setError("Camera permission denied. Please allow camera access in your browser settings and try again.");
+        } else {
+          setError("No camera found or camera access is unavailable on this device.");
+        }
+      });
     return () => stopScanner();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -266,29 +280,71 @@ const MerchantScanner = ({ onClose, onScan, accessToken, orderId, socket }) => {
   const { run: runSubmitQR, isPending: isSubmittingQR } = useIdempotentAction(submitQR);
 
   const startScanner = async () => {
-    try {
-      scanHandledRef.current = false;
-      if (!scannerRef.current) scannerRef.current = new Html5Qrcode("reader");
-      await scannerRef.current.start(
-        { facingMode: "environment" },
-        { fps: 10, qrbox: { width: 250, height: 250 } },
-        async (decodedText) => {
-          if (scanHandledRef.current) return;
-          scanHandledRef.current = true;
-          await stopScanner();
-          setScanSuccess(true);
-          try {
-            await runSubmitQR(decodedText);
-          } catch (err) {
-            setError("Failed to submit QR code data");
-          }
-        },
-        (msg) => { if (!msg.includes("No QR code found")) console.error(msg); }
-      );
+    scanHandledRef.current = false;
+
+    // Re-create scanner instance if needed (avoids stale DOM state on retry).
+    if (scannerRef.current) {
+      try {
+        if (scannerRef.current.isScanning) await scannerRef.current.stop();
+      } catch (_) {}
+      scannerRef.current = null;
+    }
+    scannerRef.current = new Html5Qrcode("reader");
+
+    const onSuccess = async (decodedText) => {
+      if (scanHandledRef.current) return;
+      scanHandledRef.current = true;
+      await stopScanner();
+      setScanSuccess(true);
+      try {
+        await runSubmitQR(decodedText);
+      } catch (err) {
+        setError("Failed to submit QR code data");
+      }
+    };
+    const onError = (msg) => {
+      if (!msg.includes("No QR code found")) console.error(msg);
+    };
+    const config = { fps: 10, qrbox: { width: 250, height: 250 } };
+
+    // Try back camera first, then front camera, then any available camera.
+    const cameraConstraints = [
+      { facingMode: { exact: "environment" } },
+      { facingMode: "environment" },
+      { facingMode: "user" },
+    ];
+
+    let started = false;
+    for (const constraint of cameraConstraints) {
+      try {
+        await scannerRef.current.start(constraint, config, onSuccess, onError);
+        started = true;
+        break;
+      } catch (err) {
+        console.warn("Camera constraint failed, trying next:", constraint, err);
+      }
+    }
+
+    if (!started) {
+      // Last resort: use the first enumerated camera ID directly.
+      try {
+        const devices = await Html5Qrcode.getCameras();
+        if (devices && devices.length > 0) {
+          await scannerRef.current.start(devices[0].id, config, onSuccess, onError);
+          started = true;
+        }
+      } catch (err) {
+        console.error("All camera start attempts failed:", err);
+      }
+    }
+
+    if (started) {
       setIsScanning(true);
       setError(null);
-    } catch (err) {
-      setError("Failed to start camera. Please check permissions.");
+    } else {
+      setError(
+        "Failed to start camera. Please ensure camera permissions are granted in your browser/device settings, then tap Retry."
+      );
     }
   };
 
@@ -300,7 +356,7 @@ const MerchantScanner = ({ onClose, onScan, accessToken, orderId, socket }) => {
   };
 
   const { run: runStartScanner, isPending: isStartingScanner } = useIdempotentAction(startScanner);
-  const { run: runStopScanner, isPending: isStoppingScanner }  = useIdempotentAction(stopScanner);
+  const { run: runStopScanner, isPending: isStoppingScanner } = useIdempotentAction(stopScanner);
 
   const handleRetry = useCallback(async () => {
     setScanSuccess(false);
@@ -327,15 +383,25 @@ const MerchantScanner = ({ onClose, onScan, accessToken, orderId, socket }) => {
       <div className="bg-amber-50 px-4 py-3 flex items-start gap-3 border-b border-amber-100">
         <AlertTriangle className="h-4 w-4 text-amber-500 mt-0.5 flex-shrink-0" />
         <p className="text-xs text-amber-700 leading-relaxed">
-          Point the camera at the customers QR code. The order will be marked complete automatically once scanned.
+          Point the camera at the customers QR code. The request will be marked complete automatically once scanned.
         </p>
       </div>
 
       <div className="p-4">
         {error ? (
           <div className="text-center p-4">
-            <AlertTriangle className="h-12 w-12 text-red-500 mx-auto mb-2" />
-            <p className="text-red-500 mb-4">{error}</p>
+            <AlertTriangle className="h-12 w-12 text-red-500 mx-auto mb-3" />
+            <p className="text-red-600 font-medium mb-2">Camera Unavailable</p>
+            <p className="text-red-500 text-sm mb-4 leading-relaxed">{error}</p>
+            {error.toLowerCase().includes("permission") && (
+              <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 mb-4 text-left text-xs text-amber-800 space-y-1">
+                <p className="font-semibold text-amber-900">How to allow camera access:</p>
+                <p>• <strong>Chrome/Edge:</strong> Tap the 🔒 icon in the address bar → Site settings → Camera → Allow</p>
+                <p>• <strong>Safari:</strong> Settings → Safari → Camera → Allow</p>
+                <p>• <strong>Firefox:</strong> Tap the camera icon in the address bar → Allow</p>
+                <p className="pt-1">After granting permission, tap <strong>Retry</strong> below.</p>
+              </div>
+            )}
             <button
               onClick={runRetry}
               disabled={isRetrying}
@@ -467,11 +533,11 @@ const ClientQRCode = ({ onClose, orderData, accessToken }) => {
 
 const OrderStatusBadge = ({ status, startTime, endTime }) => {
   const config = {
-    pending:    { color: "bg-yellow-100 text-yellow-800", text: "Pending" },
-    inProgress: { color: "bg-blue-100 text-blue-800",    text: "In Progress" },
-    completed:  { color: "bg-green-100 text-green-800",  text: "Completed" },
-    rejected:   { color: "bg-red-100 text-red-800",      text: "Rejected" },
-    cancelled:  { color: "bg-gray-100 text-gray-800",    text: "Cancelled" },
+    pending: { color: "bg-yellow-100 text-yellow-800", text: "Pending" },
+    inProgress: { color: "bg-blue-100 text-blue-800", text: "In Progress" },
+    completed: { color: "bg-green-100 text-green-800", text: "Completed" },
+    rejected: { color: "bg-red-100 text-red-800", text: "Rejected" },
+    cancelled: { color: "bg-gray-100 text-gray-800", text: "Cancelled" },
   }[status] || { color: "bg-gray-100 text-gray-800", text: "Unknown" };
 
   return (
@@ -534,8 +600,8 @@ const ISSUE_TYPES = [
 
 const ReportBottomSheet = ({ isOpen, onClose, accessToken, userId, numericOrderId }) => {
   const [selectedIssue, setSelectedIssue] = useState("");
-  const [complaint,     setComplaint]     = useState("");
-  const [submitted,     setSubmitted]     = useState(false);
+  const [complaint, setComplaint] = useState("");
+  const [submitted, setSubmitted] = useState(false);
 
   useEffect(() => {
     if (isOpen) {
@@ -553,11 +619,11 @@ const ReportBottomSheet = ({ isOpen, onClose, accessToken, userId, numericOrderI
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         accessToken,
-        apiType:       "submitSupportRequest",
+        apiType: "submitSupportRequest",
         userId,
-        orderId:       numericOrderId,
-        title:         selectedIssue,
-        message:       complaint,
+        orderId: numericOrderId,
+        title: selectedIssue,
+        message: complaint,
         complaintType: "service",
       }),
     });
@@ -642,11 +708,10 @@ const ReportBottomSheet = ({ isOpen, onClose, accessToken, userId, numericOrderI
                         type="button"
                         onClick={() => setSelectedIssue(issue)}
                         disabled={isSubmitting}
-                        className={`py-2.5 px-3 rounded-xl text-sm font-medium border transition-colors text-left disabled:opacity-60 disabled:cursor-not-allowed ${
-                          selectedIssue === issue
+                        className={`py-2.5 px-3 rounded-xl text-sm font-medium border transition-colors text-left disabled:opacity-60 disabled:cursor-not-allowed ${selectedIssue === issue
                             ? "bg-amber-500 text-white border-amber-500"
                             : "bg-amber-50 text-amber-800 border-amber-200 hover:bg-amber-100"
-                        }`}
+                          }`}
                       >
                         {issue}
                       </button>
@@ -758,21 +823,21 @@ const QRActionPanel = ({ isMerchant, onPress }) => {
 // ─────────────────────────────────────────────────────────────────────────────
 
 const OrderTrackingPage = () => {
-  const [showInAppMap,         setShowInAppMap]         = useState(false);
+  const [showInAppMap, setShowInAppMap] = useState(false);
   const [showExternalMapModal, setShowExternalMapModal] = useState(false);
   const [showCancelOrderModal, setShowCancelOrderModal] = useState(false);
-  const [showQRScanner,        setShowQRScanner]        = useState(false);
-  const [isMerchant,           setIsMerchant]           = useState(true);
-  const [scanComplete,         setScanComplete]         = useState(false);
-  const [currentLocation,      setCurrentLocation]      = useState(null);
-  const [showReportSheet,      setShowReportSheet]      = useState(false);
-  const [userType,             setUserType]             = useState("");
-  const [showSuccessModal,     setShowSuccessModal]     = useState(false);
-  const [successMessage,       setSuccessMessage]       = useState("");
+  const [showQRScanner, setShowQRScanner] = useState(false);
+  const [isMerchant, setIsMerchant] = useState(true);
+  const [scanComplete, setScanComplete] = useState(false);
+  const [currentLocation, setCurrentLocation] = useState(null);
+  const [showReportSheet, setShowReportSheet] = useState(false);
+  const [userType, setUserType] = useState("");
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [successMessage, setSuccessMessage] = useState("");
 
   const accessToken = useSelector((s) => s.user.accessToken);
-  const userId      = useSelector((s) => s.user.user?.user?.id ?? null);
-  const user        = useSelector((s) => s.user.user?.user);
+  const userId = useSelector((s) => s.user.user?.user?.id ?? null);
+  const user = useSelector((s) => s.user.user?.user);
 
   const socket = useSocket();
   const { startCall, activeCall } = useCall();
@@ -785,9 +850,9 @@ const OrderTrackingPage = () => {
   } = useRequest();
 
   const { cancelOrder } = useCancelOrder();
-  const params    = useParams();
-  const orderId   = params?.orderId;
-  const router    = useRouter();
+  const params = useParams();
+  const orderId = params?.orderId;
+  const router = useRouter();
   const orderData = OrderDetails?.data?.data?.orderDetails;
   const numericOrderId = orderData?.id ? Number(orderData.id) : null;
 
@@ -799,14 +864,14 @@ const OrderTrackingPage = () => {
   // ── outgoing call — idempotent ──────────────────────────────────────────────
   const initiateCall = useCallback(async () => {
     if (activeCall) { console.warn("Already in a call"); return; }
-    if (!socket)    { console.warn("Socket not ready");  return; }
+    if (!socket) { console.warn("Socket not ready"); return; }
     startCall({
-      orderId:         orderData?.id,
-      otherUserName:   orderData?.userDetails?.displayname,
+      orderId: orderData?.id,
+      otherUserName: orderData?.userDetails?.displayname,
       otherUserAvatar: orderData?.userDetails?.avatar,
-      myName:          user?.firstName || "User",
-      myAvatar:        user?.imageUrl  || "",
-      receiverId:      isMerchant ? orderData?.clientId : orderData?.merchantId,
+      myName: user?.firstName || "User",
+      myAvatar: user?.imageUrl || "",
+      receiverId: isMerchant ? orderData?.clientId : orderData?.merchantId,
     });
   }, [activeCall, socket, startCall, orderData, user, isMerchant]);
 
@@ -816,7 +881,7 @@ const OrderTrackingPage = () => {
   useEffect(() => {
     const stored = localStorage.getItem("who");
     if (stored) { setUserType(stored); setIsMerchant(stored === "merchant"); }
-    else        { setUserType("merchant"); setIsMerchant(true); }
+    else { setUserType("merchant"); setIsMerchant(true); }
 
     if (navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(
@@ -847,14 +912,14 @@ const OrderTrackingPage = () => {
       if (String(data.orderId) === String(orderData.id)) refreshOrder();
     };
 
-    socket.on("qrScanSuccess",     onQrScanSuccess);
+    socket.on("qrScanSuccess", onQrScanSuccess);
     socket.on("orderStatusUpdate", onOrderStatusUpdate);
 
     return () => {
-      socket.off("qrScanSuccess",     onQrScanSuccess);
+      socket.off("qrScanSuccess", onQrScanSuccess);
       socket.off("orderStatusUpdate", onOrderStatusUpdate);
     };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [socket, orderData?.id, userType]);
 
   // ── fetch order ─────────────────────────────────────────────────────────────
@@ -865,7 +930,7 @@ const OrderTrackingPage = () => {
       }).toString();
       fetchOrderDetails(`/api/user?${q}`, "GET");
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [accessToken, userType, orderId]);
 
   const refreshOrder = useCallback(() => {
@@ -891,7 +956,7 @@ const OrderTrackingPage = () => {
       accessToken,
       apiType: "orderAcceptOrCancel",
       orderId,
-      type:    "cancel",
+      type: "cancel",
     });
     setShowCancelOrderModal(false);
     refreshOrder();
@@ -942,8 +1007,8 @@ const OrderTrackingPage = () => {
         {activeCall && (
           <motion.div
             initial={{ y: -60, opacity: 0 }}
-            animate={{ y: 0,   opacity: 1 }}
-            exit={{    y: -60, opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            exit={{ y: -60, opacity: 0 }}
             className="fixed top-0 left-0 right-0 z-[150] px-3 pt-2 pointer-events-none"
           >
             <div className="bg-green-600 text-white px-4 py-2 rounded-2xl flex items-center justify-center space-x-2 shadow-lg pointer-events-auto">
@@ -1030,11 +1095,10 @@ const OrderTrackingPage = () => {
                 <button
                   onClick={handleStartCall}
                   disabled={!!activeCall || isCallStarting}
-                  className={`p-2.5 rounded-full transition-colors ${
-                    activeCall || isCallStarting
+                  className={`p-2.5 rounded-full transition-colors ${activeCall || isCallStarting
                       ? "bg-green-100 text-green-600 cursor-not-allowed opacity-60"
                       : "bg-amber-100 text-amber-600 hover:bg-amber-200"
-                  }`}
+                    }`}
                   title={activeCall ? "Call in progress" : isCallStarting ? "Connecting…" : "Start audio call"}
                 >
                   {isCallStarting ? (
