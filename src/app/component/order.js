@@ -194,6 +194,7 @@ const MerchantScanner = ({ onClose, onScan, accessToken, orderId, socket }) => {
   const [isScanning,  setIsScanning]  = useState(false);
   const [scanSuccess, setScanSuccess] = useState(false);
   const [error,       setError]       = useState(null);
+  const [facingMode,  setFacingMode]  = useState("environment");
 
   const scannerRef     = useRef(null);
   const scanHandledRef = useRef(false);
@@ -265,12 +266,16 @@ const MerchantScanner = ({ onClose, onScan, accessToken, orderId, socket }) => {
 
   const { run: runSubmitQR, isPending: isSubmittingQR } = useIdempotentAction(submitQR);
 
-  const startScanner = async () => {
+  const startScanner = async (facingModeOverride) => {
+    const targetFacing = facingModeOverride || facingMode;
     try {
       scanHandledRef.current = false;
+      if (scannerRef.current && scannerRef.current.isScanning) {
+        await scannerRef.current.stop();
+      }
       if (!scannerRef.current) scannerRef.current = new Html5Qrcode("reader");
       await scannerRef.current.start(
-        { facingMode: "environment" },
+        { facingMode: targetFacing },
         { fps: 10, qrbox: { width: 250, height: 250 } },
         async (decodedText) => {
           if (scanHandledRef.current) return;
@@ -288,6 +293,7 @@ const MerchantScanner = ({ onClose, onScan, accessToken, orderId, socket }) => {
       setIsScanning(true);
       setError(null);
     } catch (err) {
+      console.error("Start scanner error:", err);
       setError("Failed to start camera. Please check permissions.");
     }
   };
@@ -299,8 +305,17 @@ const MerchantScanner = ({ onClose, onScan, accessToken, orderId, socket }) => {
     }
   };
 
+  const switchCamera = async () => {
+    const nextFacing = facingMode === "environment" ? "user" : "environment";
+    setFacingMode(nextFacing);
+    if (isScanning) {
+      await startScanner(nextFacing);
+    }
+  };
+
   const { run: runStartScanner, isPending: isStartingScanner } = useIdempotentAction(startScanner);
   const { run: runStopScanner, isPending: isStoppingScanner }  = useIdempotentAction(stopScanner);
+  const { run: runSwitchCamera, isPending: isSwitchingCamera } = useIdempotentAction(switchCamera);
 
   const handleRetry = useCallback(async () => {
     setScanSuccess(false);
@@ -327,7 +342,7 @@ const MerchantScanner = ({ onClose, onScan, accessToken, orderId, socket }) => {
       <div className="bg-amber-50 px-4 py-3 flex items-start gap-3 border-b border-amber-100">
         <AlertTriangle className="h-4 w-4 text-amber-500 mt-0.5 flex-shrink-0" />
         <p className="text-xs text-amber-700 leading-relaxed">
-          Point the camera at the customers QR code. The order will be marked complete automatically once scanned.
+          Point the camera at the customer&apos;s QR code. The withdrawal request will be marked complete automatically once scanned.
         </p>
       </div>
 
@@ -366,7 +381,7 @@ const MerchantScanner = ({ onClose, onScan, accessToken, orderId, socket }) => {
             {!isScanning && (
               <div className="text-center">
                 <button
-                  onClick={runStartScanner}
+                  onClick={() => runStartScanner()}
                   disabled={isStartingScanner}
                   className="bg-amber-500 text-white px-6 py-3 rounded-xl hover:bg-amber-600 transition-colors flex items-center justify-center mx-auto space-x-2 disabled:opacity-60 disabled:cursor-not-allowed w-full"
                 >
@@ -382,11 +397,19 @@ const MerchantScanner = ({ onClose, onScan, accessToken, orderId, socket }) => {
               </div>
             )}
             {isScanning && (
-              <div className="text-center">
+              <div className="flex items-center gap-3">
+                <button
+                  onClick={runSwitchCamera}
+                  disabled={isSwitchingCamera || isStoppingScanner}
+                  className="flex-1 bg-amber-50 text-amber-700 border border-amber-200 px-4 py-3 rounded-xl hover:bg-amber-100 transition-colors disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-2 text-sm font-medium"
+                >
+                  <RefreshCw className={`h-4 w-4 ${isSwitchingCamera ? "animate-spin" : ""}`} />
+                  Switch to {facingMode === "environment" ? "Front" : "Back"}
+                </button>
                 <button
                   onClick={runStopScanner}
-                  disabled={isStoppingScanner}
-                  className="bg-red-500 text-white px-6 py-3 rounded-xl hover:bg-red-600 transition-colors disabled:opacity-60 disabled:cursor-not-allowed flex items-center gap-2 mx-auto w-full justify-center"
+                  disabled={isStoppingScanner || isSwitchingCamera}
+                  className="flex-1 bg-red-500 text-white px-4 py-3 rounded-xl hover:bg-red-600 transition-colors disabled:opacity-60 disabled:cursor-not-allowed flex items-center gap-2 justify-center text-sm font-medium"
                 >
                   {isStoppingScanner && <Loader2 className="h-4 w-4 animate-spin" />}
                   Stop Scanning
