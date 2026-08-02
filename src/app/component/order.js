@@ -268,32 +268,63 @@ const MerchantScanner = ({ onClose, onScan, accessToken, orderId, socket }) => {
 
   const startScanner = async (facingModeOverride) => {
     const targetFacing = facingModeOverride || facingMode;
-    try {
-      scanHandledRef.current = false;
-      if (scannerRef.current && scannerRef.current.isScanning) {
+    const fallbackFacing = targetFacing === "environment" ? "user" : "environment";
+
+    scanHandledRef.current = false;
+    if (scannerRef.current && scannerRef.current.isScanning) {
+      try {
         await scannerRef.current.stop();
+      } catch (_) {}
+    }
+    if (!scannerRef.current) scannerRef.current = new Html5Qrcode("reader");
+
+    const onQrCodeSuccess = async (decodedText) => {
+      if (scanHandledRef.current) return;
+      scanHandledRef.current = true;
+      await stopScanner();
+      setScanSuccess(true);
+      try {
+        await runSubmitQR(decodedText);
+      } catch (err) {
+        setError("Failed to submit QR code data");
       }
-      if (!scannerRef.current) scannerRef.current = new Html5Qrcode("reader");
+    };
+
+    const qrCodeErrorCallback = (msg) => {
+      if (!msg.includes("No QR code found")) console.error(msg);
+    };
+
+    const config = { fps: 10, qrbox: { width: 250, height: 250 } };
+
+    // Try primary camera (e.g. back camera)
+    try {
       await scannerRef.current.start(
         { facingMode: targetFacing },
-        { fps: 10, qrbox: { width: 250, height: 250 } },
-        async (decodedText) => {
-          if (scanHandledRef.current) return;
-          scanHandledRef.current = true;
-          await stopScanner();
-          setScanSuccess(true);
-          try {
-            await runSubmitQR(decodedText);
-          } catch (err) {
-            setError("Failed to submit QR code data");
-          }
-        },
-        (msg) => { if (!msg.includes("No QR code found")) console.error(msg); }
+        config,
+        onQrCodeSuccess,
+        qrCodeErrorCallback
       );
+      setFacingMode(targetFacing);
       setIsScanning(true);
       setError(null);
-    } catch (err) {
-      console.error("Start scanner error:", err);
+      return;
+    } catch (primaryErr) {
+      console.warn(`Camera "${targetFacing}" failed, falling back to "${fallbackFacing}":`, primaryErr);
+    }
+
+    // Immediate fallback to secondary camera (e.g. front camera)
+    try {
+      await scannerRef.current.start(
+        { facingMode: fallbackFacing },
+        config,
+        onQrCodeSuccess,
+        qrCodeErrorCallback
+      );
+      setFacingMode(fallbackFacing);
+      setIsScanning(true);
+      setError(null);
+    } catch (fallbackErr) {
+      console.error("Both primary and fallback camera start failed:", fallbackErr);
       setError("Failed to start camera. Please check permissions.");
     }
   };
