@@ -23,7 +23,6 @@ import {
   Send,
   Loader2,
   RefreshCw,
-  SwitchCamera,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useRouter, useParams } from "next/navigation";
@@ -191,60 +190,21 @@ const LeafletMap = ({ orderData }) => {
 // ─────────────────────────────────────────────────────────────────────────────
 
 const MerchantScanner = ({ onClose, onScan, accessToken, orderId, socket }) => {
-  const [isScanning, setIsScanning] = useState(false);
+  const [hasCamera,   setHasCamera]   = useState(false);
+  const [isScanning,  setIsScanning]  = useState(false);
   const [scanSuccess, setScanSuccess] = useState(false);
-  const [error, setError] = useState(null);
-  // Discovered camera device IDs after enumeration
-  const [cameras, setCameras] = useState([]); // [{ id, label }]
-  const [activeCameraIdx, setActiveCameraIdx] = useState(0); // index into cameras[]
+  const [error,       setError]       = useState(null);
 
-  const scannerRef = useRef(null);
+  const scannerRef     = useRef(null);
   const scanHandledRef = useRef(false);
 
   const { qrSubmissionData, submitQRData, qrSubmissionLoading, qrSubmissionError, qrErrorDetail } =
     useQRSubmission();
 
   useEffect(() => {
-    // Step 1: get permission (triggers browser prompt), then enumerate real device IDs.
-    navigator.mediaDevices
-      ?.getUserMedia({ video: true })
-      .then((stream) => {
-        stream.getTracks().forEach((t) => t.stop()); // release test stream
-        return Html5Qrcode.getCameras();
-      })
-      .then((devices) => {
-        if (!devices || devices.length === 0) {
-          setError("No cameras found on this device.");
-          return;
-        }
-        console.log("Cameras found:", devices);
-
-        // Sort so back camera comes first.
-        // Back cameras usually have "back", "rear", "environment" in their label.
-        const sorted = [...devices].sort((a, b) => {
-          const aIsBack = /back|rear|environment/i.test(a.label);
-          const bIsBack = /back|rear|environment/i.test(b.label);
-          if (aIsBack && !bIsBack) return -1;
-          if (!aIsBack && bIsBack) return 1;
-          return 0;
-        });
-
-        // If no label hints, on most phones the LAST camera in the list is the back camera.
-        // Fall back to reversing the array if no labels matched.
-        const hasLabelHints = devices.some((d) => /back|rear|front|face|environment|user/i.test(d.label));
-        const ordered = hasLabelHints ? sorted : [...devices].reverse();
-
-        setCameras(ordered);
-        setActiveCameraIdx(0); // index 0 = back camera
-      })
-      .catch((err) => {
-        console.error("Camera permission/enumeration error:", err);
-        if (err && (err.name === "NotAllowedError" || err.name === "PermissionDeniedError")) {
-          setError("Camera permission denied. Please allow camera access in your browser settings and try again.");
-        } else {
-          setError("No camera found or camera access is unavailable on this device.");
-        }
-      });
+    Html5Qrcode.getCameras()
+      .then((devices) => setHasCamera(devices && devices.length > 0))
+      .catch(() => setError("Camera access denied or no cameras found"));
     return () => stopScanner();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -305,63 +265,32 @@ const MerchantScanner = ({ onClose, onScan, accessToken, orderId, socket }) => {
 
   const { run: runSubmitQR, isPending: isSubmittingQR } = useIdempotentAction(submitQR);
 
-  const startScanner = async (cameraIdx) => {
-    // Resolve index: use passed value, fall back to current activeCameraIdx state.
-    const idx = cameraIdx !== undefined ? cameraIdx : activeCameraIdx;
-    scanHandledRef.current = false;
-
-    // Re-create scanner instance (avoids stale DOM state on retry/switch).
-    if (scannerRef.current) {
-      try {
-        if (scannerRef.current.isScanning) await scannerRef.current.stop();
-      } catch (_) {}
-      scannerRef.current = null;
-    }
-    scannerRef.current = new Html5Qrcode("reader");
-
-    const onSuccess = async (decodedText) => {
-      if (scanHandledRef.current) return;
-      scanHandledRef.current = true;
-      await stopScanner();
-      setScanSuccess(true);
-      try {
-        await runSubmitQR(decodedText);
-      } catch (err) {
-        setError("Failed to submit QR code data");
-      }
-    };
-    const onError = (msg) => {
-      if (!msg.includes("No QR code found")) console.error(msg);
-    };
-    const config = { fps: 10, qrbox: { width: 250, height: 250 } };
-
-    // Always use the real device ID — the only reliable way on mobile.
-    const deviceId = cameras[idx]?.id;
-    if (!deviceId) {
-      setError("No camera available. Please check permissions and try again.");
-      return;
-    }
-
+  const startScanner = async () => {
     try {
-      await scannerRef.current.start(deviceId, config, onSuccess, onError);
+      scanHandledRef.current = false;
+      if (!scannerRef.current) scannerRef.current = new Html5Qrcode("reader");
+      await scannerRef.current.start(
+        { facingMode: "environment" },
+        { fps: 10, qrbox: { width: 250, height: 250 } },
+        async (decodedText) => {
+          if (scanHandledRef.current) return;
+          scanHandledRef.current = true;
+          await stopScanner();
+          setScanSuccess(true);
+          try {
+            await runSubmitQR(decodedText);
+          } catch (err) {
+            setError("Failed to submit QR code data");
+          }
+        },
+        (msg) => { if (!msg.includes("No QR code found")) console.error(msg); }
+      );
       setIsScanning(true);
       setError(null);
     } catch (err) {
-      console.error("Failed to start camera with device ID:", deviceId, err);
-      setError(
-        "Failed to start camera. Please ensure camera permissions are granted in your browser/device settings, then tap Retry."
-      );
+      setError("Failed to start camera. Please check permissions.");
     }
   };
-
-  const switchCamera = async () => {
-    if (cameras.length < 2) return;
-    const nextIdx = (activeCameraIdx + 1) % cameras.length;
-    setActiveCameraIdx(nextIdx);
-    await startScanner(nextIdx);
-  };
-
-  const { run: runSwitchCamera, isPending: isSwitchingCamera } = useIdempotentAction(switchCamera);
 
   const stopScanner = async () => {
     if (scannerRef.current && scannerRef.current.isScanning) {
@@ -371,7 +300,7 @@ const MerchantScanner = ({ onClose, onScan, accessToken, orderId, socket }) => {
   };
 
   const { run: runStartScanner, isPending: isStartingScanner } = useIdempotentAction(startScanner);
-  const { run: runStopScanner, isPending: isStoppingScanner } = useIdempotentAction(stopScanner);
+  const { run: runStopScanner, isPending: isStoppingScanner }  = useIdempotentAction(stopScanner);
 
   const handleRetry = useCallback(async () => {
     setScanSuccess(false);
@@ -398,25 +327,15 @@ const MerchantScanner = ({ onClose, onScan, accessToken, orderId, socket }) => {
       <div className="bg-amber-50 px-4 py-3 flex items-start gap-3 border-b border-amber-100">
         <AlertTriangle className="h-4 w-4 text-amber-500 mt-0.5 flex-shrink-0" />
         <p className="text-xs text-amber-700 leading-relaxed">
-          Point the camera at the customers QR code. The request will be marked complete automatically once scanned.
+          Point the camera at the customers QR code. The order will be marked complete automatically once scanned.
         </p>
       </div>
 
       <div className="p-4">
         {error ? (
           <div className="text-center p-4">
-            <AlertTriangle className="h-12 w-12 text-red-500 mx-auto mb-3" />
-            <p className="text-red-600 font-medium mb-2">Camera Unavailable</p>
-            <p className="text-red-500 text-sm mb-4 leading-relaxed">{error}</p>
-            {error.toLowerCase().includes("permission") && (
-              <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 mb-4 text-left text-xs text-amber-800 space-y-1">
-                <p className="font-semibold text-amber-900">How to allow camera access:</p>
-                <p>• <strong>Chrome/Edge:</strong> Tap the 🔒 icon in the address bar → Site settings → Camera → Allow</p>
-                <p>• <strong>Safari:</strong> Settings → Safari → Camera → Allow</p>
-                <p>• <strong>Firefox:</strong> Tap the camera icon in the address bar → Allow</p>
-                <p className="pt-1">After granting permission, tap <strong>Retry</strong> below.</p>
-              </div>
-            )}
+            <AlertTriangle className="h-12 w-12 text-red-500 mx-auto mb-2" />
+            <p className="text-red-500 mb-4">{error}</p>
             <button
               onClick={runRetry}
               disabled={isRetrying}
@@ -457,46 +376,20 @@ const MerchantScanner = ({ onClose, onScan, accessToken, orderId, socket }) => {
                     <Camera className="h-5 w-5" />
                   )}
                   <span>
-                    {isStartingScanner ? "Starting…" : cameras.length > 0 ? "Start Scanning" : "Enable Camera"}
+                    {isStartingScanner ? "Starting…" : hasCamera ? "Start Scanning" : "Enable Camera"}
                   </span>
                 </button>
               </div>
             )}
             {isScanning && (
-              <div className="flex gap-2">
-                {/* Switch camera — only show if multiple cameras are available */}
-                {cameras.length > 1 && (
-                  <button
-                    onClick={runSwitchCamera}
-                    disabled={isSwitchingCamera || isStoppingScanner}
-                    title="Switch camera"
-                    className="flex-1 bg-amber-100 text-amber-700 border border-amber-300 px-4 py-3 rounded-xl hover:bg-amber-200 transition-colors disabled:opacity-60 disabled:cursor-not-allowed flex items-center gap-2 justify-center"
-                  >
-                    {isSwitchingCamera ? (
-                      <Loader2 className="h-5 w-5 animate-spin" />
-                    ) : (
-                      <SwitchCamera className="h-5 w-5" />
-                    )}
-                    <span className="text-sm font-medium">
-                      {/* Show label of the NEXT camera the user would switch TO */}
-                      {(() => {
-                        const nextIdx = (activeCameraIdx + 1) % cameras.length;
-                        const nextLabel = cameras[nextIdx]?.label || "";
-                        if (/back|rear|environment/i.test(nextLabel)) return "Back";
-                        if (/front|face|user/i.test(nextLabel)) return "Front";
-                        return activeCameraIdx === 0 ? "Front" : "Back";
-                      })()}
-                    </span>
-                  </button>
-                )}
-                {/* Stop scanning */}
+              <div className="text-center">
                 <button
                   onClick={runStopScanner}
-                  disabled={isStoppingScanner || isSwitchingCamera}
-                  className="flex-1 bg-red-500 text-white px-4 py-3 rounded-xl hover:bg-red-600 transition-colors disabled:opacity-60 disabled:cursor-not-allowed flex items-center gap-2 justify-center"
+                  disabled={isStoppingScanner}
+                  className="bg-red-500 text-white px-6 py-3 rounded-xl hover:bg-red-600 transition-colors disabled:opacity-60 disabled:cursor-not-allowed flex items-center gap-2 mx-auto w-full justify-center"
                 >
                   {isStoppingScanner && <Loader2 className="h-4 w-4 animate-spin" />}
-                  Stop
+                  Stop Scanning
                 </button>
               </div>
             )}
@@ -574,11 +467,11 @@ const ClientQRCode = ({ onClose, orderData, accessToken }) => {
 
 const OrderStatusBadge = ({ status, startTime, endTime }) => {
   const config = {
-    pending: { color: "bg-yellow-100 text-yellow-800", text: "Pending" },
-    inProgress: { color: "bg-blue-100 text-blue-800", text: "In Progress" },
-    completed: { color: "bg-green-100 text-green-800", text: "Completed" },
-    rejected: { color: "bg-red-100 text-red-800", text: "Rejected" },
-    cancelled: { color: "bg-gray-100 text-gray-800", text: "Cancelled" },
+    pending:    { color: "bg-yellow-100 text-yellow-800", text: "Pending" },
+    inProgress: { color: "bg-blue-100 text-blue-800",    text: "In Progress" },
+    completed:  { color: "bg-green-100 text-green-800",  text: "Completed" },
+    rejected:   { color: "bg-red-100 text-red-800",      text: "Rejected" },
+    cancelled:  { color: "bg-gray-100 text-gray-800",    text: "Cancelled" },
   }[status] || { color: "bg-gray-100 text-gray-800", text: "Unknown" };
 
   return (
@@ -641,8 +534,8 @@ const ISSUE_TYPES = [
 
 const ReportBottomSheet = ({ isOpen, onClose, accessToken, userId, numericOrderId }) => {
   const [selectedIssue, setSelectedIssue] = useState("");
-  const [complaint, setComplaint] = useState("");
-  const [submitted, setSubmitted] = useState(false);
+  const [complaint,     setComplaint]     = useState("");
+  const [submitted,     setSubmitted]     = useState(false);
 
   useEffect(() => {
     if (isOpen) {
@@ -660,11 +553,11 @@ const ReportBottomSheet = ({ isOpen, onClose, accessToken, userId, numericOrderI
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         accessToken,
-        apiType: "submitSupportRequest",
+        apiType:       "submitSupportRequest",
         userId,
-        orderId: numericOrderId,
-        title: selectedIssue,
-        message: complaint,
+        orderId:       numericOrderId,
+        title:         selectedIssue,
+        message:       complaint,
         complaintType: "service",
       }),
     });
@@ -749,10 +642,11 @@ const ReportBottomSheet = ({ isOpen, onClose, accessToken, userId, numericOrderI
                         type="button"
                         onClick={() => setSelectedIssue(issue)}
                         disabled={isSubmitting}
-                        className={`py-2.5 px-3 rounded-xl text-sm font-medium border transition-colors text-left disabled:opacity-60 disabled:cursor-not-allowed ${selectedIssue === issue
+                        className={`py-2.5 px-3 rounded-xl text-sm font-medium border transition-colors text-left disabled:opacity-60 disabled:cursor-not-allowed ${
+                          selectedIssue === issue
                             ? "bg-amber-500 text-white border-amber-500"
                             : "bg-amber-50 text-amber-800 border-amber-200 hover:bg-amber-100"
-                          }`}
+                        }`}
                       >
                         {issue}
                       </button>
@@ -864,21 +758,21 @@ const QRActionPanel = ({ isMerchant, onPress }) => {
 // ─────────────────────────────────────────────────────────────────────────────
 
 const OrderTrackingPage = () => {
-  const [showInAppMap, setShowInAppMap] = useState(false);
+  const [showInAppMap,         setShowInAppMap]         = useState(false);
   const [showExternalMapModal, setShowExternalMapModal] = useState(false);
   const [showCancelOrderModal, setShowCancelOrderModal] = useState(false);
-  const [showQRScanner, setShowQRScanner] = useState(false);
-  const [isMerchant, setIsMerchant] = useState(true);
-  const [scanComplete, setScanComplete] = useState(false);
-  const [currentLocation, setCurrentLocation] = useState(null);
-  const [showReportSheet, setShowReportSheet] = useState(false);
-  const [userType, setUserType] = useState("");
-  const [showSuccessModal, setShowSuccessModal] = useState(false);
-  const [successMessage, setSuccessMessage] = useState("");
+  const [showQRScanner,        setShowQRScanner]        = useState(false);
+  const [isMerchant,           setIsMerchant]           = useState(true);
+  const [scanComplete,         setScanComplete]         = useState(false);
+  const [currentLocation,      setCurrentLocation]      = useState(null);
+  const [showReportSheet,      setShowReportSheet]      = useState(false);
+  const [userType,             setUserType]             = useState("");
+  const [showSuccessModal,     setShowSuccessModal]     = useState(false);
+  const [successMessage,       setSuccessMessage]       = useState("");
 
   const accessToken = useSelector((s) => s.user.accessToken);
-  const userId = useSelector((s) => s.user.user?.user?.id ?? null);
-  const user = useSelector((s) => s.user.user?.user);
+  const userId      = useSelector((s) => s.user.user?.user?.id ?? null);
+  const user        = useSelector((s) => s.user.user?.user);
 
   const socket = useSocket();
   const { startCall, activeCall } = useCall();
@@ -891,9 +785,9 @@ const OrderTrackingPage = () => {
   } = useRequest();
 
   const { cancelOrder } = useCancelOrder();
-  const params = useParams();
-  const orderId = params?.orderId;
-  const router = useRouter();
+  const params    = useParams();
+  const orderId   = params?.orderId;
+  const router    = useRouter();
   const orderData = OrderDetails?.data?.data?.orderDetails;
   const numericOrderId = orderData?.id ? Number(orderData.id) : null;
 
@@ -905,14 +799,14 @@ const OrderTrackingPage = () => {
   // ── outgoing call — idempotent ──────────────────────────────────────────────
   const initiateCall = useCallback(async () => {
     if (activeCall) { console.warn("Already in a call"); return; }
-    if (!socket) { console.warn("Socket not ready"); return; }
+    if (!socket)    { console.warn("Socket not ready");  return; }
     startCall({
-      orderId: orderData?.id,
-      otherUserName: orderData?.userDetails?.displayname,
+      orderId:         orderData?.id,
+      otherUserName:   orderData?.userDetails?.displayname,
       otherUserAvatar: orderData?.userDetails?.avatar,
-      myName: user?.firstName || "User",
-      myAvatar: user?.imageUrl || "",
-      receiverId: isMerchant ? orderData?.clientId : orderData?.merchantId,
+      myName:          user?.firstName || "User",
+      myAvatar:        user?.imageUrl  || "",
+      receiverId:      isMerchant ? orderData?.clientId : orderData?.merchantId,
     });
   }, [activeCall, socket, startCall, orderData, user, isMerchant]);
 
@@ -922,7 +816,7 @@ const OrderTrackingPage = () => {
   useEffect(() => {
     const stored = localStorage.getItem("who");
     if (stored) { setUserType(stored); setIsMerchant(stored === "merchant"); }
-    else { setUserType("merchant"); setIsMerchant(true); }
+    else        { setUserType("merchant"); setIsMerchant(true); }
 
     if (navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(
@@ -953,14 +847,14 @@ const OrderTrackingPage = () => {
       if (String(data.orderId) === String(orderData.id)) refreshOrder();
     };
 
-    socket.on("qrScanSuccess", onQrScanSuccess);
+    socket.on("qrScanSuccess",     onQrScanSuccess);
     socket.on("orderStatusUpdate", onOrderStatusUpdate);
 
     return () => {
-      socket.off("qrScanSuccess", onQrScanSuccess);
+      socket.off("qrScanSuccess",     onQrScanSuccess);
       socket.off("orderStatusUpdate", onOrderStatusUpdate);
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [socket, orderData?.id, userType]);
 
   // ── fetch order ─────────────────────────────────────────────────────────────
@@ -971,7 +865,7 @@ const OrderTrackingPage = () => {
       }).toString();
       fetchOrderDetails(`/api/user?${q}`, "GET");
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [accessToken, userType, orderId]);
 
   const refreshOrder = useCallback(() => {
@@ -997,7 +891,7 @@ const OrderTrackingPage = () => {
       accessToken,
       apiType: "orderAcceptOrCancel",
       orderId,
-      type: "cancel",
+      type:    "cancel",
     });
     setShowCancelOrderModal(false);
     refreshOrder();
@@ -1048,8 +942,8 @@ const OrderTrackingPage = () => {
         {activeCall && (
           <motion.div
             initial={{ y: -60, opacity: 0 }}
-            animate={{ y: 0, opacity: 1 }}
-            exit={{ y: -60, opacity: 0 }}
+            animate={{ y: 0,   opacity: 1 }}
+            exit={{    y: -60, opacity: 0 }}
             className="fixed top-0 left-0 right-0 z-[150] px-3 pt-2 pointer-events-none"
           >
             <div className="bg-green-600 text-white px-4 py-2 rounded-2xl flex items-center justify-center space-x-2 shadow-lg pointer-events-auto">
@@ -1136,10 +1030,11 @@ const OrderTrackingPage = () => {
                 <button
                   onClick={handleStartCall}
                   disabled={!!activeCall || isCallStarting}
-                  className={`p-2.5 rounded-full transition-colors ${activeCall || isCallStarting
+                  className={`p-2.5 rounded-full transition-colors ${
+                    activeCall || isCallStarting
                       ? "bg-green-100 text-green-600 cursor-not-allowed opacity-60"
                       : "bg-amber-100 text-amber-600 hover:bg-amber-200"
-                    }`}
+                  }`}
                   title={activeCall ? "Call in progress" : isCallStarting ? "Connecting…" : "Start audio call"}
                 >
                   {isCallStarting ? (
