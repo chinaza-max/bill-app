@@ -191,12 +191,12 @@ const LeafletMap = ({ orderData }) => {
 // ─────────────────────────────────────────────────────────────────────────────
 
 const MerchantScanner = ({ onClose, onScan, accessToken, orderId, socket }) => {
-  const [hasCamera, setHasCamera] = useState(false);
   const [isScanning, setIsScanning] = useState(false);
   const [scanSuccess, setScanSuccess] = useState(false);
   const [error, setError] = useState(null);
-  // "environment" = back camera (default), "user" = front camera
-  const [facingMode, setFacingMode] = useState("environment");
+  // Discovered camera device IDs after enumeration
+  const [cameras, setCameras] = useState([]); // [{ id, label }]
+  const [activeCameraIdx, setActiveCameraIdx] = useState(0); // index into cameras[]
 
   const scannerRef = useRef(null);
   const scanHandledRef = useRef(false);
@@ -205,15 +205,38 @@ const MerchantScanner = ({ onClose, onScan, accessToken, orderId, socket }) => {
     useQRSubmission();
 
   useEffect(() => {
-    // Explicitly request camera access first so the browser shows the permission prompt.
+    // Step 1: get permission (triggers browser prompt), then enumerate real device IDs.
     navigator.mediaDevices
       ?.getUserMedia({ video: true })
       .then((stream) => {
-        // Stop the test stream immediately — we only needed the permission grant.
-        stream.getTracks().forEach((t) => t.stop());
+        stream.getTracks().forEach((t) => t.stop()); // release test stream
         return Html5Qrcode.getCameras();
       })
-      .then((devices) => setHasCamera(devices && devices.length > 0))
+      .then((devices) => {
+        if (!devices || devices.length === 0) {
+          setError("No cameras found on this device.");
+          return;
+        }
+        console.log("Cameras found:", devices);
+
+        // Sort so back camera comes first.
+        // Back cameras usually have "back", "rear", "environment" in their label.
+        const sorted = [...devices].sort((a, b) => {
+          const aIsBack = /back|rear|environment/i.test(a.label);
+          const bIsBack = /back|rear|environment/i.test(b.label);
+          if (aIsBack && !bIsBack) return -1;
+          if (!aIsBack && bIsBack) return 1;
+          return 0;
+        });
+
+        // If no label hints, on most phones the LAST camera in the list is the back camera.
+        // Fall back to reversing the array if no labels matched.
+        const hasLabelHints = devices.some((d) => /back|rear|front|face|environment|user/i.test(d.label));
+        const ordered = hasLabelHints ? sorted : [...devices].reverse();
+
+        setCameras(ordered);
+        setActiveCameraIdx(0); // index 0 = back camera
+      })
       .catch((err) => {
         console.error("Camera permission/enumeration error:", err);
         if (err && (err.name === "NotAllowedError" || err.name === "PermissionDeniedError")) {
@@ -282,7 +305,9 @@ const MerchantScanner = ({ onClose, onScan, accessToken, orderId, socket }) => {
 
   const { run: runSubmitQR, isPending: isSubmittingQR } = useIdempotentAction(submitQR);
 
-  const startScanner = async (facing = facingMode) => {
+  const startScanner = async (cameraIdx) => {
+    // Resolve index: use passed value, fall back to current activeCameraIdx state.
+    const idx = cameraIdx !== undefined ? cameraIdx : activeCameraIdx;
     scanHandledRef.current = false;
 
     // Re-create scanner instance (avoids stale DOM state on retry/switch).
@@ -310,46 +335,19 @@ const MerchantScanner = ({ onClose, onScan, accessToken, orderId, socket }) => {
     };
     const config = { fps: 10, qrbox: { width: 250, height: 250 } };
 
-    // Prefer the requested facing mode; fall back to the opposite, then any camera.
-    const primaryConstraints =
-      facing === "environment"
-        ? [{ facingMode: { exact: "environment" } }, { facingMode: "environment" }]
-        : [{ facingMode: { exact: "user" } }, { facingMode: "user" }];
-    const fallbackConstraints =
-      facing === "environment"
-        ? [{ facingMode: "user" }]
-        : [{ facingMode: "environment" }];
-
-    let started = false;
-    for (const constraint of [...primaryConstraints, ...fallbackConstraints]) {
-      try {
-        await scannerRef.current.start(constraint, config, onSuccess, onError);
-        started = true;
-        break;
-      } catch (err) {
-        console.warn("Camera constraint failed, trying next:", constraint, err);
-      }
+    // Always use the real device ID — the only reliable way on mobile.
+    const deviceId = cameras[idx]?.id;
+    if (!deviceId) {
+      setError("No camera available. Please check permissions and try again.");
+      return;
     }
 
-    if (!started) {
-      // Last resort: enumerate and pick by index.
-      try {
-        const devices = await Html5Qrcode.getCameras();
-        if (devices && devices.length > 0) {
-          // Pick back camera by index if possible
-          const idx = facing === "environment" ? devices.length - 1 : 0;
-          await scannerRef.current.start(devices[idx].id, config, onSuccess, onError);
-          started = true;
-        }
-      } catch (err) {
-        console.error("All camera start attempts failed:", err);
-      }
-    }
-
-    if (started) {
+    try {
+      await scannerRef.current.start(deviceId, config, onSuccess, onError);
       setIsScanning(true);
       setError(null);
-    } else {
+    } catch (err) {
+      console.error("Failed to start camera with device ID:", deviceId, err);
       setError(
         "Failed to start camera. Please ensure camera permissions are granted in your browser/device settings, then tap Retry."
       );
@@ -357,9 +355,10 @@ const MerchantScanner = ({ onClose, onScan, accessToken, orderId, socket }) => {
   };
 
   const switchCamera = async () => {
-    const newFacing = facingMode === "environment" ? "user" : "environment";
-    setFacingMode(newFacing);
-    await startScanner(newFacing);
+    if (cameras.length < 2) return;
+    const nextIdx = (activeCameraIdx + 1) % cameras.length;
+    setActiveCameraIdx(nextIdx);
+    await startScanner(nextIdx);
   };
 
   const { run: runSwitchCamera, isPending: isSwitchingCamera } = useIdempotentAction(switchCamera);
@@ -458,29 +457,38 @@ const MerchantScanner = ({ onClose, onScan, accessToken, orderId, socket }) => {
                     <Camera className="h-5 w-5" />
                   )}
                   <span>
-                    {isStartingScanner ? "Starting…" : hasCamera ? "Start Scanning" : "Enable Camera"}
+                    {isStartingScanner ? "Starting…" : cameras.length > 0 ? "Start Scanning" : "Enable Camera"}
                   </span>
                 </button>
               </div>
             )}
             {isScanning && (
               <div className="flex gap-2">
-                {/* Switch camera */}
-                <button
-                  onClick={runSwitchCamera}
-                  disabled={isSwitchingCamera || isStoppingScanner}
-                  title={facingMode === "environment" ? "Switch to front camera" : "Switch to back camera"}
-                  className="flex-1 bg-amber-100 text-amber-700 border border-amber-300 px-4 py-3 rounded-xl hover:bg-amber-200 transition-colors disabled:opacity-60 disabled:cursor-not-allowed flex items-center gap-2 justify-center"
-                >
-                  {isSwitchingCamera ? (
-                    <Loader2 className="h-5 w-5 animate-spin" />
-                  ) : (
-                    <SwitchCamera className="h-5 w-5" />
-                  )}
-                  <span className="text-sm font-medium">
-                    {facingMode === "environment" ? "Front" : "Back"}
-                  </span>
-                </button>
+                {/* Switch camera — only show if multiple cameras are available */}
+                {cameras.length > 1 && (
+                  <button
+                    onClick={runSwitchCamera}
+                    disabled={isSwitchingCamera || isStoppingScanner}
+                    title="Switch camera"
+                    className="flex-1 bg-amber-100 text-amber-700 border border-amber-300 px-4 py-3 rounded-xl hover:bg-amber-200 transition-colors disabled:opacity-60 disabled:cursor-not-allowed flex items-center gap-2 justify-center"
+                  >
+                    {isSwitchingCamera ? (
+                      <Loader2 className="h-5 w-5 animate-spin" />
+                    ) : (
+                      <SwitchCamera className="h-5 w-5" />
+                    )}
+                    <span className="text-sm font-medium">
+                      {/* Show label of the NEXT camera the user would switch TO */}
+                      {(() => {
+                        const nextIdx = (activeCameraIdx + 1) % cameras.length;
+                        const nextLabel = cameras[nextIdx]?.label || "";
+                        if (/back|rear|environment/i.test(nextLabel)) return "Back";
+                        if (/front|face|user/i.test(nextLabel)) return "Front";
+                        return activeCameraIdx === 0 ? "Front" : "Back";
+                      })()}
+                    </span>
+                  </button>
+                )}
                 {/* Stop scanning */}
                 <button
                   onClick={runStopScanner}
