@@ -248,7 +248,7 @@ const OrderCard = ({
           </div>
         </div>
 
-        {/* Amount and Order ID Section */}
+        {/* Amount and Request ID Section */}
         <div className="flex items-center justify-between sm:block sm:text-right">
           <div className="text-lg font-semibold text-amber-900">
             ₦{order.amountOrder?.toLocaleString() || "0"}
@@ -258,7 +258,7 @@ const OrderCard = ({
             <button
               onClick={handleCopyOrderId}
               className="p-1 hover:bg-amber-100 rounded transition-colors"
-              title="Copy Order ID"
+              title="Copy Request ID"
             >
               {copied ? (
                 <CheckCircle className="h-3 w-3 text-green-500" />
@@ -336,7 +336,7 @@ const OrderCard = ({
                 <Check className="h-4 w-4" />
               )}
               <span className="text-sm font-medium">
-                {isProcessing ? "Processing..." : "Accept Order"}
+                {isProcessing ? "Processing..." : "Accept Request"}
               </span>
             </button>
             <button
@@ -345,7 +345,7 @@ const OrderCard = ({
               className="flex items-center justify-center space-x-2 px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <X className="h-4 w-4" />
-              <span className="text-sm font-medium">Reject Order</span>
+              <span className="text-sm font-medium">Reject Request</span>
             </button>
           </div>
         )}

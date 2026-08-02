@@ -10,7 +10,6 @@ import {
   Star,
   Clock,
   MapPin,
-  Zap,
   Search,
   AlertCircle,
   CheckCircle2,
@@ -19,6 +18,10 @@ import {
   Banknote,
   Info,
   Wallet,
+  Truck,
+  Percent,
+  Users,
+  Zap,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import ProtectedRoute from "@/app/component/protect";
@@ -59,7 +62,7 @@ const AvailBadge = ({ status }) => {
   );
 };
 
-// ─── Merchant Card ─────────────────────────────────────────────────────────────
+// ─── Merchant Card ────────────────────────────────────────────────────
 const MerchantCard = ({ merchant, onSelect, index }) => {
   return (
     <motion.div
@@ -70,7 +73,7 @@ const MerchantCard = ({ merchant, onSelect, index }) => {
       style={{
         background: "#fff",
         borderRadius: 18,
-        padding: "16px",
+        padding: "14px 16px",
         marginBottom: 12,
         boxShadow: "0 2px 14px rgba(0,0,0,0.07)",
         border: "1px solid rgba(245,158,11,0.18)",
@@ -82,38 +85,54 @@ const MerchantCard = ({ merchant, onSelect, index }) => {
       {/* top accent line */}
       <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 3, background: "linear-gradient(90deg, #92400e, #d97706, #f59e0b)" }} />
 
+      {/* Distance badge — top right */}
+      {index === 0 && (
+        <div style={{
+          position: "absolute", top: 10, right: 10,
+          background: "linear-gradient(135deg, #16a34a, #15803d)",
+          color: "#fff", fontSize: 9, fontWeight: 700,
+          padding: "3px 8px", borderRadius: 99, letterSpacing: "0.06em",
+        }}>
+          NEAREST
+        </div>
+      )}
+
       <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
         {/* Avatar */}
         <div style={{
-          width: 46, height: 46, borderRadius: "50%", flexShrink: 0,
+          width: 44, height: 44, borderRadius: "50%", flexShrink: 0,
           background: "linear-gradient(135deg, #b45309 0%, #d97706 100%)",
           display: "flex", alignItems: "center", justifyContent: "center",
-          fontSize: 18, fontWeight: 800, color: "#fff",
+          fontSize: 17, fontWeight: 800, color: "#fff",
           boxShadow: "0 2px 8px rgba(180,83,9,0.3)",
         }}>
           {(merchant.displayName || "M")[0].toUpperCase()}
         </div>
 
         <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 2 }}>
+          {/* Name + availability */}
+          <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 3 }}>
             <p style={{ fontSize: 15, fontWeight: 700, color: "#78350f", margin: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
               {merchant.displayName}
             </p>
             <AvailBadge status={merchant.availability} />
           </div>
 
+          {/* Meta row: rating · distance · state · ETA */}
           <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
-            {/* Rating */}
             <span style={{ display: "flex", alignItems: "center", gap: 2, fontSize: 12, color: "#a16207" }}>
               <Star style={{ width: 11, height: 11, fill: "#f59e0b", color: "#f59e0b" }} />
               {Number(merchant.rating || 0).toFixed(1)}
             </span>
-            {/* Distance */}
             <span style={{ display: "flex", alignItems: "center", gap: 2, fontSize: 12, color: "#a16207" }}>
               <MapPin style={{ width: 11, height: 11 }} />
               {merchant.distanceFormatted || "—"}
             </span>
-            {/* ETA */}
+            {merchant.state && (
+              <span style={{ fontSize: 12, color: "#a16207", background: "rgba(245,158,11,0.12)", padding: "1px 7px", borderRadius: 99, fontWeight: 600 }}>
+                {merchant.state}
+              </span>
+            )}
             <span style={{ display: "flex", alignItems: "center", gap: 2, fontSize: 12, color: "#a16207" }}>
               <Clock style={{ width: 11, height: 11 }} />
               {merchant.estimatedDeliveryTime || "—"}
@@ -121,41 +140,13 @@ const MerchantCard = ({ merchant, onSelect, index }) => {
           </div>
         </div>
 
-        <ChevronRight style={{ width: 18, height: 18, color: "#d97706", flexShrink: 0 }} />
-      </div>
+        {/* Total Payable — right side */}
+        <div style={{ textAlign: "right", flexShrink: 0, marginLeft: 4 }}>
+          <p style={{ margin: 0, fontSize: 9, color: "#a16207", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.04em" }}>Total</p>
+          <p style={{ margin: "2px 0 0", fontSize: 16, fontWeight: 800, color: "#92400e" }}>&#x20A6;{fmt(merchant.estimatedTotalPayableAmount)}</p>
+        </div>
 
-      {/* Charges row */}
-      <div style={{
-        marginTop: 12,
-        display: "flex",
-        gap: 6,
-        background: "rgba(251,191,36,0.07)",
-        borderRadius: 10,
-        padding: "10px 8px",
-      }}>
-        <div style={{ flex: 1, textAlign: "center" }}>
-          <p style={{ margin: 0, fontSize: 9, color: "#a16207", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.04em" }}>Service Fee</p>
-          <p style={{ margin: "2px 0 0", fontSize: 13, fontWeight: 800, color: "#92400e" }}>₦{fmt(merchant.merchantServiceCharge)}</p>
-        </div>
-        <div style={{ width: 1, background: "rgba(245,158,11,0.25)" }} />
-        <div style={{ flex: 1, textAlign: "center" }}>
-          <p style={{ margin: 0, fontSize: 9, color: "#a16207", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.04em" }}>Transport Fee</p>
-          <p style={{ margin: "2px 0 0", fontSize: 13, fontWeight: 800, color: "#92400e" }}>₦{fmt(merchant.estimatedTransportationFee)}</p>
-        </div>
-        {Number(merchant.companyTotalCharge || 0) > 0 && (
-          <>
-            <div style={{ width: 1, background: "rgba(245,158,11,0.25)" }} />
-            <div style={{ flex: 1, textAlign: "center" }}>
-              <p style={{ margin: 0, fontSize: 9, color: "#a16207", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.04em" }}>Platform Fee</p>
-              <p style={{ margin: "2px 0 0", fontSize: 13, fontWeight: 800, color: "#92400e" }}>₦{fmt(merchant.companyTotalCharge)}</p>
-            </div>
-          </>
-        )}
-        <div style={{ width: 1, background: "rgba(245,158,11,0.25)" }} />
-        <div style={{ flex: 1, textAlign: "center" }}>
-          <p style={{ margin: 0, fontSize: 9, color: "#a16207", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.04em" }}>Total Payable</p>
-          <p style={{ margin: "2px 0 0", fontSize: 13, fontWeight: 800, color: "#92400e" }}>₦{fmt(merchant.estimatedTotalPayableAmount)}</p>
-        </div>
+        <ChevronRight style={{ width: 17, height: 17, color: "#d97706", flexShrink: 0 }} />
       </div>
     </motion.div>
   );
@@ -210,16 +201,6 @@ const ConfirmSheet = ({ merchant, amount, denomination, denominationId, accessTo
     }
   };
 
-  const rows = [
-    { label: "Amount",             value: `₦${fmt(amount)}` },
-    { label: "Denomination",       value: `₦${fmt(denomination)} notes` },
-    { label: "Merchant",           value: merchant.displayName },
-    { label: "Service Charge",     value: `₦${fmt(merchant.merchantServiceCharge)}` },
-    { label: "Transport Fee",      value: `₦${fmt(merchant.estimatedTransportationFee)}` },
-    ...(merchant.companyTotalCharge ? [{ label: "Platform Fee", value: `₦${fmt(merchant.companyTotalCharge)}` }] : []),
-    { label: "Estimated Delivery", value: merchant.estimatedDeliveryTime || "—" },
-    { label: "Total Payable",      value: `₦${fmt(merchant.estimatedTotalPayableAmount)}`, bold: true },
-  ];
 
   return (
     <div style={{
@@ -252,14 +233,17 @@ const ConfirmSheet = ({ merchant, amount, denomination, denominationId, accessTo
             </button>
           </div>
 
-          {/* Summary rows */}
-          <div style={{ background: "rgba(251,191,36,0.07)", borderRadius: 14, padding: "4px 0", marginBottom: 16 }}>
-            {rows.map((row, i) => (
-              <div key={i} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 14px", borderBottom: i < rows.length - 1 ? "1px solid rgba(245,158,11,0.15)" : "none" }}>
-                <p style={{ margin: 0, fontSize: 13, color: "#a16207" }}>{row.label}</p>
-                <p style={{ margin: 0, fontSize: 13, fontWeight: row.bold ? 800 : 600, color: row.bold ? "#78350f" : "#78350f" }}>{row.value}</p>
-              </div>
-            ))}
+          {/* Compact summary — merchant + total only */}
+          <div style={{ background: "rgba(251,191,36,0.07)", borderRadius: 14, padding: "14px 16px", marginBottom: 16 }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
+              <p style={{ margin: 0, fontSize: 13, color: "#a16207" }}>Merchant</p>
+              <p style={{ margin: 0, fontSize: 13, fontWeight: 700, color: "#78350f" }}>{merchant.displayName}</p>
+            </div>
+            <div style={{ height: 1, background: "rgba(245,158,11,0.18)", marginBottom: 10 }} />
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <p style={{ margin: 0, fontSize: 14, fontWeight: 700, color: "#78350f" }}>Total Payable</p>
+              <p style={{ margin: 0, fontSize: 20, fontWeight: 900, color: "#92400e" }}>&#x20A6;{fmt(merchant.estimatedTotalPayableAmount)}</p>
+            </div>
           </div>
 
           {/* Notice */}
@@ -505,6 +489,10 @@ export default function SpecialWithdrawalPage() {
 
   const [errorModalMsg, setErrorModalMsg] = useState("");
 
+  // ── Charge info from APIs ─────────────────────────────────────────────────
+  const [chargeInfo, setChargeInfo]       = useState(null); // swSpecialCharge
+  const [transportInfo, setTransportInfo] = useState(null); // swTransportChargePerMeter
+
   // Fetch live denominations from backend
   useEffect(() => {
     if (!accessToken) return;
@@ -524,6 +512,32 @@ export default function SpecialWithdrawalPage() {
     };
     fetchDenoms();
   }, [accessToken]);
+
+  // Fetch charge info for the info panel
+  useEffect(() => {
+    if (!accessToken) return;
+    const fetchChargeInfo = async () => {
+      try {
+        const amt = Number(amount) || undefined;
+        const baseParams = { token: accessToken };
+
+        const [chargeRes, transportRes] = await Promise.all([
+          fetch(`/api/user?${new URLSearchParams({ ...baseParams, apiType: "swSpecialCharge", ...(amt ? { amount: amt } : {}) })}`) ,
+          fetch(`/api/user?${new URLSearchParams({ ...baseParams, apiType: "swTransportationChargePerMeter" })}`),
+        ]);
+
+        if (chargeRes.ok) {
+          const cj = await chargeRes.json();
+          setChargeInfo(cj?.data?.data ?? cj?.data ?? null);
+        }
+        if (transportRes.ok) {
+          const tj = await transportRes.json();
+          setTransportInfo(tj?.data?.data ?? tj?.data ?? null);
+        }
+      } catch { /* non-critical */ }
+    };
+    fetchChargeInfo();
+  }, [accessToken]); // re-run only on mount (amount refresh optional)
 
   const handleAmountChange = (e) => {
     const raw = e.target.value.replace(/[^0-9]/g, "");
@@ -571,7 +585,9 @@ export default function SpecialWithdrawalPage() {
       // Some variants may instead nest it under a "merchants" key, so support both.
       const payload = json?.data?.data;
       const list = Array.isArray(payload) ? payload : (payload?.merchants ?? []);
-      setMerchants(list);
+      // Sort by distance ascending (closest first)
+      const sorted = [...list].sort((a, b) => (a.distanceMeters ?? Infinity) - (b.distanceMeters ?? Infinity));
+      setMerchants(sorted);
       setDenomId(selectedDenom.id || null);
       setStep("results");
     } catch (e) {
@@ -716,6 +732,8 @@ export default function SpecialWithdrawalPage() {
                 })}
               </div>
             </div>
+
+
 
             {/* Info box */}
             <div style={{ display: "flex", gap: 10, background: "rgba(245,158,11,0.07)", border: "1px solid rgba(245,158,11,0.22)", borderRadius: 12, padding: "10px 12px", marginBottom: 20 }}>

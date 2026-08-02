@@ -300,13 +300,13 @@ const OrderSheet = ({ order, onClose }) => {
     try {
       await sharePdfReceipt([
         { label: "Merchant",       value: order.merchantName },
-        { label: "Order Amount",   value: `₦${fmt(order.orderAmount)}` },
+        { label: "Withdrawal Amount", value: `₦${fmt(order.orderAmount)}` },
         { label: "Total Paid",     value: `₦${fmt(order.amount)}` },
-        { label: "Order Status",   value: order.orderStatus },
+        { label: "Request Status", value: order.orderStatus },
         { label: "Payment Status", value: order.paymentStatus },
         { label: "Date",           value: format(new Date(order.timestamp), "dd MMM yyyy, HH:mm") },
         { label: "Ref",            value: order.transactionId },
-      ], "Order Receipt");
+      ], "Withdrawal Receipt");
     } finally {
       setSharing(false);
     }
@@ -328,7 +328,7 @@ const OrderSheet = ({ order, onClose }) => {
         <div className="w-10 h-1 rounded-full" style={{ background: C.borderMid }} />
       </div>
       <div className="flex items-center justify-between px-5 py-3">
-        <span className="font-black text-base" style={{ color: C.textMain }}>Order Details</span>
+        <span className="font-black text-base" style={{ color: C.textMain }}>Withdrawal Request Details</span>
         <button onClick={onClose} className="p-2 rounded-full" style={{ background: C.surface, color: C.textSub }}>
           <X className="w-4 h-4" />
         </button>
@@ -347,10 +347,10 @@ const OrderSheet = ({ order, onClose }) => {
             : order.merchantName.charAt(0).toUpperCase()}
         </div>
         <p className="font-black text-lg text-white">{order.merchantName}</p>
-        <p className="text-xs mt-0.5 text-white/60">Order #{order.orderId}</p>
+        <p className="text-xs mt-0.5 text-white/60">Request #{order.orderId}</p>
         <p className="text-3xl font-black tracking-tight mt-2 text-white">₦{fmt(order.amount)}</p>
         <div className="flex flex-wrap justify-center gap-2 mt-3">
-          {[{ label: `Order: ${order.orderStatus}`, m: osm }, { label: `Payment: ${order.paymentStatus}`, m: psm }].map(({ label, m }) => (
+          {[{ label: `Request: ${order.orderStatus}`, m: osm }, { label: `Payment: ${order.paymentStatus}`, m: psm }].map(({ label, m }) => (
             <div key={label} className="flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold"
               style={{ background: "rgba(255,255,255,0.22)", color: "#fff", border: "1px solid rgba(255,255,255,0.3)" }}>
               {m.icon} {label}
@@ -361,7 +361,7 @@ const OrderSheet = ({ order, onClose }) => {
 
       <div className="mx-4 rounded-2xl overflow-hidden mb-4"
         style={{ border: `1px solid ${C.border}`, background: C.cardBg }}>
-        <DRow label="Order Amount" value={`₦${fmt(order.orderAmount)}`} />
+        <DRow label="Withdrawal Amount" value={`₦${fmt(order.orderAmount)}`} />
         <DRow label="Total Paid"   value={`₦${fmt(order.amount)}`} />
         <DRow label="Date"         value={format(new Date(order.timestamp), "dd MMM yyyy")} />
         <DRow label="Time"         value={format(new Date(order.timestamp), "HH:mm")} />

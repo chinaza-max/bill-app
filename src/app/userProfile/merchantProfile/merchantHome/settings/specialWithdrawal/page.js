@@ -6,7 +6,6 @@ import { useSelector } from "react-redux";
 import {
   ArrowLeft,
   Save,
-  Toggle,
   ToggleLeft,
   ToggleRight,
   AlertCircle,
@@ -16,7 +15,9 @@ import {
   ChevronDown,
   ChevronUp,
   Info,
-
+  Truck,
+  Percent,
+  TrendingUp,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import ProtectedRoute from "@/app/component/protect";
@@ -152,6 +153,10 @@ export default function MerchantSWSettingsPage() {
   const [charges, setCharges] = useState({});     // { denomId: chargeNaira }
   const [enabledDenoms, setEnabledDenoms] = useState({}); // { denomId: boolean }
 
+  // ── Platform Charge Info (read-only)
+  const [chargeInfo, setChargeInfo]       = useState(null); // swSpecialCharge
+  const [transportInfo, setTransportInfo] = useState(null); // swTransportationChargePerMeter
+
   const showToast = useCallback((type, message) => {
     setToast({ type, message });
     setTimeout(() => setToast(null), 3500);
@@ -175,6 +180,29 @@ export default function MerchantSWSettingsPage() {
       setMaxAmount(profile.maxWithdrawalAmount ?? "");
     } catch { /* use defaults */ }
     finally { setLoading(false); }
+  }, [accessToken]);
+
+  // ── Fetch Platform Charge & Transportation Rate (─read-only info─)─────────────
+  useEffect(() => {
+    if (!accessToken) return;
+    const fetchChargeInfo = async () => {
+      try {
+        const base = { token: accessToken };
+        const [chargeRes, transportRes] = await Promise.all([
+          fetch(`/api/user?${new URLSearchParams({ ...base, apiType: "swSpecialCharge" })}`),
+          fetch(`/api/user?${new URLSearchParams({ ...base, apiType: "swTransportationChargePerMeter" })}`),
+        ]);
+        if (chargeRes.ok) {
+          const cj = await chargeRes.json();
+          setChargeInfo(cj?.data?.data ?? cj?.data ?? null);
+        }
+        if (transportRes.ok) {
+          const tj = await transportRes.json();
+          setTransportInfo(tj?.data?.data ?? tj?.data ?? null);
+        }
+      } catch { /* non-critical */ }
+    };
+    fetchChargeInfo();
   }, [accessToken]);
 
   // ── Fetch Denominations & Charges ─────────────────────────────────────────
@@ -407,6 +435,77 @@ export default function MerchantSWSettingsPage() {
               {saving ? <><RefreshCw style={{ width: 16, height: 16, animation: "spin 1s linear infinite" }} /> Saving…</> : <><Save style={{ width: 16, height: 16 }} /> Save Profile</>}
             </motion.button>
           </Section>
+
+          {/* ── Platform Charge Info Card (read-only) ── */}
+          {(chargeInfo || transportInfo) && (
+            <Section title="Platform Charge Info" icon={TrendingUp} collapsible defaultOpen={false}>
+              <p style={{ margin: "0 0 14px", fontSize: 12, color: "#a16207", lineHeight: 1.6 }}>
+                These rates are set by the platform. They are displayed here for your reference.
+              </p>
+
+              {/* Transportation rate */}
+              {transportInfo && (
+                <div style={{ display: "flex", alignItems: "center", gap: 12, background: "rgba(245,158,11,0.07)", border: "1px solid rgba(245,158,11,0.18)", borderRadius: 12, padding: "12px 14px", marginBottom: 10 }}>
+                  <div style={{ width: 36, height: 36, borderRadius: 10, background: "linear-gradient(135deg, #92400e, #d97706)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                    <Truck style={{ width: 16, height: 16, color: "#fff" }} />
+                  </div>
+                  <div style={{ flex: 1 }}>
+                    <p style={{ margin: 0, fontSize: 13, fontWeight: 700, color: "#78350f" }}>Transportation Charge</p>
+                    <p style={{ margin: "3px 0 0", fontSize: 12, color: "#a16207" }}>
+                      &#x20A6;{transportInfo.pricePerMeter} per meter &mdash; applied based on distance to customer
+                    </p>
+                  </div>
+                  <div style={{ textAlign: "right", flexShrink: 0 }}>
+                    <p style={{ margin: 0, fontSize: 18, fontWeight: 900, color: "#92400e" }}>&#x20A6;{transportInfo.pricePerMeter}</p>
+                    <p style={{ margin: 0, fontSize: 10, color: "#a16207", fontWeight: 600 }}>/ meter</p>
+                  </div>
+                </div>
+              )}
+
+              {/* Platform (company) charge */}
+              {chargeInfo && (
+                <div style={{ display: "flex", alignItems: "center", gap: 12, background: "rgba(245,158,11,0.07)", border: "1px solid rgba(245,158,11,0.18)", borderRadius: 12, padding: "12px 14px", marginBottom: 10 }}>
+                  <div style={{ width: 36, height: 36, borderRadius: 10, background: "linear-gradient(135deg, #92400e, #d97706)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                    <Percent style={{ width: 16, height: 16, color: "#fff" }} />
+                  </div>
+                  <div style={{ flex: 1 }}>
+                    <p style={{ margin: 0, fontSize: 13, fontWeight: 700, color: "#78350f" }}>Platform Fee</p>
+                    <p style={{ margin: "3px 0 0", fontSize: 12, color: "#a16207" }}>
+                      {chargeInfo.chargeBearer === "Merchant" && "Deducted from your service charge."}
+                      {chargeInfo.chargeBearer === "Customer" && "Charged to the customer — no deduction from you."}
+                      {chargeInfo.chargeBearer === "Both" && "Split between you and the customer."}
+                      {!chargeInfo.chargeBearer && "Applied on each transaction."}
+                    </p>
+                  </div>
+                  <div style={{ textAlign: "right", flexShrink: 0 }}>
+                    <p style={{ margin: 0, fontSize: 18, fontWeight: 900, color: "#92400e" }}>{chargeInfo.companyChargePercentage}%</p>
+                    <span style={{
+                      display: "inline-block", fontSize: 9, fontWeight: 700, padding: "2px 7px", borderRadius: 99, marginTop: 2,
+                      background: chargeInfo.chargeBearer === "Merchant"
+                        ? "rgba(220,38,38,0.1)" : chargeInfo.chargeBearer === "Both"
+                        ? "rgba(99,102,241,0.12)" : "rgba(22,163,74,0.1)",
+                      color: chargeInfo.chargeBearer === "Merchant"
+                        ? "#dc2626" : chargeInfo.chargeBearer === "Both"
+                        ? "#4338ca" : "#16a34a",
+                      border: `1px solid ${chargeInfo.chargeBearer === "Merchant"
+                        ? "rgba(220,38,38,0.25)" : chargeInfo.chargeBearer === "Both"
+                        ? "rgba(99,102,241,0.3)" : "rgba(22,163,74,0.25)"}`,
+                      textTransform: "uppercase", letterSpacing: "0.05em",
+                    }}>
+                      {chargeInfo.chargeBearer || "Applied"} pays
+                    </span>
+                  </div>
+                </div>
+              )}
+
+              {/* Currency badge */}
+              {chargeInfo?.currency && (
+                <p style={{ margin: "6px 0 0", fontSize: 11, color: "#a16207", textAlign: "right" }}>
+                  Currency: <strong>{chargeInfo.currency}</strong>
+                </p>
+              )}
+            </Section>
+          )}
 
           {/* ── Denomination Charges ── */}
           <Section title="Denomination Charges" icon={Banknote} collapsible defaultOpen>

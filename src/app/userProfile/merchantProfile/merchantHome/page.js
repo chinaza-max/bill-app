@@ -143,7 +143,7 @@ const PendingOrderModal = ({
             <div className="flex items-center gap-2">
               <div className="w-2 h-2 rounded-full bg-yellow-400 animate-pulse" />
               <h2 className="text-base font-semibold text-gray-900">
-                New Order Request
+                New Withdrawal Request
               </h2>
             </div>
             <div className="flex items-center gap-2">
@@ -192,7 +192,7 @@ const PendingOrderModal = ({
                 <p className="text-sm font-semibold text-gray-900">{formatCurrency(totalAmount)}</p>
                 {orderAmount && orderAmount !== totalAmount && (
                   <p className="text-xs text-gray-400 leading-none mt-0.5">
-                    Order: {formatCurrency(orderAmount)} + fee
+                    Withdrawal: {formatCurrency(orderAmount)} + fee
                   </p>
                 )}
               </div>
@@ -218,7 +218,7 @@ const PendingOrderModal = ({
             )}
 
             <div className="flex items-center justify-between text-xs text-gray-400">
-              <span>Order ID</span>
+              <span>Request ID</span>
               <span className="font-mono">{orderId}</span>
             </div>
           </div>

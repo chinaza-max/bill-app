@@ -424,7 +424,7 @@ const ClientQRCode = ({ onClose, orderData, accessToken }) => {
       <div className="p-4 bg-amber-500 text-white flex justify-between items-center">
         <div className="flex items-center gap-2">
           <QrCode className="h-5 w-5" />
-          <h3 className="text-lg font-semibold">Your Order QR Code</h3>
+          <h3 className="text-lg font-semibold">Your Withdrawal Request QR Code</h3>
         </div>
         <button onClick={onClose} aria-label="Close QR code">
           <X className="h-6 w-6" />
@@ -435,7 +435,7 @@ const ClientQRCode = ({ onClose, orderData, accessToken }) => {
       <div className="bg-green-50 px-4 py-3 flex items-start gap-3 border-b border-green-100">
         <CheckCircle className="h-4 w-4 text-green-500 mt-0.5 flex-shrink-0" />
         <p className="text-xs text-green-700 leading-relaxed">
-          Show this QR code to the merchant when your order arrives. They will scan it to confirm delivery.
+          Show this QR code to the merchant when your withdrawal request arrives. They will scan it to confirm delivery.
         </p>
       </div>
 
@@ -444,7 +444,7 @@ const ClientQRCode = ({ onClose, orderData, accessToken }) => {
           {qrCodeUrl ? (
             <img
               src={qrCodeUrl}
-              alt="Order QR Code"
+              alt="Withdrawal Request QR Code"
               className="w-full h-full object-contain p-3"
             />
           ) : (
@@ -455,7 +455,7 @@ const ClientQRCode = ({ onClose, orderData, accessToken }) => {
           )}
         </div>
         <p className="mt-4 text-amber-700 font-medium">Show this to the merchant</p>
-        <p className="mt-1 text-sm text-amber-500">Order ID: {orderData?.orderId}</p>
+        <p className="mt-1 text-sm text-amber-500">Request ID: {orderData?.orderId}</p>
       </div>
     </div>
   );
@@ -963,7 +963,7 @@ const OrderTrackingPage = () => {
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-3">
               <ArrowLeft onClick={() => router.back()} className="h-6 w-6 cursor-pointer" />
-              <h1 className="text-lg font-semibold">Order Details</h1>
+              <h1 className="text-lg font-semibold">Withdrawal Request Details</h1>
             </div>
 
             {/* Header shortcut — still present as secondary access */}
@@ -980,7 +980,7 @@ const OrderTrackingPage = () => {
               <button
                 onClick={openQRModal}
                 className="flex items-center space-x-2 bg-white/20 px-3 py-2 rounded-xl hover:bg-white/30 transition-colors"
-                aria-label="View your order QR code"
+                aria-label="View your request QR code"
               >
                 <QrCode className="h-5 w-5" />
                 <span className="text-sm font-medium">My QR</span>
@@ -1022,7 +1022,7 @@ const OrderTrackingPage = () => {
                   <h3 className="font-semibold text-amber-900">
                     {orderData?.userDetails?.displayname || "Unknown User"}
                   </h3>
-                  <p className="text-sm text-amber-600">Order ID: {orderData?.orderId}</p>
+                  <p className="text-sm text-amber-600">Request ID: {orderData?.orderId}</p>
                 </div>
               </div>
 
@@ -1070,11 +1070,11 @@ const OrderTrackingPage = () => {
             <div className="bg-amber-50 rounded-xl p-4">
               <div className="flex items-center gap-2 mb-3">
                 <Receipt className="h-5 w-5 text-amber-600" />
-                <h3 className="font-semibold text-amber-900">Order Summary</h3>
+                <h3 className="font-semibold text-amber-900">Withdrawal Request Summary</h3>
               </div>
               <div className="space-y-2">
                 <div className="flex justify-between text-sm">
-                  <span className="text-amber-700">Order Amount</span>
+                  <span className="text-amber-700">Withdrawal Amount</span>
                   <span className="font-medium text-amber-900">₦{orderData?.amountOrder || "0"}</span>
                 </div>
                 <div className="flex justify-between text-sm">
@@ -1120,7 +1120,7 @@ const OrderTrackingPage = () => {
               disabled={isCancelling}
               className="w-full mt-3 p-3 bg-red-50 text-red-600 border border-red-200 rounded-xl font-medium hover:bg-red-100 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
             >
-              Cancel Order
+              Cancel Request
             </button>
           )}
         </div>
@@ -1199,7 +1199,7 @@ const OrderTrackingPage = () => {
             <div className="flex items-start justify-between mb-4">
               <div className="flex items-center space-x-2">
                 <AlertTriangle className="h-6 w-6 text-amber-500" />
-                <h3 className="text-lg font-semibold text-amber-900">Cancel Order</h3>
+                <h3 className="text-lg font-semibold text-amber-900">Cancel Request</h3>
               </div>
               <button
                 onClick={() => { if (!isCancelling) setShowCancelOrderModal(false); }}
@@ -1209,14 +1209,14 @@ const OrderTrackingPage = () => {
                 <X className="h-6 w-6 text-amber-500" />
               </button>
             </div>
-            <p className="text-amber-700 mb-4">Are you sure you want to cancel this order?</p>
+            <p className="text-amber-700 mb-4">Are you sure you want to cancel this withdrawal request?</p>
             <div className="flex space-x-3">
               <button
                 onClick={() => { if (!isCancelling) setShowCancelOrderModal(false); }}
                 disabled={isCancelling}
                 className="flex-1 p-3 border border-amber-200 text-amber-600 rounded-xl hover:bg-amber-50 disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                No, Keep Order
+                No, Keep Request
               </button>
               <button
                 onClick={handleCancelOrder}
@@ -1229,7 +1229,7 @@ const OrderTrackingPage = () => {
                     <span>Cancelling…</span>
                   </>
                 ) : (
-                  "Yes, Cancel Order"
+                  "Yes, Cancel Request"
                 )}
               </button>
             </div>

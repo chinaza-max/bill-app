@@ -121,6 +121,8 @@ const API_TYPE_TIERS = {
     "getMerchantSWProfile",
     "getMerchantSWCharges",
     "getMerchantSWEarnings",
+    "swSpecialCharge",
+    "swTransportationChargePerMeter",
   ],
 };
 
@@ -788,6 +790,15 @@ export async function GET(req) {
       case "getMerchantSWEarnings":
         response = await axiosInstance.get("/user/sw/merchant/earnings", { headers, params: additionalParams });
         break;
+
+      case "swSpecialCharge":
+        response = await axiosInstance.get("/user/sw/special-charge", { headers, params: additionalParams });
+        break;
+
+      case "swTransportationChargePerMeter":
+        response = await axiosInstance.get("/user/sw/transportation-charge-per-meter", { headers, params: additionalParams });
+        break;
+
 
       default:
         return new Response(

@@ -129,7 +129,7 @@ const StatusDropdown = ({ selectedStatuses, onStatusChange, orderCounts }) => {
         <div className="absolute top-full left-0 right-0 sm:right-auto sm:w-72 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg z-50 max-h-80 overflow-y-auto">
           <div className="p-2">
             <div className="text-xs font-medium text-gray-500 px-3 py-2 border-b border-gray-100">
-              Select Order Status
+              Select Request Status
             </div>
             {statusOptions.map((status) => (
               <div
@@ -224,10 +224,10 @@ const RejectionPopup = ({ isOpen, onClose, onConfirm, isProcessing }) => {
       <div className="bg-white rounded-lg shadow-xl w-full max-w-md">
         <div className="p-6">
           <h3 className="text-lg font-semibold text-gray-900 mb-4">
-            Reject Order
+            Reject Request
           </h3>
           <p className="text-sm text-gray-600 mb-4">
-            Please provide a reason for rejecting this order:
+            Please provide a reason for rejecting this request:
           </p>
 
           <form onSubmit={handleSubmit}>
@@ -267,7 +267,7 @@ const RejectionPopup = ({ isOpen, onClose, onConfirm, isProcessing }) => {
                 ) : (
                   <>
                     <X className="h-4 w-4" />
-                    <span>Reject Order</span>
+                    <span>Reject Request</span>
                   </>
                 )}
               </button>
@@ -459,7 +459,7 @@ const OrderCard = ({
           </div>
         </div>
 
-        {/* Amount and Order ID Section */}
+        {/* Amount and Request ID Section */}
         <div className="flex items-center justify-between sm:block sm:text-right">
           <div className="text-lg font-semibold text-amber-900">
             ₦{order.amountOrder?.toLocaleString() || "0"}
@@ -469,7 +469,7 @@ const OrderCard = ({
             <button
               onClick={handleCopyOrderId}
               className="p-1 hover:bg-amber-100 rounded transition-colors"
-              title="Copy Order ID"
+              title="Copy Request ID"
             >
               {copied ? (
                 <CheckCircle className="h-3 w-3 text-green-500" />
@@ -550,7 +550,7 @@ const OrderCard = ({
                   <Check className="h-4 w-4" />
                 )}
                 <span className="text-sm font-medium">
-                  {isProcessing ? "Processing..." : "Accept Order"}
+                  {isProcessing ? "Processing..." : "Accept Request"}
                 </span>
               </button>
               <button
@@ -559,7 +559,7 @@ const OrderCard = ({
                 className="flex items-center justify-center space-x-2 px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <X className="h-4 w-4" />
-                <span className="text-sm font-medium">Reject Order</span>
+                <span className="text-sm font-medium">Reject Request</span>
               </button>
             </div>
           )}
