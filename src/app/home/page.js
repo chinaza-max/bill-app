@@ -114,8 +114,8 @@ const fetchVerificationSettings = async (accessToken) => {
   const json = await response.json();
   const setting = json?.data?.data ?? json?.data ?? json ?? {};
   return {
-    ninVerificationEnabled:  setting.ninVerificationEnabled  ?? true,
-    ninImageUploadEnabled:   setting.ninImageUploadEnabled   ?? true,
+    ninVerificationEnabled: setting.ninVerificationEnabled ?? true,
+    ninImageUploadEnabled: setting.ninImageUploadEnabled ?? true,
     nameVerificationEnabled: setting.nameVerificationEnabled ?? true,
     faceVerificationEnabled: setting.faceVerificationEnabled ?? true,
   };
@@ -140,29 +140,29 @@ const uploadProfilePicture = async (accessToken, imageFile) => {
 };
 
 // ─── Live Activity Ticker ─────────────────────────────────────────────────────
-const FIRST_NAMES = ["Amina","Chukwudi","Fatima","Emeka","Ngozi","Tunde","Aisha","Kelechi","Blessing","Usman","Adaeze","Seun","Halima","Tobi","Chisom","Musa","Yetunde","Ifeanyi","Zainab","Babatunde","Chiamaka","Abdullahi","Sola","Chinyere","Ahmed","Folake","Obinna","Rukayat","Gbenga","Nneka"];
-const LAST_NAMES  = ["Okafor","Adeyemi","Ibrahim","Nwosu","Bello","Eze","Lawal","Obi","Yusuf","Adeleke","Nwachukwu","Suleiman","Okonkwo","Abubakar","Dike","Omotayo","Garba","Onuoha","Aliyu","Fashola"];
+const FIRST_NAMES = ["Amina", "Chukwudi", "Fatima", "Emeka", "Ngozi", "Tunde", "Aisha", "Kelechi", "Blessing", "Usman", "Adaeze", "Seun", "Halima", "Tobi", "Chisom", "Musa", "Yetunde", "Ifeanyi", "Zainab", "Babatunde", "Chiamaka", "Abdullahi", "Sola", "Chinyere", "Ahmed", "Folake", "Obinna", "Rukayat", "Gbenga", "Nneka"];
+const LAST_NAMES = ["Okafor", "Adeyemi", "Ibrahim", "Nwosu", "Bello", "Eze", "Lawal", "Obi", "Yusuf", "Adeleke", "Nwachukwu", "Suleiman", "Okonkwo", "Abubakar", "Dike", "Omotayo", "Garba", "Onuoha", "Aliyu", "Fashola"];
 
 // COPY NOTE: All action labels use "withdrawal" language — avoids implying a
 // marketplace/selling model. The platform facilitates peer-to-peer withdrawals,
 // not buying or selling.
 const ACTIONS = [
-  { type: "placed",          label: "just initiated a withdrawal of",   icon: Clock,        color: "#f59e0b" },
-  { type: "completed",       label: "just completed a withdrawal of",   icon: CheckCircle2, color: "#16a34a" },
-  { type: "order_completed", label: "withdrawal was processed —",       icon: CheckCircle2, color: "#d97706" },
-  { type: "cancelled",       label: "cancelled a withdrawal of",        icon: XCircle,      color: "#dc2626" },
+  { type: "placed", label: "just initiated a withdrawal of", icon: Clock, color: "#f59e0b" },
+  { type: "completed", label: "just completed a withdrawal of", icon: CheckCircle2, color: "#16a34a" },
+  { type: "order_completed", label: "withdrawal was processed —", icon: CheckCircle2, color: "#d97706" },
+  { type: "cancelled", label: "cancelled a withdrawal of", icon: XCircle, color: "#dc2626" },
 ];
 
 const randomBetween = (min, max) => Math.floor(Math.random() * (max - min + 1)) + min;
-const randomName    = () => `${FIRST_NAMES[randomBetween(0, FIRST_NAMES.length - 1)]} ${LAST_NAMES[randomBetween(0, LAST_NAMES.length - 1)][0]}.`;
-const randomAmount  = () => `₦${Math.min(randomBetween(10, 200) * 100, 20000).toLocaleString("en-NG")}`;
-const randomAction  = () => ACTIONS[randomBetween(0, ACTIONS.length - 1)];
-const generateFeed  = (count = 20) => Array.from({ length: count }, (_, i) => ({ id: i, name: randomName(), amount: randomAmount(), action: randomAction() }));
+const randomName = () => `${FIRST_NAMES[randomBetween(0, FIRST_NAMES.length - 1)]} ${LAST_NAMES[randomBetween(0, LAST_NAMES.length - 1)][0]}.`;
+const randomAmount = () => `₦${Math.min(randomBetween(10, 200) * 100, 20000).toLocaleString("en-NG")}`;
+const randomAction = () => ACTIONS[randomBetween(0, ACTIONS.length - 1)];
+const generateFeed = (count = 20) => Array.from({ length: count }, (_, i) => ({ id: i, name: randomName(), amount: randomAmount(), action: randomAction() }));
 
 const LiveActivityTicker = () => {
-  const [feed, setFeed]                 = useState(() => generateFeed(20));
+  const [feed, setFeed] = useState(() => generateFeed(20));
   const [currentIndex, setCurrentIndex] = useState(0);
-  const [visible, setVisible]           = useState(true);
+  const [visible, setVisible] = useState(true);
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -257,14 +257,14 @@ const SheetWrapper = ({ children, onBackdropClick, zIndex = 50 }) => (
 
 // ─── In-App Camera Modal ───────────────────────────────────────────────────────
 const CameraModal = ({ onCapture, onClose }) => {
-  const videoRef  = useRef(null);
+  const videoRef = useRef(null);
   const canvasRef = useRef(null);
   const streamRef = useRef(null);
 
   const [facingMode, setFacingMode] = useState("user");
   const [permissionErr, setPermErr] = useState("");
-  const [ready, setReady]           = useState(false);
-  const [flash, setFlash]           = useState(false);
+  const [ready, setReady] = useState(false);
+  const [flash, setFlash] = useState(false);
 
   const startStream = useCallback(async (facing) => {
     if (streamRef.current) { streamRef.current.getTracks().forEach((t) => t.stop()); streamRef.current = null; }
@@ -363,11 +363,11 @@ const CameraModal = ({ onCapture, onClose }) => {
 
 // ─── Profile Picture Sheet ─────────────────────────────────────────────────────
 const ProfilePictureSheet = ({ onClose, onUploaded, accessToken }) => {
-  const [stage, setStage]               = useState("picker");
-  const [previewSrc, setPreviewSrc]     = useState(null);
+  const [stage, setStage] = useState("picker");
+  const [previewSrc, setPreviewSrc] = useState(null);
   const [selectedFile, setSelectedFile] = useState(null);
-  const [errorMsg, setErrorMsg]         = useState("");
-  const galleryInputRef                 = useRef(null);
+  const [errorMsg, setErrorMsg] = useState("");
+  const galleryInputRef = useRef(null);
 
   const handleCameraCapture = useCallback((file) => {
     setPreviewSrc(URL.createObjectURL(file));
@@ -381,8 +381,8 @@ const ProfilePictureSheet = ({ onClose, onUploaded, accessToken }) => {
     e.target.value = "";
     if (!file.type.startsWith("image/")) { setErrorMsg("Please select a valid image file."); setStage("error"); return; }
     const reader = new FileReader();
-    reader.onload  = (ev) => { setPreviewSrc(ev.target.result); setSelectedFile(file); setStage("preview"); };
-    reader.onerror = ()   => { setErrorMsg("Could not read file. Please try again."); setStage("error"); };
+    reader.onload = (ev) => { setPreviewSrc(ev.target.result); setSelectedFile(file); setStage("preview"); };
+    reader.onerror = () => { setErrorMsg("Could not read file. Please try again."); setStage("error"); };
     reader.readAsDataURL(file);
   }, []);
 
@@ -550,8 +550,8 @@ const ProfilePictureSheet = ({ onClose, onUploaded, accessToken }) => {
 // ─── Profile Info Completion Sheet ────────────────────────────────────────────
 const ProfileInfoSheet = ({ onClose, onAction, missingDOB, missingPhone }) => {
   const missing = [];
-  if (missingDOB)   missing.push({ icon: CalendarDays, label: "Date of birth",  sub: "Required for identity verification & account security" });
-  if (missingPhone) missing.push({ icon: Phone,        label: "Phone number",   sub: "Needed for withdrawal confirmations & support" });
+  if (missingDOB) missing.push({ icon: CalendarDays, label: "Date of birth", sub: "Required for identity verification & account security" });
+  if (missingPhone) missing.push({ icon: Phone, label: "Phone number", sub: "Needed for withdrawal confirmations & support" });
 
   return (
     <SheetWrapper onBackdropClick={onClose}>
@@ -662,7 +662,7 @@ const TOUR_STEPS = [
 
 const SpotlightTour = ({ onFinish }) => {
   const [stepIndex, setStepIndex] = useState(0);
-  const [rect, setRect]           = useState(null);
+  const [rect, setRect] = useState(null);
 
   const step = TOUR_STEPS[stepIndex];
 
@@ -692,24 +692,24 @@ const SpotlightTour = ({ onFinish }) => {
   const pad = 8;
   const highlightStyle = rect
     ? {
-        position: "fixed",
-        top: rect.top - pad,
-        left: rect.left - pad,
-        width: rect.width + pad * 2,
-        height: rect.height + pad * 2,
-        borderRadius: 16,
-        boxShadow: "0 0 0 9999px rgba(0,0,0,0.55)",
-        border: "2px solid #fbbf24",
-        zIndex: 9998,
-        pointerEvents: "none",
-        transition: "all 0.3s ease",
-      }
+      position: "fixed",
+      top: rect.top - pad,
+      left: rect.left - pad,
+      width: rect.width + pad * 2,
+      height: rect.height + pad * 2,
+      borderRadius: 16,
+      boxShadow: "0 0 0 9999px rgba(0,0,0,0.55)",
+      border: "2px solid #fbbf24",
+      zIndex: 9998,
+      pointerEvents: "none",
+      transition: "all 0.3s ease",
+    }
     : {
-        position: "fixed",
-        inset: 0,
-        background: "rgba(0,0,0,0.55)",
-        zIndex: 9998,
-      };
+      position: "fixed",
+      inset: 0,
+      background: "rgba(0,0,0,0.55)",
+      zIndex: 9998,
+    };
 
   let tooltipStyle = {
     position: "fixed",
@@ -928,7 +928,7 @@ const SpecialWithdrawalCard = ({ onClick }) => {
         background: "#dc2626", color: "#fff", fontSize: 9, fontWeight: 800, letterSpacing: "0.06em",
         textAlign: "center", padding: "2px 0", boxShadow: "0 2px 6px rgba(0,0,0,0.25)", zIndex: 2,
       }}>
-        MINT
+        New
       </div>
 
       <div style={{ position: "relative", zIndex: 1, padding: "18px 14px", display: "flex", flexDirection: "column", height: "100%" }}>
@@ -938,7 +938,7 @@ const SpecialWithdrawalCard = ({ onClick }) => {
         <p style={{ margin: 0, fontSize: 14, fontWeight: 800, color: "#fff", lineHeight: 1.25, textShadow: imgFailed ? "none" : "0 1px 4px rgba(0,0,0,0.35)" }}>Special Withdrawal</p>
         {/* copy spells out: mint condition + ₦ + bundled + your choice of denomination */}
         <p style={{ margin: "4px 0 14px", fontSize: 11, color: "rgba(255,255,255,0.85)", lineHeight: 1.4, maxWidth: imgFailed ? "58%" : "100%", textShadow: imgFailed ? "none" : "0 1px 4px rgba(0,0,0,0.4)" }}>
-         ₦ bundles — pick your denomination
+          ₦ bundles — pick your denomination
         </p>
         <div style={{ marginTop: "auto", display: "inline-flex", alignItems: "center", gap: 4, padding: "5px 10px", borderRadius: 99, background: "rgba(255,255,255,0.18)", border: "1px solid rgba(255,255,255,0.28)", fontSize: 11, fontWeight: 700, color: "#fff", width: "fit-content" }}>
           <Sparkles style={{ width: 11, height: 11 }} /><span>Explore</span><ArrowRight style={{ width: 11, height: 11 }} />
@@ -950,16 +950,16 @@ const SpecialWithdrawalCard = ({ onClick }) => {
 
 // ─── Main Component ────────────────────────────────────────────────────────────
 const MobileApp = () => {
-  const [userType, setUserType]                               = useState("Client");
-  const [activeTab, setActiveTab]                             = useState("home");
-  const [firstName, setFirstName]                             = useState("");
-  const [imageUrl, setImageUrl]                               = useState("");
-  const [isDropdownOpen, setIsDropdownOpen]                   = useState(false);
-  const [walletBalance, setWalletBalance]                     = useState(0);
-  const [isBalanceVisible, setIsBalanceVisible]               = useState(false);
-  const [showPulseAnimation, setShowPulseAnimation]           = useState(false);
+  const [userType, setUserType] = useState("Client");
+  const [activeTab, setActiveTab] = useState("home");
+  const [firstName, setFirstName] = useState("");
+  const [imageUrl, setImageUrl] = useState("");
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const [walletBalance, setWalletBalance] = useState(0);
+  const [isBalanceVisible, setIsBalanceVisible] = useState(false);
+  const [showPulseAnimation, setShowPulseAnimation] = useState(false);
   const [hasInteractedWithSwitch, setHasInteractedWithSwitch] = useState(false);
-  const [unreadCount, setUnreadCount]                         = useState(0);
+  const [unreadCount, setUnreadCount] = useState(0);
 
   // ── Tour state ────────────────────────────────────────────────────────
   // tourDone = true means: tour was already seen (on mount) OR just finished.
@@ -973,9 +973,9 @@ const MobileApp = () => {
   const pendingSheetQueueRef = useRef([]);
 
   // ── Sheet queue system ────────────────────────────────────────────────
-  const [sheetQueue, setSheetQueue]       = useState([]);
+  const [sheetQueue, setSheetQueue] = useState([]);
   const [missingFields, setMissingFields] = useState({ dob: false, phone: false });
-  const queueTimerRef                     = useRef(null);
+  const queueTimerRef = useRef(null);
 
   const dequeue = useCallback(() => {
     setSheetQueue((prev) => prev.slice(1));
@@ -986,26 +986,26 @@ const MobileApp = () => {
   // ── Merchant navigation loading state ────────────────────────────────────
   const [isMerchantNavLoading, setIsMerchantNavLoading] = useState(false);
 
-  const { token }                  = useNotifications();
+  const { token } = useNotifications();
   const [numberOfOrder, setNumberOfOrder] = useState(0);
 
-  const data2           = useSelector((state) => state.user);
-  const accessToken     = useSelector((state) => state.user.accessToken);
+  const data2 = useSelector((state) => state.user);
+  const accessToken = useSelector((state) => state.user.accessToken);
   const isAuthenticated = useSelector((state) => state.user.isAuthenticated);
-  const myUserData      = useSelector((state) => state.user.user);
+  const myUserData = useSelector((state) => state.user.user);
 
-  const dropdownRef   = useRef(null);
+  const dropdownRef = useRef(null);
   const pulseTimerRef = useRef(null);
 
   const { data: order, request: getOrder } = useRequest();
-  const { request: StoreFCMToken }         = useRequest();
+  const { request: StoreFCMToken } = useRequest();
 
   // ── Query client for manual invalidation ──────────────────────────────
   const queryClient = useQueryClient();
 
   useVisibility();
 
-  const router   = useRouter();
+  const router = useRouter();
   const pathname = usePathname();
 
   const {
@@ -1149,7 +1149,7 @@ const MobileApp = () => {
       setFirstName(user.firstName || "");
       const raw = user.walletBalance;
       let walletData = { current: 0, previous: 0 };
-      if (typeof raw === "string")                      walletData = JSON.parse(raw);
+      if (typeof raw === "string") walletData = JSON.parse(raw);
       else if (typeof raw === "object" && raw !== null) walletData = raw;
       setWalletBalance(walletData?.current ?? walletData?.previous ?? 0);
     } catch { setWalletBalance(0); }
@@ -1157,11 +1157,11 @@ const MobileApp = () => {
     if (queueTimerRef.current) clearTimeout(queueTimerRef.current);
 
     queueTimerRef.current = setTimeout(() => {
-      const needsPic  = user.imageUrlUpdated === false;
-      const missDOB   = (!user.dateOfBirth  || user.dateOfBirth  === "");
-      const hasPhone  = !!(
-        (user.tel         && user.tel         !== "") ||
-        (user.phone       && user.phone       !== "") ||
+      const needsPic = user.imageUrlUpdated === false;
+      const missDOB = (!user.dateOfBirth || user.dateOfBirth === "");
+      const hasPhone = !!(
+        (user.tel && user.tel !== "") ||
+        (user.phone && user.phone !== "") ||
         (user.phoneNumber && user.phoneNumber !== "")
       );
       const missPhone = !hasPhone;
@@ -1171,7 +1171,7 @@ const MobileApp = () => {
 
       const nextQueue = [];
       if (needsInfo) nextQueue.push("profileInfo");
-      if (needsPic)  nextQueue.push("profilePic");
+      if (needsPic) nextQueue.push("profilePic");
 
       if (nextQueue.length === 0) return;
 
@@ -1239,14 +1239,14 @@ const MobileApp = () => {
     catch { /* use defaults */ }
     finally { setIsMerchantNavLoading(false); }
     const { ninVerificationEnabled, ninImageUploadEnabled, nameVerificationEnabled, faceVerificationEnabled } = settings;
-    if (ninVerificationEnabled  && !u?.isNinVerified)           return router.push("/userProfile/merchantProfile");
-    if (ninImageUploadEnabled   && !u?.isninImageVerified)       return router.push("/userProfile/merchantProfile/merchantProfile1");
-    if (nameVerificationEnabled && !u?.isDisplayNameMerchantSet)    return router.push("/userProfile/merchantProfile/merchantProfile2");
-    if (faceVerificationEnabled && !u?.isFaceVerified)           return router.push("/userProfile/merchantProfile/merchantProfile3");
+    if (ninVerificationEnabled && !u?.isNinVerified) return router.push("/userProfile/merchantProfile");
+    if (ninImageUploadEnabled && !u?.isninImageVerified) return router.push("/userProfile/merchantProfile/merchantProfile1");
+    if (nameVerificationEnabled && !u?.isDisplayNameMerchantSet) return router.push("/userProfile/merchantProfile/merchantProfile2");
+    if (faceVerificationEnabled && !u?.isFaceVerified) return router.push("/userProfile/merchantProfile/merchantProfile3");
     const s = u?.MerchantProfile?.accountStatus;
     if (s === "processing") return router.push("/userProfile/merchantProfile/merchantProfile4");
-    if (s === "rejected")   return router.push("/userProfile/merchantProfile/merchantProfile5");
-    if (s === "suspended")  return router.push("/userProfile/merchantProfile/merchantProfile6");
+    if (s === "rejected") return router.push("/userProfile/merchantProfile/merchantProfile5");
+    if (s === "suspended") return router.push("/userProfile/merchantProfile/merchantProfile6");
     return router.push("/userProfile/merchantProfile/merchantHome");
   }, [accessToken, myUserData, router]);
 
@@ -1265,12 +1265,12 @@ const MobileApp = () => {
   const recentTransactions = useMemo(() => {
     if (!transactionData?.data?.data) return [];
     return transactionData.data.data.map((t) => ({
-      id:            t.id || Math.random().toString(),
-      title:         t.title || "Transaction",
-      initials:      t.initials || (t.title ? t.title.substring(0, 2).toUpperCase() : "TX"),
-      date:          t.date || new Date(t.createdAt).toLocaleDateString(),
-      type:          t.type || "outgoing",
-      amount:        t.amount || "0.00 ₦",
+      id: t.id || Math.random().toString(),
+      title: t.title || "Transaction",
+      initials: t.initials || (t.title ? t.title.substring(0, 2).toUpperCase() : "TX"),
+      date: t.date || new Date(t.createdAt).toLocaleDateString(),
+      type: t.type || "outgoing",
+      amount: t.amount || "0.00 ₦",
       paymentStatus: t.paymentStatus || "pending",
     }));
   }, [transactionData]);
