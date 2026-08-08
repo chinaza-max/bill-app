@@ -595,22 +595,61 @@ const OrdersNavigationPage = () => {
   // Extract orders from the API response
   const orders = orderResponse?.data?.data || [];
 
-  // Get user type from localStorage on mount
+  const normalizeStatus = (status) => {
+    if (!status) return status;
+    const lower = String(status).toLowerCase();
+    if (lower === "inprogress" || lower === "in_progress" || lower === "in-progress") {
+      return "inProgress";
+    }
+    if (lower === "completed") return "completed";
+    if (lower === "pending") return "pending";
+    if (lower === "cancelled" || lower === "canceled") return "cancelled";
+    if (lower === "rejected") return "rejected";
+    if (lower === "all") return "all";
+    return status;
+  };
+
+  // Get user type from localStorage on mount & load status from URL or localStorage
   useEffect(() => {
     const storedUserType = localStorage.getItem("who") || "merchant";
     setUserType(storedUserType);
 
-    // Load saved status selection
-    const savedStatuses = localStorage.getItem("selectedOrderStatuses");
-    if (savedStatuses) {
-      try {
-        const parsed = JSON.parse(savedStatuses);
-        if (Array.isArray(parsed) && parsed.length > 0) {
-          setSelectedStatuses(parsed);
-        }
-      } catch (error) {
-        console.error("Error parsing saved statuses:", error);
+    let initialStatuses = null;
+
+    if (typeof window !== "undefined") {
+      const urlParams = new URLSearchParams(window.location.search);
+      const statusParam =
+        urlParams.get("status") ||
+        urlParams.get("tab") ||
+        urlParams.get("filter");
+      if (statusParam) {
+        initialStatuses = [normalizeStatus(statusParam)];
       }
+    }
+
+    if (!initialStatuses) {
+      const savedStatuses = localStorage.getItem("selectedOrderStatuses");
+      const savedTab = localStorage.getItem("selectedOrderTab");
+      if (savedStatuses) {
+        try {
+          const parsed = JSON.parse(savedStatuses);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            initialStatuses = parsed.map(normalizeStatus);
+          }
+        } catch (error) {
+          console.error("Error parsing saved statuses:", error);
+        }
+      } else if (savedTab) {
+        initialStatuses = [normalizeStatus(savedTab)];
+      }
+    }
+
+    if (initialStatuses) {
+      setSelectedStatuses(initialStatuses);
+      localStorage.setItem(
+        "selectedOrderStatuses",
+        JSON.stringify(initialStatuses)
+      );
     }
   }, []);
 
@@ -690,13 +729,59 @@ const OrdersNavigationPage = () => {
     return counts;
   };
 
-  const getFilteredOrders = () => {
-    if (selectedStatuses.includes("all")) {
-      return orders;
+  const parseOrderDate = (order) => {
+    if (!order) return 0;
+    if (order.createdAt) {
+      const t = new Date(order.createdAt).getTime();
+      if (!isNaN(t)) return t;
     }
-    return orders.filter((order) =>
-      selectedStatuses.includes(order.orderStatus)
-    );
+    if (order.created_at) {
+      const t = new Date(order.created_at).getTime();
+      if (!isNaN(t)) return t;
+    }
+    if (order.updatedAt) {
+      const t = new Date(order.updatedAt).getTime();
+      if (!isNaN(t)) return t;
+    }
+    if (order.updated_at) {
+      const t = new Date(order.updated_at).getTime();
+      if (!isNaN(t)) return t;
+    }
+    if (order.date) {
+      const t = new Date(order.date).getTime();
+      if (!isNaN(t)) return t;
+    }
+    if (order.timestamp) {
+      const t = new Date(order.timestamp).getTime();
+      if (!isNaN(t)) return t;
+    }
+
+    const numId = Number(order.id ?? order.orderId);
+    if (!isNaN(numId)) return numId;
+
+    return 0;
+  };
+
+  const getFilteredOrders = () => {
+    let result = orders;
+    if (!selectedStatuses.includes("all")) {
+      result = orders.filter((order) =>
+        selectedStatuses.includes(order.orderStatus)
+      );
+    }
+
+    return [...result].sort((a, b) => {
+      const timeA = parseOrderDate(a);
+      const timeB = parseOrderDate(b);
+
+      if (timeA !== timeB) {
+        return timeB - timeA; // Latest orders at the top
+      }
+
+      const idA = String(a.id ?? a.orderId ?? "");
+      const idB = String(b.id ?? b.orderId ?? "");
+      return idB.localeCompare(idA, undefined, { numeric: true });
+    });
   };
 
   const handleStatusChange = (newSelectedStatuses) => {

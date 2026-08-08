@@ -729,8 +729,9 @@ const MerchantApp = () => {
   };
   const handleNavigation = (tab) => router.push(`/${tab}`);
   const handleOrderCardClick = (orderType) => {
+    localStorage.setItem("selectedOrderStatuses", JSON.stringify([orderType]));
     localStorage.setItem("selectedOrderTab", orderType);
-    router.push("/orders/merchantOrders");
+    router.push(`/orders/merchantOrders?status=${orderType}`);
   };
 
   const handleSetupAds = () => {

@@ -24,7 +24,7 @@ export function useCallNotification(socket, userId, accessToken) {
       await fetch("/api/user", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ apiType: "savePushSubscription", accessToken, subscription }),
+        body: JSON.stringify({ apiType: "updateToken", accessToken, subscription }),
       });
     } catch (err) {
       console.error("Push subscription error:", err);
@@ -34,10 +34,6 @@ export function useCallNotification(socket, userId, accessToken) {
   useEffect(() => {
     if (!socket || !userId) return;
     const handleIncomingCall = (data) => {
-
-      console.log("data")
-            console.log(data)
-      console.log("data")
 
       setIncomingCall(data);
       if ("Notification" in window && Notification.permission === "granted") {
