@@ -389,9 +389,16 @@ const ChatPage = () => {
       });
 
       // Listen for online status updates
-      socket.on("userOnlineStatus", ({ isOnline }) => {
-        setOtherUser((prev) => ({ ...prev, isOnline }));
-      });
+      const handleUserStatus = ({ userId, isOnline }) => {
+        setOtherUser((prev) => {
+          if (!prev?.id || String(prev.id) === String(userId)) {
+            return { ...prev, isOnline };
+          }
+          return prev;
+        });
+      };
+      socket.on("userOnlineStatus", handleUserStatus);
+      socket.on("userStatusChanged", handleUserStatus);
 
       return () => {
         socket.disconnect();

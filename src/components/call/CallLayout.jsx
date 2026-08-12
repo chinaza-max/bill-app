@@ -12,18 +12,22 @@ export function useSocket() {
 export default function CallLayout({ children }) {
   const [socket, setSocket] = useState(null);
 
-  const userId      = useSelector((state) => state.user.user?.user?.id ?? null);
+  const userId = useSelector(
+    (state) =>
+      state.user.user?.user?.id ??
+      state.user.user?.id ??
+      state.user.user?.data?.id ??
+      state.user.userId ??
+      state.user.id ??
+      null
+  );
 
   const accessToken = useSelector((state) => state.user.accessToken);
   console.log("🎬 CallLayout render - userId:", userId, "accessToken:", accessToken);
 
   // ── Connect socket once on mount ────────────────────────────────────────────
   useEffect(() => {
-
-
-
-    const url = "https://bill-bolt.onrender.com";
-    //const url = "http://localhost:5000";
+    const url = process.env.NEXT_PUBLIC_SOCKET_URL || "https://bill-bolt.onrender.com";
 
     const { io } = require("socket.io-client");
     const s = io(url, {
@@ -84,21 +88,48 @@ if ("serviceWorker" in navigator) {
     };
   }, []);
 
-  // ── Join user-level room when userId is available ───────────────────────────
-  // This runs whenever socket connects OR userId changes (login/logout)
-// CallLayout.jsx — runs when user logs in, on any page
-useEffect(() => {
-  if (!socket || !userId) return;
+  // ── Join user-level room & manage presence ──────────────────────────────────
+  useEffect(() => {
+    if (!socket) return;
 
-  const joinUserRoom = () => {
-    socket.emit("joinUserRoom", { userId });
-  };
+    if (!userId) {
+      // User logged out — disconnect socket so backend receives disconnect & sets isOnline = false
+      if (socket.connected) {
+        socket.disconnect();
+      }
+      return;
+    }
 
-  if (socket.connected) joinUserRoom();
-  socket.on("connect", joinUserRoom); // re-join after reconnect
+    // Ensure socket is connected when user is logged in
+    if (socket.disconnected) {
+      socket.connect();
+    }
 
-  return () => socket.off("connect", joinUserRoom);
-}, [socket, userId]);
+    const joinUserRoom = () => {
+      console.log("🟢 Emitting joinUserRoom for userId:", userId);
+      socket.emit("joinUserRoom", { userId });
+    };
+
+    if (socket.connected) joinUserRoom();
+    socket.on("connect", joinUserRoom); // re-join on reconnect
+
+    // Re-assert presence when window/app tab becomes visible
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "visible") {
+        if (socket.disconnected) {
+          socket.connect();
+        } else {
+          joinUserRoom();
+        }
+      }
+    };
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+
+    return () => {
+      socket.off("connect", joinUserRoom);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+    };
+  }, [socket, userId]);
 
   return (
     <SocketContext.Provider value={socket}>
