@@ -22,8 +22,8 @@ import { useParams } from "next/navigation";
 
 let socket;
 
-//const SOCKET_SERVER_URL = "http://localhost:5000";
-const SOCKET_SERVER_URL = "https://fidopoint.onrender.com";
+const SOCKET_SERVER_URL = "http://localhost:5000";
+//const SOCKET_SERVER_URL = "https://api.fidopoint.xyz";
 
 //https://fidopoint.onrender.com/api/v1
 
@@ -752,14 +752,12 @@ const ChatPage = () => {
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.3 }}
-              className={`flex ${
-                msg.isSender ? "justify-end" : "justify-start"
-              }`}
+              className={`flex ${msg.isSender ? "justify-end" : "justify-start"
+                }`}
             >
               <div
-                className={`max-w-[75%] ${
-                  msg.isSender ? "order-2" : "order-1"
-                }`}
+                className={`max-w-[75%] ${msg.isSender ? "order-2" : "order-1"
+                  }`}
               >
                 {!msg.isSender && (
                   <div className="flex items-center space-x-2 mb-1">
@@ -781,25 +779,24 @@ const ChatPage = () => {
                   </div>
                 )}
                 <div
-                  className={`rounded-2xl px-4 py-2 shadow-sm ${
-                    msg.isSender
-                      ? "bg-amber-500 text-white"
-                      : "bg-white text-amber-900 border border-amber-100"
-                  }`}
+                  className={`rounded-2xl px-4 py-2 shadow-sm ${msg.isSender
+                    ? "bg-amber-500 text-white"
+                    : "bg-white text-amber-900 border border-amber-100"
+                    }`}
                 >
                   {msg.messageType === "file" && msg.content ? (
                     <div className="space-y-2">
-                   
+
 
                       <img
-                          src={msg.content}
-                          alt="Shared image"
-                          onClick={() => setShowImagePreview(msg.content)}
+                        src={msg.content}
+                        alt="Shared image"
+                        onClick={() => setShowImagePreview(msg.content)}
 
-                          width={100}
-                          height={100}
-                          className="max-w-full h-auto rounded-lg cursor-pointer hover:opacity-90 transition-opacity"
-                        />
+                        width={100}
+                        height={100}
+                        className="max-w-full h-auto rounded-lg cursor-pointer hover:opacity-90 transition-opacity"
+                      />
 
                       {msg.messageType === "text" && msg.content && (
                         <p className="text-sm whitespace-pre-wrap">
