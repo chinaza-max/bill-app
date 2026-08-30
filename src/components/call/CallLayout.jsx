@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState, createContext, useContext } from "react";
+import { useEffect, useState, useRef, createContext, useContext } from "react";
 import { useSelector } from "react-redux";
 import { CallProvider } from "@/components/call/CallProvider";
 import IncomingCallModal from "@/components/call/IncomingCallModal";
@@ -91,6 +91,31 @@ export default function CallLayout({ children }) {
     };
   }, []);
 
+  const prevUserIdRef = useRef(userId);
+  useEffect(() => {
+    prevUserIdRef.current = userId;
+  }, [userId]);
+
+  // ── Handle tab/window close or app exit ──────────────────────────────────────
+  useEffect(() => {
+    if (!socket || !userId) return;
+
+    const handleUnload = () => {
+      if (socket.connected) {
+        socket.emit("leaveUserRoom", { userId });
+        socket.disconnect();
+      }
+    };
+
+    window.addEventListener("beforeunload", handleUnload);
+    window.addEventListener("pagehide", handleUnload);
+
+    return () => {
+      window.removeEventListener("beforeunload", handleUnload);
+      window.removeEventListener("pagehide", handleUnload);
+    };
+  }, [socket, userId]);
+
   // ── Join user-level room & manage presence ──────────────────────────────────
   useEffect(() => {
     console.log(
@@ -110,6 +135,9 @@ export default function CallLayout({ children }) {
     if (!userId) {
       console.log("🔍 userId is null or empty, disconnecting socket and aborting joinUserRoom");
       if (socket.connected) {
+        if (prevUserIdRef.current) {
+          socket.emit("leaveUserRoom", { userId: prevUserIdRef.current });
+        }
         socket.disconnect();
       }
       return;
@@ -135,9 +163,9 @@ export default function CallLayout({ children }) {
 
     socket.on("connect", joinUserRoom); // re-join on reconnect
 
-    // Re-assert presence when window/app tab becomes visible
+    // Re-assert presence when window/app tab becomes visible (keeps online in background, re-asserts on foreground)
     const handleVisibilityChange = () => {
-      if (document.visibilityState === "visible") {
+      if (document.visibilityState === "visible" && userId) {
         if (socket.disconnected) {
           socket.connect();
         } else {

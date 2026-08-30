@@ -3,7 +3,8 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 import ProtectedRoute from "@/app/component/protect";
-import { useSelector } from "react-redux";
+import { useSelector, useDispatch } from "react-redux";
+import { logout } from "@/store/slice";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import Image from "next/image";
 import {
@@ -333,9 +334,12 @@ const ProfilePage = () => {
     return router.push("/userProfile/merchantProfile/merchantHome");
   };
 
+  const dispatch = useDispatch();
+
   const handleLogout = () => {
     localStorage.removeItem("userData");
     localStorage.removeItem("userToken");
+    dispatch(logout());
     router.push("/sign-in");
   };
 
